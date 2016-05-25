@@ -16,6 +16,8 @@
 ==================================================================== */
 package org.apache.poi.xssf.model;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -47,14 +49,25 @@ public class ExternalLinksTable extends POIXMLDocumentPart {
         link.addNewExternalBook();
     }
 
-    public ExternalLinksTable(PackagePart part, PackageRelationship rel) throws IOException {
-        super(part, rel);
+    /**
+     * @since POI 3.14-Beta1
+     */
+    public ExternalLinksTable(PackagePart part) throws IOException {
+        super(part);
         readFrom(part.getInputStream());
     }
 
+    /**
+     * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+     */
+    @Deprecated
+    public ExternalLinksTable(PackagePart part, PackageRelationship rel) throws IOException {
+        this(part);
+    }
+    
     public void readFrom(InputStream is) throws IOException {
         try {
-            ExternalLinkDocument doc = ExternalLinkDocument.Factory.parse(is);
+            ExternalLinkDocument doc = ExternalLinkDocument.Factory.parse(is, DEFAULT_XML_OPTIONS);
             link = doc.getExternalLink();
         } catch (XmlException e) {
             throw new IOException(e.getLocalizedMessage());
@@ -114,7 +127,6 @@ public class ExternalLinksTable extends POIXMLDocumentPart {
         link.getExternalBook().setId(newRel.getId());
     }
 
-    @SuppressWarnings("deprecation")
     public List<String> getSheetNames() {
         CTExternalSheetName[] sheetNames = 
                 link.getExternalBook().getSheetNames().getSheetNameArray();
@@ -125,7 +137,6 @@ public class ExternalLinksTable extends POIXMLDocumentPart {
         return names;
     }
     
-    @SuppressWarnings("deprecation")
     public List<Name> getDefinedNames() {
         CTExternalDefinedName[] extNames = 
                 link.getExternalBook().getDefinedNames().getDefinedNameArray();

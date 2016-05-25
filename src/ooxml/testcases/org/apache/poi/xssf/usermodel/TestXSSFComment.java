@@ -17,6 +17,7 @@
 
 package org.apache.poi.xssf.usermodel;
 
+import static org.apache.poi.xssf.usermodel.XSSFRelation.NS_SPREADSHEETML;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
@@ -38,6 +39,7 @@ import org.apache.poi.ss.usermodel.RichTextString;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.XSSFITestDataProvider;
 import org.apache.poi.xssf.XSSFTestDataSamples;
@@ -49,7 +51,7 @@ import org.junit.Test;
 import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTComment;
 import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTRPrElt;
 
-import schemasMicrosoftComVml.CTShape;
+import com.microsoft.schemas.vml.CTShape;
 
 /**
  * @author Yegor Kozlov
@@ -73,7 +75,7 @@ public final class TestXSSFComment extends BaseTestCellComment  {
         assertEquals(1, sheetComments.getCTComments().getAuthors().sizeOfAuthorArray());
         assertEquals(1, sheetComments.getNumberOfAuthors());
 
-        CTComment ctComment = sheetComments.newComment("A1");
+        CTComment ctComment = sheetComments.newComment(CellAddress.A1);
         CTShape vmlShape = CTShape.Factory.newInstance();
 
         XSSFComment comment = new XSSFComment(sheetComments, ctComment, vmlShape);
@@ -88,7 +90,7 @@ public final class TestXSSFComment extends BaseTestCellComment  {
     public void getSetCol() {
         CommentsTable sheetComments = new CommentsTable();
         XSSFVMLDrawing vml = new XSSFVMLDrawing();
-        CTComment ctComment = sheetComments.newComment("A1");
+        CTComment ctComment = sheetComments.newComment(CellAddress.A1);
         CTShape vmlShape = vml.newCommentShape();
 
         XSSFComment comment = new XSSFComment(sheetComments, ctComment, vmlShape);
@@ -107,7 +109,7 @@ public final class TestXSSFComment extends BaseTestCellComment  {
     public void getSetRow() {
         CommentsTable sheetComments = new CommentsTable();
         XSSFVMLDrawing vml = new XSSFVMLDrawing();
-        CTComment ctComment = sheetComments.newComment("A1");
+        CTComment ctComment = sheetComments.newComment(CellAddress.A1);
         CTShape vmlShape = vml.newCommentShape();
 
         XSSFComment comment = new XSSFComment(sheetComments, ctComment, vmlShape);
@@ -145,7 +147,7 @@ public final class TestXSSFComment extends BaseTestCellComment  {
 
         CTComment ctComment = comment.getCTComment();
         XmlObject[] obj = ctComment.selectPath(
-                "declare namespace w='http://schemas.openxmlformats.org/spreadsheetml/2006/main' .//w:text");
+                "declare namespace w='"+NS_SPREADSHEETML+"' .//w:text");
         assertEquals(1, obj.length);
         assertEquals(TEST_RICHTEXTSTRING, comment.getString().getString());
 
@@ -163,7 +165,7 @@ public final class TestXSSFComment extends BaseTestCellComment  {
         //check the low-level stuff
         comment.setString(richText);
         obj = ctComment.selectPath(
-                "declare namespace w='http://schemas.openxmlformats.org/spreadsheetml/2006/main' .//w:text");
+                "declare namespace w='"+NS_SPREADSHEETML+"' .//w:text");
         assertEquals(1, obj.length);
         assertSame(comment.getString(), richText);
         //check that the rich text is set in the comment
@@ -179,7 +181,7 @@ public final class TestXSSFComment extends BaseTestCellComment  {
     @Test
     public void author() {
         CommentsTable sheetComments = new CommentsTable();
-        CTComment ctComment = sheetComments.newComment("A1");
+        CTComment ctComment = sheetComments.newComment(CellAddress.A1);
 
         assertEquals(1, sheetComments.getNumberOfAuthors());
         XSSFComment comment = new XSSFComment(sheetComments, ctComment, null);
@@ -221,7 +223,7 @@ public final class TestXSSFComment extends BaseTestCellComment  {
                     .getSheetAt(0).getCommentsTable(true);
             XSSFVMLDrawing vml = ((SXSSFWorkbook) wb).getXSSFWorkbook()
                     .getSheetAt(0).getVMLDrawing(true);
-            schemasMicrosoftComVml.CTShape vmlShape1 = vml.newCommentShape();
+            CTShape vmlShape1 = vml.newCommentShape();
             if (ca.isSet()) {
                 String position = ca.getCol1() + ", 0, " + ca.getRow1()
                         + ", 0, " + ca.getCol2() + ", 0, " + ca.getRow2()
@@ -230,12 +232,11 @@ public final class TestXSSFComment extends BaseTestCellComment  {
             }
 
             // create the comment in two different ways and verify that there is no difference
-            @SuppressWarnings("deprecation")
-            XSSFComment shape1 = new XSSFComment(comments, comments.newComment(), vmlShape1);
+            XSSFComment shape1 = new XSSFComment(comments, comments.newComment(CellAddress.A1), vmlShape1);
             shape1.setColumn(ca.getCol1());
             shape1.setRow(ca.getRow1());
 
-            schemasMicrosoftComVml.CTShape vmlShape2 = vml.newCommentShape();
+            CTShape vmlShape2 = vml.newCommentShape();
             if (ca.isSet()) {
                 String position = ca.getCol1() + ", 0, " + ca.getRow1()
                         + ", 0, " + ca.getCol2() + ", 0, " + ca.getRow2()
@@ -243,7 +244,7 @@ public final class TestXSSFComment extends BaseTestCellComment  {
                 vmlShape2.getClientDataArray(0).setAnchorArray(0, position);
             }
             
-            String ref = new CellReference(ca.getRow1(), ca.getCol1()).formatAsString();
+            CellAddress ref = new CellAddress(ca.getRow1(), ca.getCol1());
             XSSFComment shape2 = new XSSFComment(comments, comments.newComment(ref), vmlShape2);
         
             assertEquals(shape1.getAuthor(), shape2.getAuthor());

@@ -30,6 +30,7 @@ import org.apache.poi.ss.formula.SharedFormula;
 import org.apache.poi.ss.formula.eval.ErrorEval;
 import org.apache.poi.ss.formula.ptg.Ptg;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellCopyPolicy;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Comment;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -38,8 +39,10 @@ import org.apache.poi.ss.usermodel.FormulaError;
 import org.apache.poi.ss.usermodel.Hyperlink;
 import org.apache.poi.ss.usermodel.RichTextString;
 import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellReference;
+import org.apache.poi.util.Beta;
 import org.apache.poi.util.Internal;
 import org.apache.poi.util.LocaleUtil;
 import org.apache.poi.xssf.model.SharedStringsTable;
@@ -53,7 +56,7 @@ import org.openxmlformats.schemas.spreadsheetml.x2006.main.STCellType;
  * High level representation of a cell in a row of a spreadsheet.
  * <p>
  * Cells can be numeric, formula-based or string-based (text).  The cell type
- * specifies this.  String cells cannot conatin numbers and numeric cells cannot
+ * specifies this.  String cells cannot contain numbers and numeric cells cannot
  * contain strings (at least according to our model).  Client apps should do the
  * conversions themselves.  Formula cells have the formula string, as well as
  * the formula result, which can be numeric or string.
@@ -114,6 +117,92 @@ public final class XSSFCell implements Cell {
         }
         _sharedStringSource = row.getSheet().getWorkbook().getSharedStringSource();
         _stylesSource = row.getSheet().getWorkbook().getStylesSource();
+    }
+    
+    /**
+     * Copy cell value, formula, and style, from srcCell per cell copy policy
+     * If srcCell is null, clears the cell value and cell style per cell copy policy
+     * 
+     * This does not shift references in formulas. Use {@link org.apache.poi.xssf.usermodel.helpers.XSSFRowShifter} to shift references in formulas.
+     * 
+     * @param srcCell
+     * @param policy
+     * @throws IllegalArgumentException if copy cell style and srcCell is from a different workbook
+     */
+    @Beta
+    @Internal
+    public void copyCellFrom(Cell srcCell, CellCopyPolicy policy) {
+        // Copy cell value (cell type is updated implicitly)
+        if (policy.isCopyCellValue()) {
+            if (srcCell != null) {
+                int copyCellType = srcCell.getCellType();
+                if (copyCellType == Cell.CELL_TYPE_FORMULA && !policy.isCopyCellFormula()) {
+                    // Copy formula result as value
+                    // FIXME: Cached value may be stale
+                    copyCellType = srcCell.getCachedFormulaResultType();
+                }
+                switch (copyCellType) {
+                    case Cell.CELL_TYPE_BOOLEAN:
+                        setCellValue(srcCell.getBooleanCellValue());
+                        break;
+                    case Cell.CELL_TYPE_ERROR:
+                        setCellErrorValue(srcCell.getErrorCellValue());
+                        break;
+                    case Cell.CELL_TYPE_FORMULA:
+                        setCellFormula(srcCell.getCellFormula());
+                        break;
+                    case Cell.CELL_TYPE_NUMERIC:
+                        // DataFormat is not copied unless policy.isCopyCellStyle is true
+                        if (DateUtil.isCellDateFormatted(srcCell)) {
+                            setCellValue(srcCell.getDateCellValue());
+                        }
+                        else {
+                            setCellValue(srcCell.getNumericCellValue());
+                        }
+                        break;
+                    case Cell.CELL_TYPE_STRING:
+                        setCellValue(srcCell.getStringCellValue());
+                        break;
+                    case Cell.CELL_TYPE_BLANK:
+                        setBlank();
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Invalid cell type " + srcCell.getCellType());
+                }
+            } else { //srcCell is null
+                setBlank();
+            }
+        }
+        
+        // Copy CellStyle
+        if (policy.isCopyCellStyle()) {
+            if (srcCell != null) {
+                setCellStyle(srcCell.getCellStyle());
+            }
+            else {
+                // clear cell style
+                setCellStyle(null);
+            }
+        }
+        
+        if (policy.isMergeHyperlink()) {
+            // if srcCell doesn't have a hyperlink and destCell has a hyperlink, don't clear destCell's hyperlink
+            final Hyperlink srcHyperlink = srcCell.getHyperlink();
+            if (srcHyperlink != null) {
+                setHyperlink(new XSSFHyperlink(srcHyperlink));
+            }
+        }
+        else if (policy.isCopyHyperlink()) {
+            // overwrite the hyperlink at dest cell with srcCell's hyperlink
+            // if srcCell doesn't have a hyperlink, clear the hyperlink (if one exists) at destCell
+            final Hyperlink srcHyperlink = srcCell.getHyperlink();
+            if (srcHyperlink == null) {
+                setHyperlink(null);
+            }
+            else {
+                setHyperlink(new XSSFHyperlink(srcHyperlink));
+            }
+        }
     }
 
     /**
@@ -259,8 +348,7 @@ public final class XSSFCell implements Cell {
      */
     @Override
     public String getStringCellValue() {
-        XSSFRichTextString str = getRichStringCellValue();
-        return str == null ? null : str.getString();
+        return getRichStringCellValue().getString();
     }
 
     /**
@@ -452,7 +540,6 @@ public final class XSSFCell implements Cell {
         cellFormula.setRef(range.formatAsString());
     }
 
-    @SuppressWarnings("resource")
     private void setFormula(String formula, int formulaType) {
         XSSFWorkbook wb = _row.getSheet().getWorkbook();
         if (formula == null) {
@@ -499,9 +586,17 @@ public final class XSSFCell implements Cell {
     public String getReference() {
         String ref = _cell.getR();
         if(ref == null) {
-            return new CellReference(this).formatAsString();
+            return getAddress().formatAsString();
         }
         return ref;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public CellAddress getAddress() {
+        return new CellAddress(this);
     }
 
     /**
@@ -520,11 +615,15 @@ public final class XSSFCell implements Cell {
     }
 
     /**
-     * Set the style for the cell.  The style should be an XSSFCellStyle created/retreived from
-     * the XSSFWorkbook.
+     * <p>Set the style for the cell.  The style should be an XSSFCellStyle created/retreived from
+     * the XSSFWorkbook.</p>
      *
+     * <p>To change the style of a cell without affecting other cells that use the same style,
+     * use {@link org.apache.poi.ss.util.CellUtil#setCellStyleProperties(Cell, Map)}</p>
+     * 
      * @param style  reference contained in the workbook.
      * If the value is null then the style information is removed causing the cell to used the default workbook style.
+     * @throws IllegalArgumentException if style belongs to a different styles source (most likely because style is from a different Workbook)
      */
     @Override
     public void setCellStyle(CellStyle style) {
@@ -728,11 +827,11 @@ public final class XSSFCell implements Cell {
     }
 
     /**
-     * Sets this cell as the active cell for the worksheet.
+     * {@inheritDoc}
      */
     @Override
     public void setAsActiveCell() {
-        getSheet().setActiveCell(getReference());
+        getSheet().setActiveCell(getAddress());
     }
 
     /**
@@ -915,7 +1014,7 @@ public final class XSSFCell implements Cell {
      */
     @Override
     public XSSFComment getCellComment() {
-        return getSheet().getCellComment(_row.getRowNum(), getColumnIndex());
+        return getSheet().getCellComment(new CellAddress(this));
     }
 
     /**
@@ -942,7 +1041,7 @@ public final class XSSFCell implements Cell {
     public void removeCellComment() {
         XSSFComment comment = getCellComment();
         if(comment != null){
-            String ref = getReference();
+            CellAddress ref = new CellAddress(getReference());
             XSSFSheet sh = getSheet();
             sh.getCommentsTable(false).removeComment(ref);
             sh.getVMLDrawing(false).removeCommentShape(getRowIndex(), getColumnIndex());

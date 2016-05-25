@@ -18,15 +18,39 @@
 package org.apache.poi.hslf.usermodel;
 
 import java.awt.Color;
-import java.io.ByteArrayOutputStream;
+import java.util.List;
 
-import org.apache.poi.ddf.*;
+import org.apache.poi.ddf.AbstractEscherOptRecord;
+import org.apache.poi.ddf.EscherChildAnchorRecord;
+import org.apache.poi.ddf.EscherClientAnchorRecord;
+import org.apache.poi.ddf.EscherContainerRecord;
+import org.apache.poi.ddf.EscherOptRecord;
+import org.apache.poi.ddf.EscherProperties;
+import org.apache.poi.ddf.EscherProperty;
+import org.apache.poi.ddf.EscherRecord;
+import org.apache.poi.ddf.EscherSimpleProperty;
+import org.apache.poi.ddf.EscherSpRecord;
 import org.apache.poi.hslf.exceptions.HSLFException;
-import org.apache.poi.hslf.record.*;
+import org.apache.poi.hslf.record.HSLFEscherClientDataRecord;
+import org.apache.poi.hslf.record.OEPlaceholderAtom;
+import org.apache.poi.hslf.record.Record;
+import org.apache.poi.hslf.record.RoundTripHFPlaceholder12;
 import org.apache.poi.sl.draw.DrawPaint;
-import org.apache.poi.sl.draw.geom.*;
-import org.apache.poi.sl.usermodel.*;
+import org.apache.poi.sl.draw.geom.CustomGeometry;
+import org.apache.poi.sl.draw.geom.Guide;
+import org.apache.poi.sl.draw.geom.PresetGeometries;
+import org.apache.poi.sl.usermodel.LineDecoration;
+import org.apache.poi.sl.usermodel.LineDecoration.DecorationShape;
+import org.apache.poi.sl.usermodel.LineDecoration.DecorationSize;
+import org.apache.poi.sl.usermodel.PaintStyle;
 import org.apache.poi.sl.usermodel.PaintStyle.SolidPaint;
+import org.apache.poi.sl.usermodel.Placeholder;
+import org.apache.poi.sl.usermodel.Shadow;
+import org.apache.poi.sl.usermodel.ShapeContainer;
+import org.apache.poi.sl.usermodel.ShapeType;
+import org.apache.poi.sl.usermodel.SimpleShape;
+import org.apache.poi.sl.usermodel.StrokeStyle;
+import org.apache.poi.sl.usermodel.StrokeStyle.LineCap;
 import org.apache.poi.sl.usermodel.StrokeStyle.LineCompound;
 import org.apache.poi.sl.usermodel.StrokeStyle.LineDash;
 import org.apache.poi.util.LittleEndian;
@@ -44,11 +68,10 @@ public abstract class HSLFSimpleShape extends HSLFShape implements SimpleShape<H
     public final static double DEFAULT_LINE_WIDTH = 0.75;
 
     /**
-     * Records stored in EscherClientDataRecord
+     * Hyperlink
      */
-    protected Record[] _clientRecords;
-    protected EscherClientDataRecord _clientData;
-
+    protected HSLFHyperlink _hyperlink;
+    
     /**
      * Create a SimpleShape object and initialize it from the supplied Record container.
      *
@@ -81,8 +104,9 @@ public abstract class HSLFSimpleShape extends HSLFShape implements SimpleShape<H
         _escherContainer.addChildRecord(opt);
 
         EscherRecord anchor;
-        if(isChild) anchor = new EscherChildAnchorRecord();
-        else {
+        if(isChild) {
+            anchor = new EscherChildAnchorRecord();
+        } else {
             anchor = new EscherClientAnchorRecord();
 
             //hack. internal variable EscherClientAnchorRecord.shortRecord can be
@@ -129,12 +153,12 @@ public abstract class HSLFSimpleShape extends HSLFShape implements SimpleShape<H
         } else {
             int rgb = new Color(color.getBlue(), color.getGreen(), color.getRed(), 0).getRGB();
             setEscherProperty(opt, EscherProperties.LINESTYLE__COLOR, rgb);
-            setEscherProperty(opt, EscherProperties.LINESTYLE__NOLINEDRAWDASH, color == null ? 0x180010 : 0x180018);
+            setEscherProperty(opt, EscherProperties.LINESTYLE__NOLINEDRAWDASH, 0x180018);
         }
     }
 
     /**
-     * @return color of the line. If color is not set returns <code>java.awt.Color.black</code>
+     * @return color of the line. If color is not set returns {@code null}
      */
     public Color getLineColor(){
         AbstractEscherOptRecord opt = getEscherOptRecord();
@@ -143,7 +167,28 @@ public abstract class HSLFSimpleShape extends HSLFShape implements SimpleShape<H
         if(p != null && (p.getPropertyValue() & 0x8) == 0) return null;
 
         Color clr = getColor(EscherProperties.LINESTYLE__COLOR, EscherProperties.LINESTYLE__OPACITY, -1);
-        return clr == null ? Color.black : clr;
+        return clr == null ? null : clr;
+    }
+
+    /**
+     * Gets line cap.
+     *
+     * @return cap of the line.
+     */
+    public LineCap getLineCap(){
+        AbstractEscherOptRecord opt = getEscherOptRecord();
+        EscherSimpleProperty prop = getEscherProperty(opt, EscherProperties.LINESTYLE__LINEENDCAPSTYLE);
+        return (prop == null) ? LineCap.FLAT : LineCap.fromNativeId(prop.getPropertyValue());
+    }
+
+    /**
+     * Sets line cap.
+     *
+     * @param pen new style of the line.
+     */
+    public void setLineCap(LineCap pen){
+        AbstractEscherOptRecord opt = getEscherOptRecord();
+        setEscherProperty(opt, EscherProperties.LINESTYLE__LINEENDCAPSTYLE, pen == LineCap.FLAT ? -1 : pen.nativeId);
     }
 
     /**
@@ -151,7 +196,7 @@ public abstract class HSLFSimpleShape extends HSLFShape implements SimpleShape<H
      *
      * @return dashing of the line.
      */
-    public LineDash getLineDashing(){
+    public LineDash getLineDash(){
         AbstractEscherOptRecord opt = getEscherOptRecord();
         EscherSimpleProperty prop = getEscherProperty(opt, EscherProperties.LINESTYLE__LINEDASHING);
         return (prop == null) ? LineDash.SOLID : LineDash.fromNativeId(prop.getPropertyValue());
@@ -162,7 +207,7 @@ public abstract class HSLFSimpleShape extends HSLFShape implements SimpleShape<H
      *
      * @param pen new style of the line.
      */
-    public void setLineDashing(LineDash pen){
+    public void setLineDash(LineDash pen){
         AbstractEscherOptRecord opt = getEscherOptRecord();
         setEscherProperty(opt, EscherProperties.LINESTYLE__LINEDASHING, pen == LineDash.SOLID ? -1 : pen.nativeId);
     }
@@ -177,7 +222,7 @@ public abstract class HSLFSimpleShape extends HSLFShape implements SimpleShape<H
         EscherSimpleProperty prop = getEscherProperty(opt, EscherProperties.LINESTYLE__LINESTYLE);
         return (prop == null) ? LineCompound.SINGLE : LineCompound.fromNativeId(prop.getPropertyValue());
     }
-    
+
     /**
      * Sets the line compound style
      *
@@ -204,7 +249,7 @@ public abstract class HSLFSimpleShape extends HSLFShape implements SimpleShape<H
             }
 
             public LineDash getLineDash() {
-                return HSLFSimpleShape.this.getLineDashing();
+                return HSLFSimpleShape.this.getLineDash();
             }
 
             public LineCompound getLineCompound() {
@@ -214,146 +259,29 @@ public abstract class HSLFSimpleShape extends HSLFShape implements SimpleShape<H
             public double getLineWidth() {
                 return HSLFSimpleShape.this.getLineWidth();
             }
-            
+
         };
     }
 
-    /**
-     * The color used to fill this shape.
-     */
-    public Color getFillColor(){
+    @Override
+    public Color getFillColor() {
         return getFill().getForegroundColor();
     }
 
-    /**
-     * The color used to fill this shape.
-     *
-     * @param color the background color
-     */
-    public void setFillColor(Color color){
+    @Override
+    public void setFillColor(Color color) {
         getFill().setForegroundColor(color);
-    }
-
-    /**
-     *  Find a record in the underlying EscherClientDataRecord
-     *
-     * @param recordType type of the record to search
-     */
-    @SuppressWarnings("unchecked")
-    protected <T extends Record> T getClientDataRecord(int recordType) {
-
-        Record[] records = getClientRecords();
-        if(records != null) for (int i = 0; i < records.length; i++) {
-            if(records[i].getRecordType() == recordType){
-                return (T)records[i];
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Search for EscherClientDataRecord, if found, convert its contents into an array of HSLF records
-     *
-     * @return an array of HSLF records contained in the shape's EscherClientDataRecord or <code>null</code>
-     */
-    protected Record[] getClientRecords() {
-        if(_clientData == null){
-            EscherRecord r = getEscherChild(EscherClientDataRecord.RECORD_ID);
-            //ddf can return EscherContainerRecord with recordId=EscherClientDataRecord.RECORD_ID
-            //convert in to EscherClientDataRecord on the fly
-            if(r != null && !(r instanceof EscherClientDataRecord)){
-                byte[] data = r.serialize();
-                r = new EscherClientDataRecord();
-                r.fillFields(data, 0, new HSLFEscherRecordFactory());
-            }
-            _clientData = (EscherClientDataRecord)r;
-        }
-        if(_clientData != null && _clientRecords == null){
-            byte[] data = _clientData.getRemainingData();
-            _clientRecords = Record.findChildRecords(data, 0, data.length);
-        }
-        return _clientRecords;
-    }
-
-    protected void updateClientData() {
-        if(_clientData != null && _clientRecords != null){
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            try {
-                for (int i = 0; i < _clientRecords.length; i++) {
-                    _clientRecords[i].writeOut(out);
-                }
-            } catch(Exception e){
-                throw new HSLFException(e);
-            }
-            _clientData.setRemainingData(out.toByteArray());
-        }
-    }
-
-    public void setHyperlink(HSLFHyperlink link){
-        if(link.getId() == -1){
-            throw new HSLFException("You must call SlideShow.addHyperlink(Hyperlink link) first");
-        }
-
-        EscherClientDataRecord cldata = new EscherClientDataRecord();
-        cldata.setOptions((short)0xF);
-        getSpContainer().addChildRecord(cldata); // TODO - junit to prove getChildRecords().add is wrong
-
-        InteractiveInfo info = new InteractiveInfo();
-        InteractiveInfoAtom infoAtom = info.getInteractiveInfoAtom();
-
-        switch(link.getType()){
-            case HSLFHyperlink.LINK_FIRSTSLIDE:
-                infoAtom.setAction(InteractiveInfoAtom.ACTION_JUMP);
-                infoAtom.setJump(InteractiveInfoAtom.JUMP_FIRSTSLIDE);
-                infoAtom.setHyperlinkType(InteractiveInfoAtom.LINK_FirstSlide);
-                break;
-            case HSLFHyperlink.LINK_LASTSLIDE:
-                infoAtom.setAction(InteractiveInfoAtom.ACTION_JUMP);
-                infoAtom.setJump(InteractiveInfoAtom.JUMP_LASTSLIDE);
-                infoAtom.setHyperlinkType(InteractiveInfoAtom.LINK_LastSlide);
-                break;
-            case HSLFHyperlink.LINK_NEXTSLIDE:
-                infoAtom.setAction(InteractiveInfoAtom.ACTION_JUMP);
-                infoAtom.setJump(InteractiveInfoAtom.JUMP_NEXTSLIDE);
-                infoAtom.setHyperlinkType(InteractiveInfoAtom.LINK_NextSlide);
-                break;
-            case HSLFHyperlink.LINK_PREVIOUSSLIDE:
-                infoAtom.setAction(InteractiveInfoAtom.ACTION_JUMP);
-                infoAtom.setJump(InteractiveInfoAtom.JUMP_PREVIOUSSLIDE);
-                infoAtom.setHyperlinkType(InteractiveInfoAtom.LINK_PreviousSlide);
-                break;
-            case HSLFHyperlink.LINK_URL:
-                infoAtom.setAction(InteractiveInfoAtom.ACTION_HYPERLINK);
-                infoAtom.setJump(InteractiveInfoAtom.JUMP_NONE);
-                infoAtom.setHyperlinkType(InteractiveInfoAtom.LINK_Url);
-                break;
-            case HSLFHyperlink.LINK_SLIDENUMBER:
-                infoAtom.setAction(InteractiveInfoAtom.ACTION_HYPERLINK);
-                infoAtom.setJump(InteractiveInfoAtom.JUMP_NONE);
-                infoAtom.setHyperlinkType(InteractiveInfoAtom.LINK_SlideNumber);
-                break;
-        }
-
-        infoAtom.setHyperlinkID(link.getId());
-
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try {
-            info.writeOut(out);
-        } catch(Exception e){
-            throw new HSLFException(e);
-        }
-        cldata.setRemainingData(out.toByteArray());
-
     }
 
     public Guide getAdjustValue(String name) {
         if (name == null || !name.matches("adj([1-9]|10)?")) {
-            throw new IllegalArgumentException("Adjust value '"+name+"' not supported.");
+            logger.log(POILogger.INFO, "Adjust value '"+name+"' not supported. Using default value.");
+            return null;
         }
-        
+
         name = name.replace("adj", "");
         if ("".equals(name)) name = "1";
-        
+
         short escherProp;
         switch (Integer.parseInt(name)) {
             case 1: escherProp = EscherProperties.GEOMETRY__ADJUSTVALUE; break;
@@ -368,8 +296,14 @@ public abstract class HSLFSimpleShape extends HSLFShape implements SimpleShape<H
             case 10: escherProp = EscherProperties.GEOMETRY__ADJUST10VALUE; break;
             default: throw new RuntimeException();
         }
+
+        // TODO: the adjust values need to be corrected somehow depending on the shape width/height
+        // see https://social.msdn.microsoft.com/Forums/en-US/3f69ebb3-62a0-4fdd-b367-64790dfb2491/presetshapedefinitionsxml-does-not-specify-width-and-height-form-some-autoshapes?forum=os_binaryfile
         
+        // the adjust value can be format dependent, e.g. hexagon has different values,
+        // other shape types have the same adjust values in OOXML and native
         int adjval = getEscherProperty(escherProp, -1);
+
         return (adjval == -1) ? null : new Guide(name, "val "+adjval);
     }
 
@@ -383,7 +317,7 @@ public abstract class HSLFSimpleShape extends HSLFShape implements SimpleShape<H
             logger.log(POILogger.WARN, "No preset shape definition for shapeType: "+name);
             return null;
         }
-        
+
         return geom;
     }
 
@@ -396,7 +330,7 @@ public abstract class HSLFSimpleShape extends HSLFShape implements SimpleShape<H
         int offY = (prop == null) ? 0 : prop.getPropertyValue();
         return Math.toDegrees(Math.atan2(offY, offX));
     }
-    
+
     public double getShadowDistance() {
         AbstractEscherOptRecord opt = getEscherOptRecord();
         EscherSimpleProperty prop = getEscherProperty(opt, EscherProperties.SHADOWSTYLE__OFFSETX);
@@ -412,13 +346,13 @@ public abstract class HSLFSimpleShape extends HSLFShape implements SimpleShape<H
     public Color getShadowColor(){
         Color clr = getColor(EscherProperties.SHADOWSTYLE__COLOR, EscherProperties.SHADOWSTYLE__OPACITY, -1);
         return clr == null ? Color.black : clr;
-    }    
-    
+    }
+
     public Shadow<HSLFShape,HSLFTextParagraph> getShadow() {
         AbstractEscherOptRecord opt = getEscherOptRecord();
         EscherProperty shadowType = opt.lookup(EscherProperties.SHADOWSTYLE__TYPE);
         if (shadowType == null) return null;
-        
+
         return new Shadow<HSLFShape,HSLFTextParagraph>(){
             public SimpleShape<HSLFShape,HSLFTextParagraph> getShadowParent() {
                 return HSLFSimpleShape.this;
@@ -440,36 +374,265 @@ public abstract class HSLFSimpleShape extends HSLFShape implements SimpleShape<H
             public SolidPaint getFillStyle() {
                 return DrawPaint.createSolidPaint(getShadowColor());
             }
-            
+
         };
     }
+
+    public DecorationShape getLineHeadDecoration(){
+        AbstractEscherOptRecord opt = getEscherOptRecord();
+        EscherSimpleProperty prop = getEscherProperty(opt, EscherProperties.LINESTYLE__LINESTARTARROWHEAD);
+        return (prop == null) ? null : DecorationShape.fromNativeId(prop.getPropertyValue());
+    }
+
+    public void setLineHeadDecoration(DecorationShape decoShape){
+        AbstractEscherOptRecord opt = getEscherOptRecord();
+        setEscherProperty(opt, EscherProperties.LINESTYLE__LINESTARTARROWHEAD, decoShape == null ? -1 : decoShape.nativeId);
+    }
+
+    public DecorationSize getLineHeadWidth(){
+        AbstractEscherOptRecord opt = getEscherOptRecord();
+        EscherSimpleProperty prop = getEscherProperty(opt, EscherProperties.LINESTYLE__LINESTARTARROWWIDTH);
+        return (prop == null) ? null : DecorationSize.fromNativeId(prop.getPropertyValue());
+    }
+
+    public void setLineHeadWidth(DecorationSize decoSize){
+        AbstractEscherOptRecord opt = getEscherOptRecord();
+        setEscherProperty(opt, EscherProperties.LINESTYLE__LINESTARTARROWWIDTH, decoSize == null ? -1 : decoSize.nativeId);
+    }
+
+    public DecorationSize getLineHeadLength(){
+        AbstractEscherOptRecord opt = getEscherOptRecord();
+        EscherSimpleProperty prop = getEscherProperty(opt, EscherProperties.LINESTYLE__LINESTARTARROWLENGTH);
+        return (prop == null) ? null : DecorationSize.fromNativeId(prop.getPropertyValue());
+    }
+
+    public void setLineHeadLength(DecorationSize decoSize){
+        AbstractEscherOptRecord opt = getEscherOptRecord();
+        setEscherProperty(opt, EscherProperties.LINESTYLE__LINESTARTARROWLENGTH, decoSize == null ? -1 : decoSize.nativeId);
+    }
+
+    public DecorationShape getLineTailDecoration(){
+        AbstractEscherOptRecord opt = getEscherOptRecord();
+        EscherSimpleProperty prop = getEscherProperty(opt, EscherProperties.LINESTYLE__LINEENDARROWHEAD);
+        return (prop == null) ? null : DecorationShape.fromNativeId(prop.getPropertyValue());
+    }
+
+    public void setLineTailDecoration(DecorationShape decoShape){
+        AbstractEscherOptRecord opt = getEscherOptRecord();
+        setEscherProperty(opt, EscherProperties.LINESTYLE__LINEENDARROWHEAD, decoShape == null ? -1 : decoShape.nativeId);
+    }
+
+    public DecorationSize getLineTailWidth(){
+        AbstractEscherOptRecord opt = getEscherOptRecord();
+        EscherSimpleProperty prop = getEscherProperty(opt, EscherProperties.LINESTYLE__LINEENDARROWWIDTH);
+        return (prop == null) ? null : DecorationSize.fromNativeId(prop.getPropertyValue());
+    }
+
+    public void setLineTailWidth(DecorationSize decoSize){
+        AbstractEscherOptRecord opt = getEscherOptRecord();
+        setEscherProperty(opt, EscherProperties.LINESTYLE__LINEENDARROWWIDTH, decoSize == null ? -1 : decoSize.nativeId);
+    }
+
+    public DecorationSize getLineTailLength(){
+        AbstractEscherOptRecord opt = getEscherOptRecord();
+        EscherSimpleProperty prop = getEscherProperty(opt, EscherProperties.LINESTYLE__LINEENDARROWLENGTH);
+        return (prop == null) ? null : DecorationSize.fromNativeId(prop.getPropertyValue());
+    }
+
+    public void setLineTailLength(DecorationSize decoSize){
+        AbstractEscherOptRecord opt = getEscherOptRecord();
+        setEscherProperty(opt, EscherProperties.LINESTYLE__LINEENDARROWLENGTH, decoSize == null ? -1 : decoSize.nativeId);
+    }
+
+
 
     public LineDecoration getLineDecoration() {
         return new LineDecoration() {
 
             public DecorationShape getHeadShape() {
-                return DecorationShape.NONE;
+                return HSLFSimpleShape.this.getLineHeadDecoration();
             }
 
             public DecorationSize getHeadWidth() {
-                return DecorationSize.MEDIUM;
+                return HSLFSimpleShape.this.getLineHeadWidth();
             }
 
             public DecorationSize getHeadLength() {
-                return DecorationSize.MEDIUM;
+                return HSLFSimpleShape.this.getLineHeadLength();
             }
 
             public DecorationShape getTailShape() {
-                return DecorationShape.NONE;
+                return HSLFSimpleShape.this.getLineTailDecoration();
             }
 
             public DecorationSize getTailWidth() {
-                return DecorationSize.MEDIUM;
+                return HSLFSimpleShape.this.getLineTailWidth();
             }
 
             public DecorationSize getTailLength() {
-                return DecorationSize.MEDIUM;
+                return HSLFSimpleShape.this.getLineTailLength();
             }
         };
+    }
+
+    @Override
+    public Placeholder getPlaceholder() {
+        List<? extends Record> clRecords = getClientRecords();
+        if (clRecords == null) {
+            return null;
+        }
+        for (Record r : clRecords) {
+            if (r instanceof OEPlaceholderAtom) {
+                OEPlaceholderAtom oep = (OEPlaceholderAtom)r;
+                return Placeholder.lookupNative(oep.getPlaceholderId());
+            } else if (r instanceof RoundTripHFPlaceholder12) {
+                RoundTripHFPlaceholder12 rtp = (RoundTripHFPlaceholder12)r;
+                return Placeholder.lookupNative(rtp.getPlaceholderId());
+            }
+        }
+
+        return null;
+    }
+
+    @Override
+    public void setPlaceholder(Placeholder placeholder) {
+        EscherSpRecord spRecord = getEscherChild(EscherSpRecord.RECORD_ID);
+        int flags = spRecord.getFlags();
+        if (placeholder == null) {
+            flags ^= EscherSpRecord.FLAG_HAVEMASTER;
+        } else {
+            flags |= EscherSpRecord.FLAG_HAVEANCHOR | EscherSpRecord.FLAG_HAVEMASTER;
+        }
+        spRecord.setFlags(flags);
+
+        // Placeholders can't be grouped
+        setEscherProperty(EscherProperties.PROTECTION__LOCKAGAINSTGROUPING, (placeholder == null ? -1 : 262144));
+
+        HSLFEscherClientDataRecord clientData = getClientData(false);
+        if (placeholder == null) {
+            if (clientData != null) {
+                clientData.removeChild(OEPlaceholderAtom.class);
+                clientData.removeChild(RoundTripHFPlaceholder12.class);
+                // remove client data if the placeholder was the only child to be carried
+                if (clientData.getChildRecords().isEmpty()) {
+                    getSpContainer().removeChildRecord(clientData);
+                }
+            }
+            return;
+        }
+
+        if (clientData == null) {
+            clientData = getClientData(true);
+        }
+
+        // OEPlaceholderAtom tells powerpoint that this shape is a placeholder
+        OEPlaceholderAtom oep = null;
+        RoundTripHFPlaceholder12 rtp = null;
+        for (Record r : clientData.getHSLFChildRecords()) {
+            if (r instanceof OEPlaceholderAtom) {
+                oep = (OEPlaceholderAtom)r;
+                break;
+            }
+            if (r instanceof RoundTripHFPlaceholder12) {
+                rtp = (RoundTripHFPlaceholder12)r;
+                break;
+            }
+        }
+
+        /**
+         * Extract from MSDN:
+         *
+         * There is a special case when the placeholder does not have a position in the layout.
+         * This occurs when the user has moved the placeholder from its original position.
+         * In this case the placeholder ID is -1.
+         */
+        byte phId;
+        HSLFSheet sheet = getSheet();
+        // TODO: implement/switch NotesMaster
+        if (sheet instanceof HSLFSlideMaster) {
+            phId = (byte)placeholder.nativeSlideMasterId;
+        } else if (sheet instanceof HSLFNotes) {
+            phId = (byte)placeholder.nativeNotesId;
+        } else {
+            phId = (byte)placeholder.nativeSlideId;
+        }
+
+        if (phId == -2) {
+            throw new HSLFException("Placeholder "+placeholder.name()+" not supported for this sheet type ("+sheet.getClass()+")");
+        }
+
+        switch (placeholder) {
+            case HEADER:
+            case FOOTER:
+                if (rtp == null) {
+                    rtp = new RoundTripHFPlaceholder12();
+                    rtp.setPlaceholderId(phId);
+                    clientData.addChild(rtp);
+                }
+                if (oep != null) {
+                    clientData.removeChild(OEPlaceholderAtom.class);
+                }
+                break;
+            default:
+                if (rtp != null) {
+                    clientData.removeChild(RoundTripHFPlaceholder12.class);
+                }
+                if (oep == null) {
+                    oep = new OEPlaceholderAtom();
+                    oep.setPlaceholderSize((byte)OEPlaceholderAtom.PLACEHOLDER_FULLSIZE);
+                    // TODO: placement id only "SHOULD" be unique ... check other placeholders on sheet for unique id
+                    oep.setPlacementId(-1);
+                    oep.setPlaceholderId(phId);
+                    clientData.addChild(oep);
+                }
+                break;
+        }
+    }
+
+
+    @Override
+    public void setStrokeStyle(Object... styles) {
+        if (styles.length == 0) {
+            // remove stroke
+            setLineColor(null);
+            return;
+        }
+
+        // TODO: handle PaintStyle
+        for (Object st : styles) {
+            if (st instanceof Number) {
+                setLineWidth(((Number)st).doubleValue());
+            } else if (st instanceof LineCap) {
+                setLineCap((LineCap)st);
+            } else if (st instanceof LineDash) {
+                setLineDash((LineDash)st);
+            } else if (st instanceof LineCompound) {
+                setLineCompound((LineCompound)st);
+            } else if (st instanceof Color) {
+                setLineColor((Color)st);
+            }
+        }
+    }
+
+    @Override
+    public HSLFHyperlink getHyperlink(){
+        return _hyperlink;
+    }
+    
+    @Override
+    public HSLFHyperlink createHyperlink() {
+        if (_hyperlink == null) {
+            _hyperlink = HSLFHyperlink.createHyperlink(this);
+        }
+        return _hyperlink;
+    }
+    
+    /**
+     * Sets the hyperlink - used when the document is parsed
+     *
+     * @param link the hyperlink
+     */
+    protected void setHyperlink(HSLFHyperlink link) {
+        _hyperlink = link;
     }
 }

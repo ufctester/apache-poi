@@ -17,13 +17,16 @@
 package org.apache.poi.hssf.converter;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
@@ -68,8 +71,11 @@ public class ExcelToHtmlConverter extends AbstractExcelConverter
      * </p>
      * Where infile is an input .xls file ( Word 97-2007) which will be rendered
      * as HTML into outfile
+     * @throws TransformerException 
+     * @throws Exception 
      */
     public static void main( String[] args )
+    throws IOException, ParserConfigurationException, TransformerException
     {
         if ( args.length < 2 )
         {
@@ -80,25 +86,19 @@ public class ExcelToHtmlConverter extends AbstractExcelConverter
 
         System.out.println( "Converting " + args[0] );
         System.out.println( "Saving output to " + args[1] );
-        try
-        {
-            Document doc = ExcelToHtmlConverter.process( new File( args[0] ) );
 
-            DOMSource domSource = new DOMSource( doc );
-            StreamResult streamResult = new StreamResult( new File(args[1]) );
+        Document doc = ExcelToHtmlConverter.process( new File( args[0] ) );
 
-            TransformerFactory tf = TransformerFactory.newInstance();
-            Transformer serializer = tf.newTransformer();
-            // TODO set encoding from a command argument
-            serializer.setOutputProperty( OutputKeys.ENCODING, "UTF-8" );
-            serializer.setOutputProperty( OutputKeys.INDENT, "no" );
-            serializer.setOutputProperty( OutputKeys.METHOD, "html" );
-            serializer.transform( domSource, streamResult );
-        }
-        catch ( Exception e )
-        {
-            e.printStackTrace();
-        }
+        DOMSource domSource = new DOMSource( doc );
+        StreamResult streamResult = new StreamResult( new File(args[1]) );
+
+        TransformerFactory tf = TransformerFactory.newInstance();
+        Transformer serializer = tf.newTransformer();
+        // TODO set encoding from a command argument
+        serializer.setOutputProperty( OutputKeys.ENCODING, "UTF-8" );
+        serializer.setOutputProperty( OutputKeys.INDENT, "no" );
+        serializer.setOutputProperty( OutputKeys.METHOD, "html" );
+        serializer.transform( domSource, streamResult );
     }
 
     /**
@@ -107,8 +107,10 @@ public class ExcelToHtmlConverter extends AbstractExcelConverter
      * @param xlsFile
      *            file to process
      * @return DOM representation of result HTML
+     * @throws IOException 
+     * @throws ParserConfigurationException 
      */
-    public static Document process( File xlsFile ) throws Exception
+    public static Document process( File xlsFile ) throws IOException, ParserConfigurationException
     {
         final HSSFWorkbook workbook = ExcelToHtmlUtils.loadXls( xlsFile );
         ExcelToHtmlConverter excelToHtmlConverter = new ExcelToHtmlConverter(
@@ -155,25 +157,21 @@ public class ExcelToHtmlConverter extends AbstractExcelConverter
         style.append( "white-space:pre-wrap;" );
         ExcelToHtmlUtils.appendAlign( style, cellStyle.getAlignment() );
 
-        if ( cellStyle.getFillPattern() == 0 )
-        {
+        switch (cellStyle.getFillPattern()) {
             // no fill
-        }
-        else if ( cellStyle.getFillPattern() == 1 )
-        {
-            final HSSFColor foregroundColor = cellStyle
-                    .getFillForegroundColorColor();
-            if ( foregroundColor != null )
-                style.append( "background-color:"
-                        + ExcelToHtmlUtils.getColor( foregroundColor ) + ";" );
-        }
-        else
-        {
-            final HSSFColor backgroundColor = cellStyle
-                    .getFillBackgroundColorColor();
-            if ( backgroundColor != null )
-                style.append( "background-color:"
-                        + ExcelToHtmlUtils.getColor( backgroundColor ) + ";" );
+            case 0: break;
+            case 1:
+                final HSSFColor foregroundColor = cellStyle.getFillForegroundColorColor();
+                if ( foregroundColor == null ) break;
+                String fgCol = ExcelToHtmlUtils.getColor( foregroundColor );
+                style.append( "background-color:" + fgCol + ";" );
+                break;
+            default:
+                final HSSFColor backgroundColor = cellStyle.getFillBackgroundColorColor();
+                if ( backgroundColor == null ) break;
+                String bgCol = ExcelToHtmlUtils.getColor( backgroundColor );
+                style.append( "background-color:" + bgCol + ";" );
+                break;
         }
 
         buildStyle_border( workbook, style, "top", cellStyle.getBorderTop(),
@@ -194,8 +192,9 @@ public class ExcelToHtmlConverter extends AbstractExcelConverter
     private void buildStyle_border( HSSFWorkbook workbook, StringBuilder style,
             String type, short xlsBorder, short borderColor )
     {
-        if ( xlsBorder == HSSFCellStyle.BORDER_NONE )
+        if ( xlsBorder == HSSFCellStyle.BORDER_NONE ) {
             return;
+        }
 
         StringBuilder borderStyle = new StringBuilder();
         borderStyle.append( ExcelToHtmlUtils.getBorderWidth( xlsBorder ) );
@@ -315,17 +314,10 @@ public class ExcelToHtmlConverter extends AbstractExcelConverter
                 }
                 break;
             case HSSFCell.CELL_TYPE_NUMERIC:
-                HSSFCellStyle style = cellStyle;
-                if ( style == null )
-                {
-                    value = String.valueOf( cell.getNumericCellValue() );
-                }
-                else
-                {
-                    value = ( _formatter.formatRawCellContents(
-                            cell.getNumericCellValue(), style.getDataFormat(),
-                            style.getDataFormatString() ) );
-                }
+                double nValue = cell.getNumericCellValue();
+                short df = cellStyle.getDataFormat();
+                String dfs = cellStyle.getDataFormatString();
+                value = _formatter.formatRawCellContents(nValue, df, dfs);
                 break;
             case HSSFCell.CELL_TYPE_BOOLEAN:
                 value = String.valueOf( cell.getBooleanCellValue() );
@@ -361,28 +353,22 @@ public class ExcelToHtmlConverter extends AbstractExcelConverter
         }
 
         final boolean noText = ExcelToHtmlUtils.isEmpty( value );
-        final boolean wrapInDivs = !noText && isUseDivsToSpan()
-                && !cellStyle.getWrapText();
+        final boolean wrapInDivs = !noText && isUseDivsToSpan() && !cellStyle.getWrapText();
 
-        final short cellStyleIndex = cellStyle.getIndex();
-        if ( cellStyleIndex != 0 )
+        if ( cellStyle.getIndex() != 0 )
         {
             @SuppressWarnings("resource")
             HSSFWorkbook workbook = cell.getRow().getSheet().getWorkbook();
             String mainCssClass = getStyleClassName( workbook, cellStyle );
             
-            if ( wrapInDivs )
-            {
+            if ( wrapInDivs ) {
                 tableCellElement.setAttribute( "class", mainCssClass + " "
                         + cssClassContainerCell );
-            }
-            else
-            {
+            } else {
                 tableCellElement.setAttribute( "class", mainCssClass );
             }
 
-            if ( noText )
-            {
+            if ( noText ) {
                 /*
                  * if cell style is defined (like borders, etc.) but cell text
                  * is empty, add "&nbsp;" to output, so browser won't collapse
@@ -429,8 +415,7 @@ public class ExcelToHtmlConverter extends AbstractExcelConverter
             innerDivStyle.append( "overflow:hidden;max-height:" );
             innerDivStyle.append( normalHeightPt );
             innerDivStyle.append( "pt;white-space:nowrap;" );
-            ExcelToHtmlUtils.appendAlign( innerDivStyle,
-                    cellStyle.getAlignment() );
+            ExcelToHtmlUtils.appendAlign( innerDivStyle, cellStyle.getAlignment() );
             htmlDocumentFacade.addStyleClass( outerDiv, cssClassPrefixDiv,
                     innerDivStyle.toString() );
 
@@ -443,7 +428,7 @@ public class ExcelToHtmlConverter extends AbstractExcelConverter
             tableCellElement.appendChild( text );
         }
 
-        return ExcelToHtmlUtils.isEmpty( value ) && cellStyleIndex == 0;
+        return ExcelToHtmlUtils.isEmpty( value ) && (cellStyle.getIndex() == 0);
     }
 
     protected void processColumnHeaders( HSSFSheet sheet, int maxSheetColumns,

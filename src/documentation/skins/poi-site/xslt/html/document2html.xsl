@@ -278,6 +278,12 @@ and tabs (tab2menu.xsl) to generate the final HTML.
     <xsl:apply-imports/>
  </xsl:template>
 
+ <xsl:template match="helpwanted">
+    <div style="width: 80%;" type="helpwanted" project="poi" 
+         description="the Apache POI Project"></div>
+    <script src="https://helpwanted.apache.org/widget.js" type="text/javascript"></script>
+ </xsl:template>
+
   <!-- Generates the PDF link -->
   <xsl:template name="pdflink">
     <xsl:if test="not($config/disable-pdf-link) or $disable-pdf-link = 'false'">

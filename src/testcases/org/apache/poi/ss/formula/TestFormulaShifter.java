@@ -17,11 +17,14 @@
 
 package org.apache.poi.ss.formula;
 
-import junit.framework.TestCase;
-
+import org.apache.poi.ss.SpreadsheetVersion;
 import org.apache.poi.ss.formula.ptg.AreaErrPtg;
 import org.apache.poi.ss.formula.ptg.AreaPtg;
 import org.apache.poi.ss.formula.ptg.Ptg;
+import org.apache.poi.ss.formula.ptg.Ref3DPtg;
+import org.apache.poi.ss.util.CellReference;
+
+import junit.framework.TestCase;
 
 /**
  * Tests for {@link FormulaShifter}.
@@ -74,6 +77,56 @@ public final class TestFormulaShifter extends TestCase {
 
 		confirmAreaShift(aptg, 18, 22,  5, 10, 25); // simple expansion at bottom
 	}
+	
+	public void testCopyAreasSourceRowsRelRel() {
+
+		// all these operations are on an area ref spanning rows 10 to 20
+		final AreaPtg aptg  = createAreaPtg(10, 20, true, true);
+
+		confirmAreaCopy(aptg,  0, 30, 20, 30, 40, true);
+		confirmAreaCopy(aptg,  15, 25, -15, -1, -1, true); //DeletedRef
+	}
+	
+	public void testCopyAreasSourceRowsRelAbs() {
+
+		// all these operations are on an area ref spanning rows 10 to 20
+		final AreaPtg aptg  = createAreaPtg(10, 20, true, false);
+
+		// Only first row should move
+		confirmAreaCopy(aptg,  0, 30, 20, 20, 30, true);
+		confirmAreaCopy(aptg,  15, 25, -15, -1, -1, true); //DeletedRef
+	}
+	
+	public void testCopyAreasSourceRowsAbsRel() {
+		// aptg is part of a formula in a cell that was just copied to another row
+		// aptg row references should be updated by the difference in rows that the cell was copied
+		// No other references besides the cells that were involved in the copy need to be updated
+		// this makes the row copy significantly different from the row shift, where all references
+		// in the workbook need to track the row shift
+
+		// all these operations are on an area ref spanning rows 10 to 20
+		final AreaPtg aptg  = createAreaPtg(10, 20, false, true);
+
+		// Only last row should move
+		confirmAreaCopy(aptg,  0, 30, 20, 10, 40, true);
+		confirmAreaCopy(aptg,  15, 25, -15, 5, 10, true); //sortTopLeftToBottomRight swapped firstRow and lastRow because firstRow is absolute
+	}
+	
+	public void testCopyAreasSourceRowsAbsAbs() {
+		// aptg is part of a formula in a cell that was just copied to another row
+		// aptg row references should be updated by the difference in rows that the cell was copied
+		// No other references besides the cells that were involved in the copy need to be updated
+		// this makes the row copy significantly different from the row shift, where all references
+		// in the workbook need to track the row shift
+		
+		// all these operations are on an area ref spanning rows 10 to 20
+		final AreaPtg aptg  = createAreaPtg(10, 20, false, false);
+
+		//AbsFirstRow AbsLastRow references should't change when copied to a different row
+		confirmAreaCopy(aptg,  0, 30, 20, 10, 20, false);
+		confirmAreaCopy(aptg,  15, 25, -15, 10, 20, false);
+	}
+	
 	/**
 	 * Tests what happens to an area ref when some outside rows are moved to overlap
 	 * that area ref
@@ -97,7 +150,7 @@ public final class TestFormulaShifter extends TestCase {
 			int firstRowMoved, int lastRowMoved, int numberRowsMoved,
 			int expectedAreaFirstRow, int expectedAreaLastRow) {
 
-		FormulaShifter fs = FormulaShifter.createForRowShift(0, "", firstRowMoved, lastRowMoved, numberRowsMoved);
+		FormulaShifter fs = FormulaShifter.createForRowShift(0, "", firstRowMoved, lastRowMoved, numberRowsMoved, SpreadsheetVersion.EXCEL2007);
 		boolean expectedChanged = aptg.getFirstRow() != expectedAreaFirstRow || aptg.getLastRow() != expectedAreaLastRow;
 
 		AreaPtg copyPtg = (AreaPtg) aptg.copy(); // clone so we can re-use aptg in calling method
@@ -113,7 +166,113 @@ public final class TestFormulaShifter extends TestCase {
 		assertEquals(expectedAreaLastRow, copyPtg.getLastRow());
 
 	}
-	private static AreaPtg createAreaPtg(int initialAreaFirstRow, int initialAreaLastRow) {
-		return new AreaPtg(initialAreaFirstRow, initialAreaLastRow, 2, 5, false, false, false, false);
+	
+	
+	private static void confirmAreaCopy(AreaPtg aptg,
+			int firstRowCopied, int lastRowCopied, int rowOffset,
+			int expectedFirstRow, int expectedLastRow, boolean expectedChanged) {
+
+		final AreaPtg copyPtg = (AreaPtg) aptg.copy(); // clone so we can re-use aptg in calling method
+		final Ptg[] ptgs = { copyPtg, };
+		final FormulaShifter fs = FormulaShifter.createForRowCopy(0, null, firstRowCopied, lastRowCopied, rowOffset, SpreadsheetVersion.EXCEL2007);
+		final boolean actualChanged = fs.adjustFormula(ptgs, 0);
+		
+		// DeletedAreaRef
+		if (expectedFirstRow < 0 || expectedLastRow < 0) {
+			assertEquals("Reference should have shifted off worksheet, producing #REF! error: " + ptgs[0],
+					AreaErrPtg.class, ptgs[0].getClass());
+			return;
+		}
+		
+		assertEquals("Should this AreaPtg change due to row copy?", expectedChanged, actualChanged);
+		assertEquals("AreaPtgs should be modified in-place when a row containing the AreaPtg is copied", copyPtg, ptgs[0]);  // expected to change in place (although this is not a strict requirement)
+		assertEquals("AreaPtg first row", expectedFirstRow, copyPtg.getFirstRow());
+		assertEquals("AreaPtg last row", expectedLastRow, copyPtg.getLastRow());
+
 	}
+	
+	private static AreaPtg createAreaPtg(int initialAreaFirstRow, int initialAreaLastRow) {
+		return createAreaPtg(initialAreaFirstRow, initialAreaLastRow, false, false);
+	}
+	
+	private static AreaPtg createAreaPtg(int initialAreaFirstRow, int initialAreaLastRow, boolean firstRowRelative, boolean lastRowRelative) {
+		return new AreaPtg(initialAreaFirstRow, initialAreaLastRow, 2, 5, firstRowRelative, lastRowRelative, false, false);
+	}
+
+	public void testShiftSheet() {
+	    // 4 sheets, move a sheet from pos 2 to pos 0, i.e. current 0 becomes 1, current 1 becomes pos 2 
+        FormulaShifter shifter = FormulaShifter.createForSheetShift(2, 0);
+        
+        Ptg[] ptgs = new Ptg[] {
+          new Ref3DPtg(new CellReference("first", 0, 0, true, true), 0),
+          new Ref3DPtg(new CellReference("second", 0, 0, true, true), 1),
+          new Ref3DPtg(new CellReference("third", 0, 0, true, true), 2),
+          new Ref3DPtg(new CellReference("fourth", 0, 0, true, true), 3),
+        };
+        
+        shifter.adjustFormula(ptgs, -1);
+        
+        assertEquals("formula previously pointing to sheet 0 should now point to sheet 1", 
+                1, ((Ref3DPtg)ptgs[0]).getExternSheetIndex());
+        assertEquals("formula previously pointing to sheet 1 should now point to sheet 2", 
+                2, ((Ref3DPtg)ptgs[1]).getExternSheetIndex());
+        assertEquals("formula previously pointing to sheet 2 should now point to sheet 0", 
+                0, ((Ref3DPtg)ptgs[2]).getExternSheetIndex());
+        assertEquals("formula previously pointing to sheet 3 should be unchanged", 
+                3, ((Ref3DPtg)ptgs[3]).getExternSheetIndex());
+	}
+
+    public void testShiftSheet2() {
+        // 4 sheets, move a sheet from pos 1 to pos 2, i.e. current 2 becomes 1, current 1 becomes pos 2 
+        FormulaShifter shifter = FormulaShifter.createForSheetShift(1, 2);
+        
+        Ptg[] ptgs = new Ptg[] {
+          new Ref3DPtg(new CellReference("first", 0, 0, true, true), 0),
+          new Ref3DPtg(new CellReference("second", 0, 0, true, true), 1),
+          new Ref3DPtg(new CellReference("third", 0, 0, true, true), 2),
+          new Ref3DPtg(new CellReference("fourth", 0, 0, true, true), 3),
+        };
+
+        shifter.adjustFormula(ptgs, -1);
+        
+        assertEquals("formula previously pointing to sheet 0 should be unchanged", 
+                0, ((Ref3DPtg)ptgs[0]).getExternSheetIndex());
+        assertEquals("formula previously pointing to sheet 1 should now point to sheet 2", 
+                2, ((Ref3DPtg)ptgs[1]).getExternSheetIndex());
+        assertEquals("formula previously pointing to sheet 2 should now point to sheet 1", 
+                1, ((Ref3DPtg)ptgs[2]).getExternSheetIndex());
+        assertEquals("formula previously pointing to sheet 3 should be unchanged", 
+                3, ((Ref3DPtg)ptgs[3]).getExternSheetIndex());
+    }
+    
+    public void testInvalidArgument() {
+        try {
+            FormulaShifter.createForRowShift(1, "name", 1, 2, 0, SpreadsheetVersion.EXCEL97);
+            fail("Should catch exception here");
+        } catch (IllegalArgumentException e) {
+            // expected here
+        }
+
+        try {
+            FormulaShifter.createForRowShift(1, "name", 2, 1, 2, SpreadsheetVersion.EXCEL97);
+            fail("Should catch exception here");
+        } catch (IllegalArgumentException e) {
+            // expected here
+        }
+    }
+    
+    @SuppressWarnings("deprecation")
+    public void testConstructor() {
+        assertNotNull(FormulaShifter.createForRowShift(1, "name", 1, 2, 2));
+    }
+
+    public void testToString() {
+        FormulaShifter shifter = FormulaShifter.createForRowShift(0, "sheet", 123, 456, 789,
+                SpreadsheetVersion.EXCEL2007);
+        assertNotNull(shifter);
+        assertNotNull(shifter.toString());
+        assertTrue(shifter.toString().contains("123"));
+        assertTrue(shifter.toString().contains("456"));
+        assertTrue(shifter.toString().contains("789"));
+    }
 }

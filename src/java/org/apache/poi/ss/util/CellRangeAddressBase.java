@@ -17,6 +17,8 @@
 
 package org.apache.poi.ss.util;
 
+import java.awt.Rectangle;
+
 import org.apache.poi.ss.SpreadsheetVersion;
 
 
@@ -123,6 +125,44 @@ public abstract class CellRangeAddressBase {
 		return _firstRow <= rowInd && rowInd <= _lastRow &&
 				_firstCol <= colInd && colInd <= _lastCol;
 	}
+	
+	/**
+	 * Determines whether or not this CellRangeAddress and the specified CellRangeAddress intersect.
+	 *
+	 * @param other a candidate cell range address to check for intersection with this range
+	 * @return returns true if this range and other range have at least 1 cell in common
+	 */
+	public boolean intersects(CellRangeAddressBase other) {
+		// see java.awt.Rectangle.intersects
+		// http://stackoverflow.com/questions/13390333/two-rectangles-intersection
+	    
+		// TODO: Replace with an intersection code that doesn't rely on java.awt
+		return getRectangle().intersects(other.getRectangle());
+	}
+	
+	// TODO: Replace with an intersection code that doesn't rely on java.awt
+	// Don't let this temporary implementation detail leak outside of this class
+	private final Rectangle getRectangle() {
+		int firstRow, firstCol, lastRow, lastCol;
+		
+		if (!isFullColumnRange()) {
+			firstRow = Math.min(_firstRow, _lastRow);
+			lastRow = Math.max(_firstRow,  _lastRow);
+		}
+		else {
+			firstRow = 0;
+			lastRow = Integer.MAX_VALUE;
+		}
+		if (!isFullRowRange()) {
+			firstCol = Math.min(_firstCol, _lastCol);
+			lastCol = Math.max(_firstCol, _lastCol);
+		}
+		else {
+			firstCol = 0;
+			lastCol = Integer.MAX_VALUE;
+		}
+		return new Rectangle(firstRow, firstCol, lastRow-firstRow+1, lastCol-firstCol+1);
+	}
 
 	/**
 	 * @param firstCol column number for the upper left hand corner
@@ -163,5 +203,40 @@ public abstract class CellRangeAddressBase {
 		CellReference crA = new CellReference(_firstRow, _firstCol);
 		CellReference crB = new CellReference(_lastRow, _lastCol);
 		return getClass().getName() + " [" + crA.formatAsString() + ":" + crB.formatAsString() +"]";
+	}
+	
+	// In case _firstRow > _lastRow or _firstCol > _lastCol
+	protected int getMinRow() {
+		return Math.min(_firstRow, _lastRow);
+	}
+	protected int getMaxRow() {
+		return Math.max(_firstRow, _lastRow);
+	}
+	protected int getMinColumn() {
+		return Math.min(_firstCol, _lastCol);
+	}
+	protected int getMaxColumn() {
+		return Math.max(_firstCol, _lastCol);
+	}
+	
+	@Override
+	public boolean equals(Object other) {
+		if (other instanceof CellRangeAddressBase) {
+			CellRangeAddressBase o = (CellRangeAddressBase) other;
+			return ((getMinRow() == o.getMinRow()) &&
+					(getMaxRow() == o.getMaxRow()) &&
+					(getMinColumn() == o.getMinColumn()) &&
+					(getMaxColumn() == o.getMaxColumn()));
+		}
+		return false;
+	}
+	
+	@Override
+	public int hashCode() {
+		int code = (getMinColumn() +
+		(getMaxColumn() << 8) +
+		(getMinRow() << 16) +
+		(getMaxRow() << 24));
+		return code;
 	}
 }

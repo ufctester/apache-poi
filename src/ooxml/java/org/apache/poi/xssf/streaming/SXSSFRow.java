@@ -18,37 +18,53 @@
 package org.apache.poi.xssf.streaming;
 
 import java.util.Iterator;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 import org.apache.poi.ss.SpreadsheetVersion;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.util.Internal;
 
 /**
  * Streaming version of XSSFRow implementing the "BigGridDemo" strategy.
  *
  * @author Alex Geller, Four J's Development Tools
 */
-public class SXSSFRow implements Row
+public class SXSSFRow implements Row, Comparable<SXSSFRow>
 {
-    SXSSFSheet _sheet;
-    SXSSFCell[] _cells;
-    int _maxColumn=-1;
-    short _style=-1;
-    short _height=-1;
-    boolean _zHeight = false;
-    int _outlineLevel = 0;   // Outlining level of the row, when outlining is on
+    private static final Boolean UNDEFINED = null;
+    
+    private final SXSSFSheet _sheet; // parent sheet
+    private final SortedMap<Integer, SXSSFCell> _cells = new TreeMap<Integer, SXSSFCell>();
+    private short _style = -1; // index of cell style in style table
+    private short _height = -1; // row height in twips (1/20 point)
+    private boolean _zHeight = false; // row zero-height (this is somehow different than being hidden)
+    private int _outlineLevel = 0;   // Outlining level of the row, when outlining is on
     // use Boolean to have a tri-state for on/off/undefined 
-    Boolean _hidden;
-    Boolean _collapsed;
-	
+    private Boolean _hidden = UNDEFINED;
+    private Boolean _collapsed = UNDEFINED;
+
+    /**
+     *
+     * @param sheet the parent sheet the row belongs to
+     * @param initialSize - no longer needed
+     * @deprecated 2015-11-30 (circa POI 3.14beta1). Use {@link #SXSSFRow(SXSSFSheet)} instead.
+     */
     public SXSSFRow(SXSSFSheet sheet, int initialSize)
     {
-        _sheet=sheet;
-        _cells=new SXSSFCell[initialSize];
+        this(sheet);
     }
+    
+    public SXSSFRow(SXSSFSheet sheet)
+    {
+        _sheet=sheet;
+    }
+    
     public Iterator<Cell> allCellsIterator()
     {
         return new CellIterator();
@@ -65,10 +81,20 @@ public class SXSSFRow implements Row
         _outlineLevel = level;
     }
     
+    /**
+     * get row hidden state: Hidden (true), Unhidden (false), Undefined (null)
+     *
+     * @return row hidden state
+     */
     public Boolean getHidden() {
         return _hidden;
     }
 
+    /**
+     * set row hidden state: Hidden (true), Unhidden (false), Undefined (null)
+     *
+     * @param hidden row hidden state
+     */
     public void setHidden(Boolean hidden) {
         this._hidden = hidden;
     }
@@ -81,6 +107,10 @@ public class SXSSFRow implements Row
         this._collapsed = collapsed;
     }
 //begin of interface implementation
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public Iterator<Cell> iterator()
     {
         return new FilledCellIterator();
@@ -97,9 +127,10 @@ public class SXSSFRow implements Row
      * @throws IllegalArgumentException if columnIndex < 0 or greater than the maximum number of supported columns
      * (255 for *.xls, 1048576 for *.xlsx)
      */
+    @Override
     public SXSSFCell createCell(int column)
     {
-        return createCell(column,Cell.CELL_TYPE_BLANK);
+        return createCell(column, Cell.CELL_TYPE_BLANK);
     }
 
     /**
@@ -113,19 +144,13 @@ public class SXSSFRow implements Row
      * @throws IllegalArgumentException if columnIndex < 0 or greate than a maximum number of supported columns
      * (255 for *.xls, 1048576 for *.xlsx)
      */
+    @Override
     public SXSSFCell createCell(int column, int type)
     {
         checkBounds(column);
-
-        if(column>=_cells.length)
-        {
-            SXSSFCell[] newCells=new SXSSFCell[Math.max(column+1,_cells.length*2)];
-            System.arraycopy(_cells,0,newCells,0,_cells.length);
-            _cells=newCells;
-        }
-        _cells[column]=new SXSSFCell(this,type);
-        if(column>_maxColumn) _maxColumn=column;
-        return _cells[column];
+        SXSSFCell cell = new SXSSFCell(this, type);
+        _cells.put(column, cell);
+        return cell;
     }
 
     /**
@@ -146,21 +171,26 @@ public class SXSSFRow implements Row
      *
      * @param cell the cell to remove
      */
+    @Override
     public void removeCell(Cell cell)
     {
-        int index=getCellIndex(cell);
-        if(index>=0)
-        {
-            _cells[index]=null;
-            while(_maxColumn>=0&&_cells[_maxColumn]==null) _maxColumn--;
-        }
+        int index = getCellIndex((SXSSFCell) cell);
+        _cells.remove(index);
     }
 
-    int getCellIndex(Cell cell)
+    /**
+     * Return the column number of a cell if it is in this row
+     * Otherwise return -1
+     *
+     * @param cell the cell to get the index of
+     * @return cell column index if it is in this row, -1 otherwise
+     */
+    /*package*/ int getCellIndex(SXSSFCell cell)
     {
-        for(int i=0;i<=_maxColumn;i++)
-        {
-            if(_cells[i]==cell) return i;
+        for (Entry<Integer, SXSSFCell> entry : _cells.entrySet()) {
+            if (entry.getValue()==cell) {
+                return entry.getKey();
+            }
         }
         return -1;
     }
@@ -171,6 +201,7 @@ public class SXSSFRow implements Row
      * @param rowNum  the row number (0-based)
      * @throws IllegalArgumentException if rowNum < 0
      */
+    @Override
     public void setRowNum(int rowNum)
     {
         _sheet.changeRowNum(this,rowNum);
@@ -181,42 +212,26 @@ public class SXSSFRow implements Row
      *
      * @return the row number (0 based)
      */
+    @Override
     public int getRowNum()
     {
         return _sheet.getRowNum(this);
     }
 
     /**
-     * Get the cell representing a given column (logical cell) 0-based.  If you
-     * ask for a cell that is not defined....you get a null.
+     * Get the cell representing a given column (logical cell) 0-based.
+     * If cell is missing or blank, uses the workbook's MissingCellPolicy
+     * to determine the return value.
      *
      * @param cellnum  0 based column number
      * @return Cell representing that column or null if undefined.
      * @see #getCell(int, org.apache.poi.ss.usermodel.Row.MissingCellPolicy)
+     * @throws RuntimeException if cellnum is out of bounds
      */
+    @Override
     public SXSSFCell getCell(int cellnum) {
-        if(cellnum < 0) throw new IllegalArgumentException("Cell index must be >= 0");
-
-        SXSSFCell cell = cellnum > _maxColumn ? null : _cells[cellnum];
-
         MissingCellPolicy policy = _sheet.getWorkbook().getMissingCellPolicy();
-        if(policy == RETURN_NULL_AND_BLANK) {
-            return cell;
-        }
-        if (policy == RETURN_BLANK_AS_NULL) {
-            if (cell == null) return cell;
-            if (cell.getCellType() == Cell.CELL_TYPE_BLANK) {
-                return null;
-            }
-            return cell;
-        }
-        if (policy == CREATE_NULL_AS_BLANK) {
-            if (cell == null) {
-                return createCell((short) cellnum, Cell.CELL_TYPE_BLANK);
-            }
-            return cell;
-        }
-        throw new IllegalArgumentException("Illegal policy " + policy + " (" + policy.id + ")");
+        return getCell(cellnum, policy);
     }
 
     /**
@@ -228,25 +243,28 @@ public class SXSSFRow implements Row
      * @see Row#RETURN_BLANK_AS_NULL
      * @see Row#CREATE_NULL_AS_BLANK
      */
-    public Cell getCell(int cellnum, MissingCellPolicy policy)
+    @Override
+    public SXSSFCell getCell(int cellnum, MissingCellPolicy policy)
     {
-        Cell cell = getCell(cellnum);
-        if(policy == RETURN_NULL_AND_BLANK)
+        checkBounds(cellnum);
+        
+        // FIXME: replace with switch(enum)
+        final SXSSFCell cell = _cells.get(cellnum);
+        if (policy == RETURN_NULL_AND_BLANK)
         {
             return cell;
         }
-        if(policy == RETURN_BLANK_AS_NULL)
+        else if (policy == RETURN_BLANK_AS_NULL)
         {
-            if(cell == null) return cell;
-            if(cell.getCellType() == Cell.CELL_TYPE_BLANK)
+            if (cell == null || cell.getCellType() == Cell.CELL_TYPE_BLANK)
             {
                 return null;
             }
             return cell;
         }
-        if(policy == CREATE_NULL_AS_BLANK)
+        else if (policy == CREATE_NULL_AS_BLANK)
         {
-            if(cell == null)
+            if (cell == null)
             {
                 return createCell(cellnum, Cell.CELL_TYPE_BLANK);
             }
@@ -261,11 +279,14 @@ public class SXSSFRow implements Row
      * @return short representing the first logical cell in the row,
      *  or -1 if the row does not contain any cells.
      */
+    @Override
     public short getFirstCellNum()
     {
-        for(int i=0;i<=_maxColumn;i++)
-            if(_cells[i]!=null) return (short)i;
-        return -1;
+        try {
+            return _cells.firstKey().shortValue();
+        } catch (final NoSuchElementException e) {
+            return -1;
+        }
     }
 
     /**
@@ -287,9 +308,10 @@ public class SXSSFRow implements Row
      * @return short representing the last logical cell in the row <b>PLUS ONE</b>,
      *   or -1 if the row does not contain any cells.
      */
+    @Override
     public short getLastCellNum()
     {
-        return _maxColumn == -1 ? -1 : (short)(_maxColumn+1);
+        return _cells.isEmpty() ? -1 : (short)(_cells.lastKey() + 1);
     }
 
     /**
@@ -298,14 +320,10 @@ public class SXSSFRow implements Row
      *
      * @return int representing the number of defined cells in the row.
      */
+    @Override
     public int getPhysicalNumberOfCells()
     {
-        int count=0;
-        for(int i=0;i<=_maxColumn;i++)
-        {
-            if(_cells[i]!=null) count++;
-        }
-        return count;
+        return _cells.size();
     }
 
     /**
@@ -314,6 +332,7 @@ public class SXSSFRow implements Row
      *
      * @param height  rowheight or 0xff for undefined (use sheet default)
      */
+    @Override
     public void setHeight(short height)
     {
         _height=height;
@@ -324,6 +343,7 @@ public class SXSSFRow implements Row
      *
      * @param zHeight  height is zero or not.
      */
+    @Override
     public void setZeroHeight(boolean zHeight)
     {
         _zHeight=zHeight;
@@ -334,6 +354,7 @@ public class SXSSFRow implements Row
      *
      * @return - zHeight height is zero or not.
      */
+    @Override
     public boolean getZeroHeight()
     {
         return _zHeight;
@@ -344,6 +365,7 @@ public class SXSSFRow implements Row
      *
      * @param height the height in points. <code>-1</code>  resets to the default height
      */
+    @Override
     public void setHeightInPoints(float height)
     {
         if(height==-1)
@@ -358,6 +380,7 @@ public class SXSSFRow implements Row
      *
      * @return row height measured in twips (1/20th of a point)
      */
+    @Override
     public short getHeight()
     {
         return (short)(_height==-1?getSheet().getDefaultRowHeightInPoints()*20:_height);
@@ -370,9 +393,10 @@ public class SXSSFRow implements Row
      * @return row height measured in point size
      * @see Sheet#getDefaultRowHeightInPoints()
      */
+    @Override
     public float getHeightInPoints()
     {
-        return (float)(_height==-1?getSheet().getDefaultRowHeightInPoints():(float)_height/20.0);
+        return (float)(_height==-1?getSheet().getDefaultRowHeightInPoints():_height/20.0);
     }
     
     /**
@@ -380,6 +404,7 @@ public class SXSSFRow implements Row
      *  do have whole-row styles. For those that do, you
      *  can get the formatting from {@link #getRowStyle()}
      */
+    @Override
     public boolean isFormatted() {
         return _style > -1;
     }
@@ -388,15 +413,23 @@ public class SXSSFRow implements Row
      *  have one of these, so will return null. Call
      *  {@link #isFormatted()} to check first.
      */
+    @Override
     public CellStyle getRowStyle() {
        if(!isFormatted()) return null;
        
        return getSheet().getWorkbook().getCellStyleAt(_style);
     }
     
+    @Internal
+    /*package*/ int getRowStyleIndex() {
+        return _style;
+    }
+    
     /**
      * Applies a whole-row cell styling to the row.
+     * The row style can be cleared by passing in <code>null</code>.
      */
+    @Override
     public void setRowStyle(CellStyle style) {
        if(style == null) {
           _style = -1;
@@ -407,9 +440,9 @@ public class SXSSFRow implements Row
     }
 
     /**
-     * @return Cell iterator of the physically defined cells.  Note element 4 may
-     * actually be row cell depending on how many are defined!
+     * {@inheritDoc}
      */
+    @Override
     public Iterator<Cell> cellIterator()
     {
         return iterator();
@@ -420,6 +453,7 @@ public class SXSSFRow implements Row
      *
      * @return the Sheet that owns this row
      */
+    @Override
     public SXSSFSheet getSheet()
     {
         return _sheet;
@@ -427,66 +461,116 @@ public class SXSSFRow implements Row
 //end of interface implementation
 
 
-/** returns all filled cells (created via Row.createCell())*/
+    /**
+     * Create an iterator over the cells from [0, getLastCellNum()).
+     * Includes blank cells, excludes empty cells
+     * 
+     * Returns an iterator over all filled cells (created via Row.createCell())
+     * Throws ConcurrentModificationException if cells are added, moved, or
+     * removed after the iterator is created.
+     */
     public class FilledCellIterator implements Iterator<Cell>
     {
-        int pos=0;
+        private final Iterator<SXSSFCell> iter = _cells.values().iterator();
 
-        FilledCellIterator(){
-            for (int i = 0; i <= _maxColumn; i++) {
-                if (_cells[i] != null) {
-                    pos = i;
-                    break;
-                }
-            }
-        }
-
+        @Override
         public boolean hasNext()
         {
-            return pos <= _maxColumn;
+            return iter.hasNext();
         }
-        void advanceToNext()
-        {
-            pos++;
-            while(pos<=_maxColumn&&_cells[pos]==null) pos++;
-        }
+        @Override
         public Cell next() throws NoSuchElementException
         {
-            if (hasNext())
-            {
-                Cell retval=_cells[pos];
-                advanceToNext();
-                return retval;
-            }
-            else
-            {
-                throw new NoSuchElementException();
-            }
+            return iter.next();
         }
+        @Override
         public void remove()
         {
             throw new UnsupportedOperationException();
         }
     }
-/** returns all cells including empty cells in which case "null" is returned*/
+    /**
+     * returns all cells including empty cells (<code>null</code> values are returned
+     * for empty cells).
+     * This method is not synchronized. This iterator should not be used after
+     * cells are added, moved, or removed, though a ConcurrentModificationException
+     * is NOT thrown.
+     */
     public class CellIterator implements Iterator<Cell>
     {
-        int pos=0;
+        final int maxColumn = getLastCellNum(); //last column PLUS ONE
+        int pos = 0;
+
+        @Override
         public boolean hasNext()
         {
-            return pos <= _maxColumn;
+            return pos < maxColumn;
         }
+        @Override
         public Cell next() throws NoSuchElementException
         {
             if (hasNext())
-                return _cells[pos++];
+                return _cells.get(pos++);
             else
                 throw new NoSuchElementException();
         }
+        @Override
         public void remove()
         {
             throw new UnsupportedOperationException();
         }
     }
+    
+    /**
+     * Compares two <code>SXSSFRow</code> objects.  Two rows are equal if they belong to the same worksheet and
+     * their row indexes are equal.
+     *
+     * @param   other   the <code>SXSSFRow</code> to be compared.
+     * @return  <ul>
+     *      <li>
+     *      the value <code>0</code> if the row number of this <code>SXSSFRow</code> is
+     *      equal to the row number of the argument <code>SXSSFRow</code>
+     *      </li>
+     *      <li>
+     *      a value less than <code>0</code> if the row number of this this <code>SXSSFRow</code> is
+     *      numerically less than the row number of the argument <code>SXSSFRow</code>
+     *      </li>
+     *      <li>
+     *      a value greater than <code>0</code> if the row number of this this <code>SXSSFRow</code> is
+     *      numerically greater than the row number of the argument <code>SXSSFRow</code>
+     *      </li>
+     *      </ul>
+     * @throws IllegalArgumentException if the argument row belongs to a different worksheet
+     */
+    @Override
+    public int compareTo(SXSSFRow other) {
+        if (this.getSheet() != other.getSheet()) {
+            throw new IllegalArgumentException("The compared rows must belong to the same sheet");
+        }
+
+        Integer thisRow = this.getRowNum();
+        Integer otherRow = other.getRowNum();
+        return thisRow.compareTo(otherRow);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (!(obj instanceof SXSSFRow))
+        {
+            return false;
+        }
+        SXSSFRow other = (SXSSFRow) obj;
+
+        return (this.getRowNum() == other.getRowNum()) &&
+               (this.getSheet() == other.getSheet());
+    }
+
+    @Override
+    public int hashCode() {
+        return _cells.hashCode();
+    }
+
+
 }
 

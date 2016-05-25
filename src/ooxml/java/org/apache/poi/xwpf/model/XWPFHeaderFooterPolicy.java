@@ -16,14 +16,15 @@
 ==================================================================== */
 package org.apache.poi.xwpf.model;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
 
 import org.apache.poi.POIXMLDocumentPart;
+import org.apache.poi.POIXMLDocumentPart.RelationPart;
+import org.apache.poi.util.POILogFactory;
+import org.apache.poi.util.POILogger;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFFactory;
 import org.apache.poi.xwpf.usermodel.XWPFFooter;
@@ -31,7 +32,6 @@ import org.apache.poi.xwpf.usermodel.XWPFHeader;
 import org.apache.poi.xwpf.usermodel.XWPFHeaderFooter;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFRelation;
-import org.apache.xmlbeans.XmlOptions;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTBody;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHdrFtr;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHdrFtrRef;
@@ -46,18 +46,18 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.HdrDocument;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STHdrFtr;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STHdrFtr.Enum;
 
-import schemasMicrosoftComOfficeOffice.CTLock;
-import schemasMicrosoftComOfficeOffice.STConnectType;
-import schemasMicrosoftComVml.CTFormulas;
-import schemasMicrosoftComVml.CTGroup;
-import schemasMicrosoftComVml.CTH;
-import schemasMicrosoftComVml.CTHandles;
-import schemasMicrosoftComVml.CTPath;
-import schemasMicrosoftComVml.CTShape;
-import schemasMicrosoftComVml.CTShapetype;
-import schemasMicrosoftComVml.CTTextPath;
-import schemasMicrosoftComVml.STExt;
-import schemasMicrosoftComVml.STTrueFalse;
+import com.microsoft.schemas.office.office.CTLock;
+import com.microsoft.schemas.office.office.STConnectType;
+import com.microsoft.schemas.vml.CTFormulas;
+import com.microsoft.schemas.vml.CTGroup;
+import com.microsoft.schemas.vml.CTH;
+import com.microsoft.schemas.vml.CTHandles;
+import com.microsoft.schemas.vml.CTPath;
+import com.microsoft.schemas.vml.CTShape;
+import com.microsoft.schemas.vml.CTShapetype;
+import com.microsoft.schemas.vml.CTTextPath;
+import com.microsoft.schemas.vml.STExt;
+import com.microsoft.schemas.vml.STTrueFalse;
 
 /**
  * A .docx file can have no headers/footers, the same header/footer
@@ -67,6 +67,8 @@ import schemasMicrosoftComVml.STTrueFalse;
  * the right headers and footers for the document.
  */
 public class XWPFHeaderFooterPolicy {
+    private static final POILogger LOG = POILogFactory.getLogger(XWPFHeaderFooterPolicy.class);
+    
     public static final Enum DEFAULT = STHdrFtr.DEFAULT;
     public static final Enum EVEN = STHdrFtr.EVEN;
     public static final Enum FIRST = STHdrFtr.FIRST;
@@ -176,10 +178,8 @@ public class XWPFHeaderFooterPolicy {
         OutputStream outputStream = wrapper.getPackagePart().getOutputStream();
         hdrDoc.setHdr(hdr);
 
-        XmlOptions xmlOptions = commit(wrapper);
-
         assignHeader(wrapper, type);
-        hdrDoc.save(outputStream, xmlOptions);
+        hdrDoc.save(outputStream, DEFAULT_XML_OPTIONS);
         outputStream.close();
         
         return wrapper;
@@ -213,20 +213,16 @@ public class XWPFHeaderFooterPolicy {
         OutputStream outputStream = wrapper.getPackagePart().getOutputStream();
         ftrDoc.setFtr(ftr);
 
-        XmlOptions xmlOptions = commit(wrapper);
-
         assignFooter(wrapper, type);
-        ftrDoc.save(outputStream, xmlOptions);
+        ftrDoc.save(outputStream, DEFAULT_XML_OPTIONS);
         outputStream.close();
         return wrapper;
     }
 
     private int getRelationIndex(XWPFRelation relation) {
-        List<POIXMLDocumentPart> relations = doc.getRelations();
         int i = 1;
-        for (Iterator<POIXMLDocumentPart> it = relations.iterator(); it.hasNext(); ) {
-            POIXMLDocumentPart item = it.next();
-            if (item.getPackageRelationship().getRelationshipType().equals(relation.getRelation())) {
+        for (RelationPart rp : doc.getRelationParts()) {
+            if (rp.getRelationship().getRelationshipType().equals(relation.getRelation())) {
                 i++;
             }
         }
@@ -245,26 +241,6 @@ public class XWPFHeaderFooterPolicy {
         CTHdrFtr hdr = buildHdrFtr(pStyle, pars, wrapper);        // MB 24 May 2010
         setHeaderReference(type, wrapper);
         return hdr;
-    }
-
-    private CTHdrFtr buildHdrFtr(String pStyle, XWPFParagraph[] paragraphs) {
-        CTHdrFtr ftr = CTHdrFtr.Factory.newInstance();
-        if (paragraphs != null) {
-            for (int i = 0; i < paragraphs.length; i++) {
-                CTP p = ftr.addNewP();
-                //ftr.setPArray(0, paragraphs[i].getCTP());		// MB 23 May 2010
-                ftr.setPArray(i, paragraphs[i].getCTP());    // MB 23 May 2010
-            }
-        } else {
-            CTP p = ftr.addNewP();
-            byte[] rsidr = doc.getDocument().getBody().getPArray(0).getRsidR();
-            byte[] rsidrdefault = doc.getDocument().getBody().getPArray(0).getRsidRDefault();
-            p.setRsidP(rsidr);
-            p.setRsidRDefault(rsidrdefault);
-            CTPPr pPr = p.addNewPPr();
-            pPr.addNewPStyle().setVal(pStyle);
-        }
-        return ftr;
     }
 
     /**
@@ -308,33 +284,16 @@ public class XWPFHeaderFooterPolicy {
     private void setFooterReference(Enum type, XWPFHeaderFooter wrapper) {
         CTHdrFtrRef ref = doc.getDocument().getBody().getSectPr().addNewFooterReference();
         ref.setType(type);
-        ref.setId(wrapper.getPackageRelationship().getId());
+        ref.setId(doc.getRelationId(wrapper));
     }
 
 
     private void setHeaderReference(Enum type, XWPFHeaderFooter wrapper) {
         CTHdrFtrRef ref = doc.getDocument().getBody().getSectPr().addNewHeaderReference();
         ref.setType(type);
-        ref.setId(wrapper.getPackageRelationship().getId());
+        ref.setId(doc.getRelationId(wrapper));
     }
-
-
-    private XmlOptions commit(XWPFHeaderFooter wrapper) {
-        XmlOptions xmlOptions = new XmlOptions(POIXMLDocumentPart.DEFAULT_XML_OPTIONS);
-        Map<String, String> map = new HashMap<String, String>();
-        map.put("http://schemas.openxmlformats.org/officeDocument/2006/math", "m");
-        map.put("urn:schemas-microsoft-com:office:office", "o");
-        map.put("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "r");
-        map.put("urn:schemas-microsoft-com:vml", "v");
-        map.put("http://schemas.openxmlformats.org/markup-compatibility/2006", "ve");
-        map.put("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "w");
-        map.put("urn:schemas-microsoft-com:office:word", "w10");
-        map.put("http://schemas.microsoft.com/office/word/2006/wordml", "wne");
-        map.put("http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing", "wp");
-        xmlOptions.setSaveSuggestedPrefixes(map);
-        return xmlOptions;
-    }
-
+    
     public XWPFHeader getFirstPageHeader() {
         return firstPageHeader;
     }
@@ -417,8 +376,7 @@ public class XWPFHeaderFooterPolicy {
             pars[0] = getWatermarkParagraph(text, 3);
             createHeader(EVEN, pars);
         } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            LOG.log(POILogger.ERROR, "error while creating watermark", e);
         }
     }
 

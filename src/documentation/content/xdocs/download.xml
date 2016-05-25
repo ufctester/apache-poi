@@ -33,8 +33,8 @@
        <link href="index.html">the project homepage</link>.
       </p>
       <ul>
-          <li><link href="download.html#POI-3.13-beta1">The latest beta release is Apache POI 3.13-beta1</link></li>
-          <li><link href="download.html#POI-3.12">The latest stable release is Apache POI 3.12</link></li>
+          <li><link href="download.html#POI-3.14-beta1">The latest beta release is Apache POI 3.14-beta1</link></li>
+          <li><link href="download.html#POI-3.13">The latest stable release is Apache POI 3.13</link></li>
           <li><link href="download.html#archive">Archives of all prior releases</link></li>
       </ul>
       <p>
@@ -46,9 +46,10 @@
         of the files using the signatures and checksums available from this page.
       </p>
     </section>
-    <section id="POI-3.13-beta1"><title>22 July 2015 - POI 3.13-beta1 available</title>
-      <p>The Apache POI team is pleased to announce the release of 3.13-beta1. 
-         Featured are a handful of new areas of functionality, and numerous bug fixes.</p>
+    <section id="POI-3.14-beta1"><title>23 December 2015 - POI 3.14-beta1 available</title>
+      <p>The Apache POI team is pleased to announce the release of 3.14-beta1. 
+         Featured are a handful of new areas of functionality - including basic support for
+         the XML Visio format - and numerous bug fixes.</p>
       <p>A summary of changes is available in the 
         <link href="http://www.apache.org/dyn/closer.lua/poi/dev/RELEASE-NOTES.txt">Release Notes</link>.
         A full list of changes is available in the <link href="changes.html">change log</link>. 
@@ -58,54 +59,54 @@
         The POI source release as well as the pre-built binary deployment packages are listed below. 
         Pre-built versions of all <link href="index.html#components">POI components</link> 
         are available in the central Maven repository under Group ID "org.apache.poi" and Version 
-        "3.13-beta1".
+        "3.14-beta1".
       </p>
       <section><title>Binary Distribution</title>
       <ul>
-        <li><link href="http://www.apache.org/dyn/closer.lua/poi/dev/bin/poi-bin-3.13-beta1-20150723.tar.gz">poi-bin-3.13-beta1-20150723.tar.gz</link>
-          (18MB, <link href="http://www.apache.org/dist/poi/dev/bin/poi-bin-3.13-beta1-20150723.tar.gz.asc">signed</link>)
+        <li><link href="http://www.apache.org/dyn/closer.lua/poi/dev/bin/poi-bin-3.14-beta1-20151223.tar.gz">poi-bin-3.14-beta1-20151223.tar.gz</link>
+          (18MB, <link href="http://www.apache.org/dist/poi/dev/bin/poi-bin-3.14-beta1-20151223.tar.gz.asc">signed</link>)
           <br/>
-          MD5 checksum: <link href="http://www.apache.org/dist/poi/dev/bin/poi-bin-3.13-beta1-20150723.tar.gz.md5">
-          21ea88715420f2c89bb04f7d57458ba2</link> 
+          MD5 checksum: <link href="http://www.apache.org/dist/poi/dev/bin/poi-bin-3.14-beta1-20151223.tar.gz.md5">
+          eec1fabd60670ad78bc5c0c7ad9b5923</link> 
           <br/>
-          SHA1 checksum: <link href="http://www.apache.org/dist/poi/dev/bin/poi-bin-3.13-beta1-20150723.tar.gz.sha1">
-          c255b6f0af5c19204290d54066b554b83f3b60cf</link> 
+          SHA1 checksum: <link href="http://www.apache.org/dist/poi/dev/bin/poi-bin-3.14-beta1-20151223.tar.gz.sha1">
+          857afcfd50ca81a031a3b34bd7758317f4b66195</link> 
         </li>
-        <li><link href="http://www.apache.org/dyn/closer.lua/poi/dev/bin/poi-bin-3.13-beta1-20150723.zip">poi-bin-3.13-beta1-20150723.zip</link>
-          (25MB, <link href="http://www.apache.org/dist/poi/dev/bin/poi-bin-3.13-beta1-20150723.zip.asc">signed</link>)
+        <li><link href="http://www.apache.org/dyn/closer.lua/poi/dev/bin/poi-bin-3.14-beta1-20151223.zip">poi-bin-3.14-beta1-20151223.zip</link>
+          (25MB, <link href="http://www.apache.org/dist/poi/dev/bin/poi-bin-3.14-beta1-20151223.zip.asc">signed</link>)
           <br/>
-          MD5 checksum: <link href="http://www.apache.org/dist/poi/dev/bin/poi-bin-3.13-beta1-20150723.zip.md5">
-          723f0f985476cfaf794ca050dbe2ddb2</link> 
+          MD5 checksum: <link href="http://www.apache.org/dist/poi/dev/bin/poi-bin-3.14-beta1-20151223.zip.md5">
+          d20a2607041aed6c15abdb35b39eef3b</link> 
           <br/>
-          SHA1 checksum: <link href="http://www.apache.org/dist/poi/dev/bin/poi-bin-3.13-beta1-20150723.zip.sha1">
-          ccc167ae77791eda816ec6bba20be7bfef55f2a9</link> 
+          SHA1 checksum: <link href="http://www.apache.org/dist/poi/dev/bin/poi-bin-3.14-beta1-20151223.zip.sha1">
+          d93800b2d69196215ff065cb5e48c2b00fa71a17</link> 
         </li>
       </ul>
       </section>
       <section><title>Source Distribution</title>
       <ul>
-        <li><link href="http://www.apache.org/dyn/closer.lua/poi/dev/src/poi-src-3.13-beta1-20150723.tar.gz">poi-src-3.13-beta1-20150723.tar.gz</link>
-          (58MB, <link href="http://www.apache.org/dist/poi/dev/src/poi-src-3.13-beta1-20150723.tar.gz.asc">signed</link>)
+        <li><link href="http://www.apache.org/dyn/closer.lua/poi/dev/src/poi-src-3.14-beta1-20151223.tar.gz">poi-src-3.14-beta1-20151223.tar.gz</link>
+          (58MB, <link href="http://www.apache.org/dist/poi/dev/src/poi-src-3.14-beta1-20151223.tar.gz.asc">signed</link>)
           <br/>
-          MD5 checksum: <link href="http://www.apache.org/dist/poi/dev/src/poi-src-3.13-beta1-20150723.tar.gz.md5">
-          87965d40044f02c196574ccf4af17fe5</link> 
+          MD5 checksum: <link href="http://www.apache.org/dist/poi/dev/src/poi-src-3.14-beta1-20151223.tar.gz.md5">
+          8dd3cfa19d3c8e8d381fa33e499b9c2b</link> 
           <br/>
-          SHA1 checksum: <link href="http://www.apache.org/dist/poi/dev/src/poi-src-3.13-beta1-20150723.tar.gz.sha1">
-          cef9c8fae36bee1afe4d1e887a595ae77aa17cf4</link> 
+          SHA1 checksum: <link href="http://www.apache.org/dist/poi/dev/src/poi-src-3.14-beta1-20151223.tar.gz.sha1">
+         9f0906758e99dbd6a113caeeff793c0fc1c8ea7f </link> 
         </li>
-        <li><link href="http://www.apache.org/dyn/closer.lua/poi/dev/src/poi-src-3.13-beta1-20150723.zip">poi-src-3.13-beta1-20150723.zip</link>
-          (62MB, <link href="http://www.apache.org/dist/poi/dev/src/poi-src-3.13-beta1-20150723.zip.asc">signed</link>)
+        <li><link href="http://www.apache.org/dyn/closer.lua/poi/dev/src/poi-src-3.14-beta1-20151223.zip">poi-src-3.14-beta1-20151223.zip</link>
+          (62MB, <link href="http://www.apache.org/dist/poi/dev/src/poi-src-3.14-beta1-20151223.zip.asc">signed</link>)
           <br/>
-          MD5 checksum: <link href="http://www.apache.org/dist/poi/dev/src/poi-src-3.13-beta1-20150723.zip.md5">
-          f1e81b69590ff692ea25173e61182597</link> 
+          MD5 checksum: <link href="http://www.apache.org/dist/poi/dev/src/poi-src-3.14-beta1-20151223.zip.md5">
+          b2b65a9747c70cd4f2f713d469caf32c</link> 
           <br/>
-          SHA1 checksum: <link href="http://www.apache.org/dist/poi/dev/src/poi-src-3.13-beta1-20150723.zip.sha1">
-          78718fc76d9947f5a8ef7eca9de5280566c6aac5</link> 
+          SHA1 checksum: <link href="http://www.apache.org/dist/poi/dev/src/poi-src-3.14-beta1-20151223.zip.sha1">
+          7126f5e2ebe508cff7e622d43147d2b50bf0f3de</link> 
         </li>
       </ul>
       </section>
     </section>
-    <section id="POI-3.12"><title>11 May 2015 - POI 3.12 available</title>
+    <section id="POI-3.13"><title>29 September 2015 - POI 3.13 available</title>
       <p>This is the new stable release. Featured are a several new areas of
         functionality, and numerous bug fixes.</p>
       <p>A summary of changes is available in the 
@@ -117,49 +118,49 @@
         The POI source release as well as the pre-built binary deployment packages are listed below. 
         Pre-built versions of all <link href="index.html#components">POI components</link> 
         are available in the central Maven repository under Group ID "org.apache.poi" and 
-        Version "3.12".
+        Version "3.13".
       </p>
       <section><title>Binary Distribution</title>
       <ul>
-        <li><link href="http://www.apache.org/dyn/closer.lua/poi/release/bin/poi-bin-3.12-20150511.tar.gz">poi-bin-3.12-20150511.tar.gz</link>
-          (17MB, <link href="http://www.apache.org/dist/poi/release/bin/poi-bin-3.12-20150511.tar.gz.asc">signed</link>)
+        <li><link href="http://www.apache.org/dyn/closer.lua/poi/release/bin/poi-bin-3.13-20150929.tar.gz">poi-bin-3.13-20150929.tar.gz</link>
+          (17MB, <link href="http://www.apache.org/dist/poi/release/bin/poi-bin-3.13-20150929.tar.gz.asc">signed</link>)
           <br/>
-          MD5 checksum: <link href="http://www.apache.org/dist/poi/release/bin/poi-bin-3.12-20150511.tar.gz.md5">
-          cc48a15571094436780b9118e2d0a530</link> 
+          MD5 checksum: <link href="http://www.apache.org/dist/poi/release/bin/poi-bin-3.13-20150929.tar.gz.md5">
+          9ca33683b54ab8a306afc7fe75eb135a</link> 
           <br/>
-          SHA1 checksum: <link href="http://www.apache.org/dist/poi/release/bin/poi-bin-3.12-20150511.tar.gz.sha1">
-          19514761addad48112cf1ef45469935855be2bf3</link> 
+          SHA1 checksum: <link href="http://www.apache.org/dist/poi/release/bin/poi-bin-3.13-20150929.tar.gz.sha1">
+          46986a18380675e3fee2e97efd5eea5c21a967c7</link> 
         </li>
-        <li><link href="http://www.apache.org/dyn/closer.lua/poi/release/bin/poi-bin-3.12-20150511.zip">poi-bin-3.12-20150511.zip</link>
-          (24MB, <link href="http://www.apache.org/dist/poi/release/bin/poi-bin-3.12-20150511.zip.asc">signed</link>)
+        <li><link href="http://www.apache.org/dyn/closer.lua/poi/release/bin/poi-bin-3.13-20150929.zip">poi-bin-3.13-20150929.zip</link>
+          (25MB, <link href="http://www.apache.org/dist/poi/release/bin/poi-bin-3.13-20150929.zip.asc">signed</link>)
           <br/>
-          MD5 checksum: <link href="http://www.apache.org/dist/poi/release/bin/poi-bin-3.12-20150511.zip.md5">
-          7d06e431debbac18a290357e7e22d62c</link> 
+          MD5 checksum: <link href="http://www.apache.org/dist/poi/release/bin/poi-bin-3.13-20150929.zip.md5">
+          8dfb6fe50051a469180abd1754fbceb7</link> 
           <br/>
-          SHA1 checksum: <link href="http://www.apache.org/dist/poi/release/bin/poi-bin-3.12-20150511.zip.sha1">
-          6d5e42b65dd136781227729675a92bea11e8ac99</link> 
+          SHA1 checksum: <link href="http://www.apache.org/dist/poi/release/bin/poi-bin-3.13-20150929.zip.sha1">
+          921bc32b8c9f3858f0a6187e0ccdaa2bcb466e70</link> 
         </li>
       </ul>
       </section>
       <section><title>Source Distribution</title>
       <ul>
-        <li><link href="http://www.apache.org/dyn/closer.lua/poi/release/src/poi-src-3.12-20150511.tar.gz">poi-src-3.12-20150511.tar.gz</link>
-          (51MB, <link href="http://www.apache.org/dist/poi/release/src/poi-src-3.12-20150511.tar.gz.asc">signed</link>)
+        <li><link href="http://www.apache.org/dyn/closer.lua/poi/release/src/poi-src-3.13-20150929.tar.gz">poi-src-3.13-20150929.tar.gz</link>
+          (61MB, <link href="http://www.apache.org/dist/poi/release/src/poi-src-3.13-20150929.tar.gz.asc">signed</link>)
           <br/>
-          MD5 checksum: <link href="http://www.apache.org/dist/poi/release/src/poi-src-3.12-20150511.tar.gz.md5">
-          c76d87bf973818b7a3f3f584fec4cda2</link> 
+          MD5 checksum: <link href="http://www.apache.org/dist/poi/release/src/poi-src-3.13-20150929.tar.gz.md5">
+          fe400b4f15faaf0ea09a6a4e1df7814a</link> 
           <br/>
-          SHA1 checksum: <link href="http://www.apache.org/dist/poi/release/src/poi-src-3.12-20150511.tar.gz.sha1">
-          616b7704a01a9405ec63bde2583fde48bbfb8097</link> 
+          SHA1 checksum: <link href="http://www.apache.org/dist/poi/release/src/poi-src-3.13-20150929.tar.gz.sha1">
+          c5f33eee730371c6fc5db3f6bcd26360d2eecb9c</link> 
         </li>
-        <li><link href="http://www.apache.org/dyn/closer.lua/poi/release/src/poi-src-3.12-20150511.zip">poi-src-3.12-20150511.zip</link>
-          (55MB, <link href="http://www.apache.org/dist/poi/release/src/poi-src-3.12-20150511.zip.asc">signed</link>)
+        <li><link href="http://www.apache.org/dyn/closer.lua/poi/release/src/poi-src-3.13-20150929.zip">poi-src-3.13-20150929.zip</link>
+          (64MB, <link href="http://www.apache.org/dist/poi/release/src/poi-src-3.13-20150929.zip.asc">signed</link>)
           <br/>
-          MD5 checksum: <link href="http://www.apache.org/dist/poi/release/src/poi-src-3.12-20150511.zip.md5">
-          ee1dcea648cd7a8aa1ed3693a17437a1</link> 
+          MD5 checksum: <link href="http://www.apache.org/dist/poi/release/src/poi-src-3.13-20150929.zip.md5">
+          b50375c780c709d83e03989f14ec3097</link> 
           <br/>
-          SHA1 checksum: <link href="http://www.apache.org/dist/poi/release/src/poi-src-3.12-20150511.zip.sha1">
-          06d2d4bf8d6ecc00018c9ab5d744ea0fd0fece6c</link> 
+          SHA1 checksum: <link href="http://www.apache.org/dist/poi/release/src/poi-src-3.13-20150929.zip.sha1">
+          5034788c11b5eebaec0000ed6ba56e0fae7db73f</link> 
         </li>
       </ul>
       </section>

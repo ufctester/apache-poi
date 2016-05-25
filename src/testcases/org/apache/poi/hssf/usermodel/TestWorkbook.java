@@ -22,8 +22,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-import junit.framework.TestCase;
-
 import org.apache.poi.hssf.HSSFTestDataSamples;
 import org.apache.poi.hssf.model.InternalWorkbook;
 import org.apache.poi.hssf.record.BackupRecord;
@@ -32,9 +30,13 @@ import org.apache.poi.hssf.record.Record;
 import org.apache.poi.hssf.record.aggregates.RecordAggregate.RecordVisitor;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Name;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
-import org.apache.poi.ss.util.Region;
 import org.apache.poi.util.TempFile;
+
+import junit.framework.TestCase;
 
 /**
  * Class to test Workbook functionality
@@ -194,45 +196,44 @@ public final class TestWorkbook extends TestCase {
      *
      */
 
-    public void testWriteDataFormat()
-        throws IOException
-    {
-    File             file = TempFile.createTempFile("testWriteDataFormat",
-                                                    ".xls");
-        FileOutputStream out  = new FileOutputStream(file);
-        HSSFWorkbook     wb   = new HSSFWorkbook();
-        HSSFSheet        s    = wb.createSheet();
-        HSSFRow          r    = null;
-        HSSFCell         c    = null;
-    HSSFDataFormat format = wb.createDataFormat();
-    HSSFCellStyle    cs   = wb.createCellStyle();
+    public void testWriteDataFormat() throws IOException {
+        File file = TempFile.createTempFile("testWriteDataFormat", ".xls");
+        FileOutputStream out = new FileOutputStream(file);
+        HSSFWorkbook wb = new HSSFWorkbook();
+        HSSFSheet s = wb.createSheet();
+        HSSFRow r = null;
+        HSSFCell c = null;
+        HSSFDataFormat format = wb.createDataFormat();
+        HSSFCellStyle cs = wb.createCellStyle();
 
-    short df = format.getFormat("0.0");
-    cs.setDataFormat(df);
+        short df = format.getFormat("0.0");
+        cs.setDataFormat(df);
 
-    r = s.createRow(0);
-    c = r.createCell(0);
-    c.setCellStyle(cs);
-    c.setCellValue(1.25);
+        r = s.createRow(0);
+        c = r.createCell(0);
+        c.setCellStyle(cs);
+        c.setCellValue(1.25);
 
         wb.write(out);
         out.close();
 
-        FileInputStream stream   = new FileInputStream(file);
-        POIFSFileSystem fs       = new POIFSFileSystem(stream);
-        HSSFWorkbook    workbook = new HSSFWorkbook(fs);
-        HSSFSheet       sheet    = workbook.getSheetAt(0);
-    HSSFCell    cell     =
-                     sheet.getRow(0).getCell(0);
-    format = workbook.createDataFormat();
+        FileInputStream stream = new FileInputStream(file);
+        POIFSFileSystem fs = new POIFSFileSystem(stream);
+        HSSFWorkbook workbook = new HSSFWorkbook(fs);
+        HSSFSheet sheet = workbook.getSheetAt(0);
+        HSSFCell cell = sheet.getRow(0).getCell(0);
+        format = workbook.createDataFormat();
 
-        assertEquals(1.25,cell.getNumericCellValue(), 1e-10);
+        assertEquals(1.25, cell.getNumericCellValue(), 1e-10);
 
-    assertEquals(format.getFormat(df), "0.0");
+        assertEquals(format.getFormat(df), "0.0");
 
-    assertEquals(format, workbook.createDataFormat());
+        assertEquals(format, workbook.createDataFormat());
 
         stream.close();
+
+        workbook.close();
+        wb.close();
     }
 
     /**
@@ -447,8 +448,9 @@ public final class TestWorkbook extends TestCase {
 
     /**
      * Test the backup field gets set as expected.
+     * @throws IOException 
      */
-    public void testBackupRecord() {
+    public void testBackupRecord() throws IOException {
         HSSFWorkbook wb = new HSSFWorkbook();
 		wb.createSheet();
 		InternalWorkbook workbook = wb.getWorkbook();
@@ -462,6 +464,8 @@ public final class TestWorkbook extends TestCase {
         wb.setBackupFlag(false);
         assertEquals(0, record.getBackup());
         assertFalse(wb.getBackupFlag());
+        
+        wb.close();
     }
 
     private static final class RecordCounter implements RecordVisitor {
@@ -484,8 +488,9 @@ public final class TestWorkbook extends TestCase {
      * This tests is for bug [ #506658 ] Repeating output.
      *
      * We need to make sure only one LabelSSTRecord is produced.
+     * @throws IOException 
      */
-    public void testRepeatingBug() {
+    public void testRepeatingBug() throws IOException {
         HSSFWorkbook workbook = new HSSFWorkbook();
         HSSFSheet    sheet    = workbook.createSheet("Design Variants");
         HSSFRow      row      = sheet.createRow(2);
@@ -497,6 +502,8 @@ public final class TestWorkbook extends TestCase {
         RecordCounter rc = new RecordCounter();
         sheet.getSheet().visitContainedRecords(rc, 0);
         assertEquals(1, rc.getCount());
+        
+        workbook.close();
     }
 
 
@@ -529,7 +536,13 @@ public final class TestWorkbook extends TestCase {
 
     /**
      * Generate a file to visually/programmatically verify repeating rows and cols made it
+     * 
+     * Test setRepeatingRowsAndColumns with alternating columns -0 and 1.
+     * 
+     * This test intentionally tests the deprecated
+     * {@link HSSFWorkbook#setRepeatingRowsAndColumns(int, int, int, int, int)} function
      */
+    @SuppressWarnings("deprecation")
     public void testRepeatingColsRows() throws IOException
     {
         HSSFWorkbook workbook = new HSSFWorkbook();
@@ -550,8 +563,16 @@ public final class TestWorkbook extends TestCase {
         fileOut.close();
 
         assertTrue("file exists",file.exists());
+        
+        workbook.close();
     }
 
+    /**
+     * Test setRepeatingRowsAndColumns when startRow and startColumn are -1.
+     * 
+     * This test intentionally tests the deprecated
+     * {@link HSSFWorkbook#setRepeatingRowsAndColumns(int, int, int, int, int)} function
+     */
     @SuppressWarnings("deprecation")
     public void testRepeatingColsRowsMinusOne() throws IOException
     {
@@ -573,10 +594,11 @@ public final class TestWorkbook extends TestCase {
         fileOut.close();
 
         assertTrue("file exists",file.exists());
+        
+        workbook.close();
     }
 
-    @SuppressWarnings("deprecation")
-    public void testAddMergedRegionWithRegion() {
+    public void testAddMergedRegionWithRegion() throws IOException {
         HSSFWorkbook     wb   = new HSSFWorkbook();
         HSSFSheet        s    = wb.createSheet();
 
@@ -592,8 +614,8 @@ public final class TestWorkbook extends TestCase {
                 c.setCellValue(new HSSFRichTextString("TEST"));
             }
         }
-        s.addMergedRegion(new Region(0, (short)0, 10, (short)10));
-        s.addMergedRegion(new Region(30, (short)5, 40, (short)15));
+        s.addMergedRegion(new CellRangeAddress(0, 10, 0, 10));
+        s.addMergedRegion(new CellRangeAddress(30, 40, 5, 15));
         sanityChecker.checkHSSFWorkbook(wb);
         wb = HSSFTestDataSamples.writeOutAndReadBack(wb);
 
@@ -603,5 +625,77 @@ public final class TestWorkbook extends TestCase {
 
         confirmRegion(new CellRangeAddress(0, 10, 0, 10), r1);
         confirmRegion(new CellRangeAddress(30, 40,5, 15), r2);
+        
+        wb.close();
+    }
+
+
+    public void testBug58085RemoveSheetWithNames() throws Exception {
+        reReadWithRemovedSheetWithName(writeWithRemovedSheetWithName());
+    }
+
+    private static HSSFWorkbook writeWithRemovedSheetWithName() throws IOException {
+        HSSFWorkbook workbook = new HSSFWorkbook();
+        Sheet sheet1 = workbook.createSheet("sheet1");
+        Sheet sheet2 = workbook.createSheet("sheet2");
+        Sheet sheet3 = workbook.createSheet("sheet3");
+
+        sheet1.createRow(0).createCell((short) 0).setCellValue("val1");
+        sheet2.createRow(0).createCell((short) 0).setCellValue("val2");
+        sheet3.createRow(0).createCell((short) 0).setCellValue("val3");
+        
+        Name namedCell1 = workbook.createName();
+        namedCell1.setNameName("name1");
+        String reference1 = "sheet1!$A$1";
+        namedCell1.setRefersToFormula(reference1);
+        
+        Name namedCell2= workbook.createName();
+        namedCell2.setNameName("name2");
+        String reference2 = "sheet2!$A$1";
+        namedCell2.setRefersToFormula(reference2);
+
+        Name namedCell3 = workbook.createName();
+        namedCell3.setNameName("name3");
+        String reference3 = "sheet3!$A$1";
+        namedCell3.setRefersToFormula(reference3);
+
+        return workbook;
+    }
+
+    private static void reReadWithRemovedSheetWithName(HSSFWorkbook workbookBefore) throws Exception {
+        Workbook workbook = HSSFTestDataSamples.writeOutAndReadBack(workbookBefore);
+        
+        System.out.println("Before removing sheet1...");
+        
+        Name nameCell = workbook.getName("name1");
+        System.out.println("name1: " + nameCell.getRefersToFormula());
+     
+        nameCell = workbook.getName("name2");
+        System.out.println("name2: " + nameCell.getRefersToFormula());
+        
+        nameCell = workbook.getName("name3");
+        System.out.println("name3: " + nameCell.getRefersToFormula());
+        
+        workbook.removeSheetAt(workbook.getSheetIndex("sheet1"));
+        
+        /*FileOutputStream fos = new FileOutputStream(AFTER_FILE);
+        try {
+            workbook.write(fos);
+        } finally {
+            fos.close();
+        }*/
+        
+        System.out.println("\nAfter removing sheet1...");
+        
+        nameCell = workbook.getName("name1");
+        System.out.println("name1: " + nameCell.getRefersToFormula());
+     
+        nameCell = workbook.getName("name2");
+        System.out.println("name2: " + nameCell.getRefersToFormula());
+        
+        nameCell = workbook.getName("name3");
+        System.out.println("name3: " + nameCell.getRefersToFormula());
+        
+        workbook.close();
     }
 }

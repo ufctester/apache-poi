@@ -16,11 +16,12 @@
 ==================================================================== */
 package org.apache.poi.xwpf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -51,6 +52,8 @@ import org.apache.poi.poifs.crypt.HashAlgorithm;
 import org.apache.poi.util.IOUtils;
 import org.apache.poi.util.IdentifierManager;
 import org.apache.poi.util.Internal;
+import org.apache.poi.util.POILogFactory;
+import org.apache.poi.util.POILogger;
 import org.apache.poi.util.PackageHelper;
 import org.apache.poi.xwpf.model.XWPFHeaderFooterPolicy;
 import org.apache.xmlbeans.XmlCursor;
@@ -87,6 +90,8 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.StylesDocument;
  * at some point in your use.</p>
  */
 public class XWPFDocument extends POIXMLDocument implements Document, IBody {
+    private static final POILogger LOG = POILogFactory.getLogger(XWPFDocument.class);
+    
     protected List<XWPFFooter> footers = new ArrayList<XWPFFooter>();
     protected List<XWPFHeader> headers = new ArrayList<XWPFHeader>();
     protected List<XWPFComment> comments = new ArrayList<XWPFComment>();
@@ -152,10 +157,11 @@ public class XWPFDocument extends POIXMLDocument implements Document, IBody {
         }
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     protected void onDocumentRead() throws IOException {
         try {
-            DocumentDocument doc = DocumentDocument.Factory.parse(getPackagePart().getInputStream());
+            DocumentDocument doc = DocumentDocument.Factory.parse(getPackagePart().getInputStream(), DEFAULT_XML_OPTIONS);
             ctDocument = doc.getDocument();
 
             initFootnotes();
@@ -187,8 +193,9 @@ public class XWPFDocument extends POIXMLDocument implements Document, IBody {
                 headerFooterPolicy = new XWPFHeaderFooterPolicy(this);
 
             // Create for each XML-part in the Package a PartClass
-            for (POIXMLDocumentPart p : getRelations()) {
-                String relation = p.getPackageRelationship().getRelationshipType();
+            for (RelationPart rp : getRelationParts()) {
+                POIXMLDocumentPart p = rp.getDocumentPart();
+                String relation = rp.getRelationship().getRelationshipType();
                 if (relation.equals(XWPFRelation.STYLES.getRelation())) {
                     this.styles = (XWPFStyles) p;
                     this.styles.onDocumentRead();
@@ -205,7 +212,7 @@ public class XWPFDocument extends POIXMLDocument implements Document, IBody {
                     header.onDocumentRead();
                 } else if (relation.equals(XWPFRelation.COMMENT.getRelation())) {
                     // TODO Create according XWPFComment class, extending POIXMLDocumentPart
-                    CommentsDocument cmntdoc = CommentsDocument.Factory.parse(p.getPackagePart().getInputStream());
+                    CommentsDocument cmntdoc = CommentsDocument.Factory.parse(p.getPackagePart().getInputStream(), DEFAULT_XML_OPTIONS);
                     for (CTComment ctcomment : cmntdoc.getComments().getCommentArray()) {
                         comments.add(new XWPFComment(ctcomment, this));
                     }
@@ -223,13 +230,9 @@ public class XWPFDocument extends POIXMLDocument implements Document, IBody {
                     for (POIXMLDocumentPart gp : p.getRelations()) {
                         // Trigger the onDocumentRead for all the child parts
                         // Otherwise we'll hit issues on Styles, Settings etc on save
-                        try {
-                            Method onDocumentRead = gp.getClass().getDeclaredMethod("onDocumentRead");
-                            onDocumentRead.setAccessible(true);
-                            onDocumentRead.invoke(gp);
-                        } catch (Exception e) {
-                            throw new POIXMLException(e);
-                        }
+                        // TODO: Refactor this to not need to access protected method
+                        // from other package! Remove the static helper method once fixed!!!
+                        POIXMLDocumentPart._invokeOnDocumentRead(gp);
                     }
                 }
             }
@@ -254,15 +257,15 @@ public class XWPFDocument extends POIXMLDocument implements Document, IBody {
         }
     }
 
-    @SuppressWarnings("deprecation")
     private void initFootnotes() throws XmlException, IOException {
-        for (POIXMLDocumentPart p : getRelations()) {
-            String relation = p.getPackageRelationship().getRelationshipType();
+        for (RelationPart rp : getRelationParts()) {
+            POIXMLDocumentPart p = rp.getDocumentPart();
+            String relation = rp.getRelationship().getRelationshipType();
             if (relation.equals(XWPFRelation.FOOTNOTE.getRelation())) {
                 this.footnotes = (XWPFFootnotes) p;
                 this.footnotes.onDocumentRead();
             } else if (relation.equals(XWPFRelation.ENDNOTE.getRelation())) {
-                EndnotesDocument endnotesDocument = EndnotesDocument.Factory.parse(p.getPackagePart().getInputStream());
+                EndnotesDocument endnotesDocument = EndnotesDocument.Factory.parse(p.getPackagePart().getInputStream(), DEFAULT_XML_OPTIONS);
 
                 for (CTFtnEdn ctFtnEdn : endnotesDocument.getEndnotes().getEndnoteArray()) {
                     endnotes.put(ctFtnEdn.getId().intValue(), new XWPFFootnote(this, ctFtnEdn));
@@ -452,7 +455,7 @@ public class XWPFDocument extends POIXMLDocument implements Document, IBody {
             throw new IllegalStateException("Expecting one Styles document part, but found " + parts.length);
         }
 
-        StylesDocument sd = StylesDocument.Factory.parse(parts[0].getInputStream());
+        StylesDocument sd = StylesDocument.Factory.parse(parts[0].getInputStream(), DEFAULT_XML_OPTIONS);
         return sd.getStyles();
     }
 
@@ -708,17 +711,6 @@ public class XWPFDocument extends POIXMLDocument implements Document, IBody {
     protected void commit() throws IOException {
         XmlOptions xmlOptions = new XmlOptions(DEFAULT_XML_OPTIONS);
         xmlOptions.setSaveSyntheticDocumentElement(new QName(CTDocument1.type.getName().getNamespaceURI(), "document"));
-        Map<String, String> map = new HashMap<String, String>();
-        map.put("http://schemas.openxmlformats.org/officeDocument/2006/math", "m");
-        map.put("urn:schemas-microsoft-com:office:office", "o");
-        map.put("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "r");
-        map.put("urn:schemas-microsoft-com:vml", "v");
-        map.put("http://schemas.openxmlformats.org/markup-compatibility/2006", "ve");
-        map.put("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "w");
-        map.put("urn:schemas-microsoft-com:office:word", "w10");
-        map.put("http://schemas.microsoft.com/office/word/2006/wordml", "wne");
-        map.put("http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing", "wp");
-        xmlOptions.setSaveSuggestedPrefixes(map);
 
         PackagePart part = getPackagePart();
         OutputStream out = part.getOutputStream();
@@ -733,11 +725,9 @@ public class XWPFDocument extends POIXMLDocument implements Document, IBody {
      * @return i
      */
     private int getRelationIndex(XWPFRelation relation) {
-        List<POIXMLDocumentPart> relations = getRelations();
         int i = 1;
-        for (Iterator<POIXMLDocumentPart> it = relations.iterator(); it.hasNext(); ) {
-            POIXMLDocumentPart item = it.next();
-            if (item.getPackageRelationship().getRelationshipType().equals(relation.getRelation())) {
+        for (RelationPart rp : getRelationParts()) {
+            if (rp.getRelationship().getRelationshipType().equals(relation.getRelation())) {
                 i++;
             }
         }
@@ -913,7 +903,7 @@ public class XWPFDocument extends POIXMLDocument implements Document, IBody {
                     int level = Integer.parseInt(parStyle.substring("Heading".length()));
                     toc.addRow(level, par.getText(), 1, "112723803");
                 } catch (NumberFormatException e) {
-                    e.printStackTrace();
+                    LOG.log(POILogger.ERROR, "can't format number in TOC heading", e);
                 }
             }
         }
@@ -928,6 +918,22 @@ public class XWPFDocument extends POIXMLDocument implements Document, IBody {
     public void setTable(int pos, XWPFTable table) {
         tables.set(pos, table);
         ctDocument.getBody().setTblArray(pos, table.getCTTbl());
+    }
+	
+	/**
+     * Verifies that the documentProtection tag in settings.xml file <br/>
+     * specifies that the protection is enforced (w:enforcement="1") <br/>
+     * <br/>
+     * sample snippet from settings.xml
+     * <pre>
+     *     &lt;w:settings  ... &gt;
+     *         &lt;w:documentProtection w:edit=&quot;readOnly&quot; w:enforcement=&quot;1&quot;/&gt;
+     * </pre>
+     *
+     * @return true if documentProtection is enforced with option any
+     */
+    public boolean isEnforcedProtection() {
+        return settings.isEnforcedWith();
     }
 
     /**
@@ -1225,7 +1231,6 @@ public class XWPFDocument extends POIXMLDocument implements Document, IBody {
      * @param table
      */
     @Override
-    @SuppressWarnings("deprecation")
     public void insertTable(int pos, XWPFTable table) {
         bodyElements.add(pos, table);
         int i = 0;
@@ -1324,16 +1329,9 @@ public class XWPFDocument extends POIXMLDocument implements Document, IBody {
              * relationship to the already existing part and update
              * POIXMLDocumentPart data.
              */
-            PackagePart picDataPart = xwpfPicData.getPackagePart();
             // TODO add support for TargetMode.EXTERNAL relations.
-            TargetMode targetMode = TargetMode.INTERNAL;
-            PackagePartName partName = picDataPart.getPartName();
-            String relation = relDesc.getRelation();
-            PackageRelationship relShip = getPackagePart().addRelationship(partName, targetMode, relation);
-            String id = relShip.getId();
-            addRelation(id, xwpfPicData);
-            pictures.add(xwpfPicData);
-            return id;
+            RelationPart rp = addRelation(null, XWPFRelation.IMAGES, xwpfPicData);
+            return rp.getRelationship().getId();
         } else {
             /* Part already existed, get relation id and return it */
             return getRelationId(xwpfPicData);

@@ -50,7 +50,7 @@ CHANGE HISTORY:
 <!ENTITY % markup "strong|em|code|sub|sup">
 <!ENTITY % special-inline "br|img|icon|acronym">
 <!ENTITY % links "link|jump|fork">
-<!ENTITY % paragraphs "p|source|note|warning|fixme">
+<!ENTITY % paragraphs "p|source|note|warning|fixme|helpwanted">
 <!ENTITY % tables "table">
 <!ENTITY % lists "ol|ul|dl">
 <!ENTITY % special-blocks "figure|anchor">
@@ -261,6 +261,8 @@ CHANGE HISTORY:
   author CDATA #REQUIRED
   %common.att; 
 >
+<!-- Help Wanted import snippet -->
+<!ELEMENT helpwanted (%content.mix;)*>
 <!-- ==================================================== -->
 <!-- Tables -->
 <!-- ==================================================== -->

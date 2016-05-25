@@ -17,26 +17,33 @@
 
 package org.apache.poi.xssf.extractor;
 
+import static org.apache.poi.xssf.usermodel.XSSFRelation.NS_SPREADSHEETML;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import java.io.IOException;
+import java.text.DateFormatSymbols;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 
-import junit.framework.TestCase;
+import javax.xml.xpath.XPathExpressionException;
 
 import org.apache.poi.xssf.XSSFTestDataSamples;
 import org.apache.poi.xssf.usermodel.XSSFMap;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.junit.Test;
+import org.xml.sax.SAXException;
 
-/**
- * 
- * @author Roberto Manicardi
- *
- */
-public class TestXSSFImportFromXML extends TestCase {
+public class TestXSSFImportFromXML {
 	
-	
-	public void  testImportFromXML() throws Exception{
+	@Test
+	public void testImportFromXML() throws IOException, XPathExpressionException, SAXException{
 		
 		 XSSFWorkbook wb = XSSFTestDataSamples.openSampleWorkbook("CustomXMLMappings.xlsx");
 		 try {
@@ -82,10 +89,8 @@ public class TestXSSFImportFromXML extends TestCase {
 		 }
 	}
 	
-	
-	
-	
-	public void testMultiTable() throws Exception{
+	@Test	
+	public void testMultiTable() throws IOException, XPathExpressionException, SAXException{
 		XSSFWorkbook wb = XSSFTestDataSamples.openSampleWorkbook("CustomXMLMappings-complex-type.xlsx");	 
 		try {
     		String cellC6 = "c6";
@@ -93,7 +98,7 @@ public class TestXSSFImportFromXML extends TestCase {
     		String cellC8 = "c8";
     		String cellC9 = "c9";
     		
-    		String testXML = "<ns1:MapInfo xmlns:ns1=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" SelectionNamespaces=\"\">" +
+    		String testXML = "<ns1:MapInfo xmlns:ns1=\""+NS_SPREADSHEETML+"\" SelectionNamespaces=\"\">" +
     						 "<ns1:Schema ID=\""+cellC6+"\" SchemaRef=\"a\" />"+ 
     						 "<ns1:Schema ID=\""+cellC7+"\" SchemaRef=\"b\" />"+ 
     						 "<ns1:Schema ID=\""+cellC8+"\" SchemaRef=\"c\" />"+ 
@@ -128,7 +133,8 @@ public class TestXSSFImportFromXML extends TestCase {
 	}
 
 	
-	public void testSingleAttributeCellWithNamespace() throws Exception{
+	@Test
+	public void testSingleAttributeCellWithNamespace() throws IOException, XPathExpressionException, SAXException{
 		XSSFWorkbook wb = XSSFTestDataSamples.openSampleWorkbook("CustomXMLMapping-singleattributenamespace.xlsx");	 
 		try {
     		int id = 1;
@@ -137,7 +143,7 @@ public class TestXSSFImportFromXML extends TestCase {
     		int count = 21;
     		
     		String testXML = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?>"+ 
-    						 "<ns1:table xmlns:ns1=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" id=\""+id+"\" displayName=\""+displayName+"\" ref=\""+ref+"\">"+
+    						 "<ns1:table xmlns:ns1=\""+NS_SPREADSHEETML+"\" id=\""+id+"\" displayName=\""+displayName+"\" ref=\""+ref+"\">"+
     						 "<ns1:tableColumns count=\""+count+"\" />"+ 
     						 "</ns1:table>\u0000"; 
     		XSSFMap map = wb.getMapInfo().getXSSFMapByName("table_mapping");
@@ -148,16 +154,17 @@ public class TestXSSFImportFromXML extends TestCase {
     		//Check for Schema element
     		XSSFSheet sheet=wb.getSheetAt(0);
     		 
-    		assertEquals(new Double(id), sheet.getRow(28).getCell(1).getNumericCellValue());
+    		assertEquals(new Double(id), sheet.getRow(28).getCell(1).getNumericCellValue(), 0);
     		assertEquals(displayName, sheet.getRow(11).getCell(5).getStringCellValue());
     		assertEquals(ref, sheet.getRow(14).getCell(7).getStringCellValue());
-    		assertEquals(new Double(count), sheet.getRow(18).getCell(3).getNumericCellValue());
+    		assertEquals(new Double(count), sheet.getRow(18).getCell(3).getNumericCellValue(), 0);
         } finally {
             wb.close();
         }
 	}
-
-	public void testOptionalFields_Bugzilla_55864() throws Exception {
+	
+	@Test
+	public void testOptionalFields_Bugzilla_55864() throws IOException, XPathExpressionException, SAXException {
 		XSSFWorkbook wb = XSSFTestDataSamples.openSampleWorkbook("55864.xlsx");	 
 		try {
     		String testXML = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
@@ -197,7 +204,8 @@ public class TestXSSFImportFromXML extends TestCase {
         }
 	}
 
-	public void testOptionalFields_Bugzilla_57890() throws Exception {
+	@Test
+	public void testOptionalFields_Bugzilla_57890() throws IOException, ParseException, XPathExpressionException, SAXException {
 		XSSFWorkbook wb = XSSFTestDataSamples.openSampleWorkbook("57890.xlsx");
 
 		String testXML = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" + "<TestInfoRoot>"
@@ -216,16 +224,18 @@ public class TestXSSFImportFromXML extends TestCase {
 		XSSFRow rowData = sheet.getRow(1);
 
 		assertEquals("Date", rowHeadings.getCell(0).getStringCellValue());
-		Date date = new SimpleDateFormat("yyyy-MM-dd").parse("1991-3-14");
+		Date date = new SimpleDateFormat("yyyy-MM-dd", DateFormatSymbols.getInstance(Locale.ROOT)).parse("1991-3-14");
 		assertEquals(date, rowData.getCell(0).getDateCellValue());
 
 		assertEquals("Amount Int", rowHeadings.getCell(1).getStringCellValue());
-		assertEquals(new Double(Integer.MIN_VALUE), rowData.getCell(1).getNumericCellValue());
+		assertEquals(new Double(Integer.MIN_VALUE), rowData.getCell(1).getNumericCellValue(), 0);
 
 		assertEquals("Amount Double", rowHeadings.getCell(2).getStringCellValue());
-		assertEquals(1.0000123, rowData.getCell(2).getNumericCellValue());
+		assertEquals(1.0000123, rowData.getCell(2).getNumericCellValue(), 0);
 
 		assertEquals("Amount UnsignedInt", rowHeadings.getCell(3).getStringCellValue());
-		assertEquals(new Double(12345), rowData.getCell(3).getNumericCellValue());
+		assertEquals(new Double(12345), rowData.getCell(3).getNumericCellValue(), 0);
+		
+		wb.close();
 	}
 }

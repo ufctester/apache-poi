@@ -33,6 +33,13 @@
 
   <body>
     <section><title>Project News</title>
+	
+      <section><title>12 January 2016 - New case study - Deutsche Bahn</title>
+      <p>A new case study by Deutsche Bahn was published <link href="casestudies.html#Deutsche+Bahn">here</link>. </p>
+	  <p>It describes how Deutsche Bahn Netz AG (the owner of the German rail infrastructure) uses POI to process specification
+		documents for a European-wide railroad cooperation effort (<link href="http://openetcs.org/">openETCS</link>).
+		The description contains links to more detailed information so take a look!</p>
+      </section>
 <!--
       <section><title>28 August 2015 - The Apache POI project is celebrating its 15th anniversary</title>
        <p>
@@ -42,17 +49,18 @@
         <link href="https://blogs.apache.org/foundation/entry/the_apache_software_foundation_announces14">Read more...</link></p>
       </section>
 -->
-      <section><title>22 July 2015 - POI 3.13-beta1 available</title>
-      <p>The Apache POI team is pleased to announce the release of 3.13-beta1. 
-         Featured are a handful of new areas of functionality, and numerous bug fixes.</p>
+      <section><title>23 December 2015 - POI 3.14-beta1 available</title>
+      <p>The Apache POI team is pleased to announce the release of 3.14-beta1. 
+         Featured are a handful of new areas of functionality - including basic support for
+         the XML Visio format - and numerous bug fixes.</p>
       <p>A summary of changes is available in the 
         <link href="http://www.apache.org/dyn/closer.lua/poi/dev/RELEASE-NOTES.txt">Release Notes</link>.
         A full list of changes is available in the <link href="changes.html">change log</link>. 
         People interested should also follow the <link href="mailinglists.html">dev list</link> to track progress.</p>
        <p>See the <link href="download.html">downloads</link> page for more details.</p>
       </section>
-      <section><title>11 May 2015 - POI 3.12 available</title>
-       <p>The Apache POI team is pleased to announce the release of 3.12,
+      <section><title>29 September 2015 - POI 3.13 available</title>
+       <p>The Apache POI team is pleased to announce the release of 3.13,
         our next stable release. Featured are a several new areas of
         functionality, and numerous bug fixes.</p>
        <p>A summary of changes is available in the 
@@ -147,7 +155,7 @@
         </p>
       <p>
 	Please read our <link href="guidelines.html">Contribution Guidelines</link>. When your contribution is ready
-	submit a patch to our <link href="https://issues.apache.org/bugzilla/buglist.cgi?product=POI">Bug Database</link>.
+	submit a patch to our <link href="https://bz.apache.org/bugzilla/buglist.cgi?product=POI">Bug Database</link>.
       </p>
 
 

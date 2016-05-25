@@ -20,12 +20,9 @@
 package org.apache.poi.xslf.usermodel;
 
 import java.io.File;
-import java.lang.reflect.Field;
 
 import org.apache.poi.POIDataSamples;
 import org.apache.poi.xslf.util.PPTX2PNG;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 /**
@@ -34,47 +31,33 @@ import org.junit.Test;
  * @author Yegor Kozlov
  */
 public class TestPPTX2PNG {
-    private static boolean jaxpDebugEnable = false;
-    
-    @BeforeClass
-    public static void activateJaxpDebug() {
-        jaxpDebugEnable = setDebugFld(true);
-    }
-
-    @AfterClass
-    public static void resetJaxpDebug() {
-        setDebugFld(jaxpDebugEnable);
-    }    
-    
-    private static boolean setDebugFld(boolean enable) {
-        // enable jaxp debugging because of jaxb/stax error in gump build
-        try {
-            Class<?> clz = Class.forName("javax.xml.stream.FactoryFinder");
-            Field fld = clz.getDeclaredField("debug");
-            fld.setAccessible(true);
-            boolean isDebug = (Boolean)fld.get(null);
-            fld.set(null, enable);
-            return isDebug;
-        } catch (Exception e) {
-            // ignore
-            return false;
-        }
-    }
     
     @Test
     public void render() throws Exception {
         POIDataSamples samples = POIDataSamples.getSlideShowInstance();
 
-        String[] testFiles = {"alterman_security.ppt","alterman_security.pptx","KEY02.pptx","themes.pptx","backgrounds.pptx","layouts.pptx", "sample.pptx", "shapes.pptx",};
+//        File testFilesX[] = new File("tmp_ppt").listFiles(new FileFilter() {
+//            public boolean accept(File pathname) {
+//                return pathname.getName().toLowerCase().contains("ppt");
+//            }
+//        });
+//        String testFiles[] = new String[testFilesX.length];
+//        for (int i=0; i<testFilesX.length; i++) {
+//            testFiles[i] = testFilesX[i].getPath();
+//        }
+        
+
+        String[] testFiles = {"53446.ppt", "alterman_security.ppt","alterman_security.pptx","KEY02.pptx","themes.pptx","backgrounds.pptx","layouts.pptx", "sample.pptx", "shapes.pptx",};
         String[] args = {
             "-format", "null", // png,gif,jpg or null for test
             "-slide", "-1", // -1 for all
             "-outdir", new File("build/tmp/").getCanonicalPath(),
-            "-quite",
+            "-quiet",
             "dummyfile"
         };
         for(String sampleFile : testFiles){
             args[args.length-1] = samples.getFile(sampleFile).getCanonicalPath();
+//            args[args.length-1] = new File(sampleFile).getCanonicalPath();
             try {
                 PPTX2PNG.main(args);
             } catch (IllegalStateException e) {

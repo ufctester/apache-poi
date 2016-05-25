@@ -17,16 +17,25 @@
 
 package org.apache.poi.xssf.usermodel;
 
-import static junit.framework.TestCase.assertNotNull;
-import static junit.framework.TestCase.assertTrue;
 import static org.apache.poi.xssf.XSSFTestDataSamples.openSampleWorkbook;
 import static org.apache.poi.xssf.XSSFTestDataSamples.writeOutAndReadBack;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.poi.POIXMLException;
@@ -37,12 +46,19 @@ import org.apache.poi.ss.SpreadsheetVersion;
 import org.apache.poi.ss.usermodel.AutoFilter;
 import org.apache.poi.ss.usermodel.BaseTestSheet;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellCopyPolicy;
+import org.apache.poi.ss.usermodel.ClientAnchor;
+import org.apache.poi.ss.usermodel.FormulaError;
+import org.apache.poi.ss.usermodel.IgnoredErrorType;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.AreaReference;
+import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellReference;
+import org.apache.poi.ss.util.CellUtil;
+import org.apache.poi.util.LocaleUtil;
 import org.apache.poi.xssf.XSSFITestDataProvider;
 import org.apache.poi.xssf.XSSFTestDataSamples;
 import org.apache.poi.xssf.model.CalculationChain;
@@ -51,10 +67,21 @@ import org.apache.poi.xssf.model.StylesTable;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.helpers.ColumnHelper;
 import org.junit.Test;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.*;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTCalcPr;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTCell;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTCol;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTCols;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTComments;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTIgnoredError;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTRow;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTSheetData;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTSheetProtection;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTWorksheet;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTXf;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.STCalcMode;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.STPane;
 
 
-@SuppressWarnings("resource")
 public final class TestXSSFSheet extends BaseTestSheet {
 
     public TestXSSFSheet() {
@@ -69,18 +96,18 @@ public final class TestXSSFSheet extends BaseTestSheet {
     }
 
     @Test
-    public void getSetMargin() {
+    public void getSetMargin() throws IOException {
         baseTestGetSetMargin(new double[]{0.7, 0.7, 0.75, 0.75, 0.3, 0.3});
     }
 
     @Test
-    public void existingHeaderFooter() {
-        XSSFWorkbook workbook = XSSFTestDataSamples.openSampleWorkbook("45540_classic_Header.xlsx");
+    public void existingHeaderFooter() throws IOException {
+        XSSFWorkbook wb1 = XSSFTestDataSamples.openSampleWorkbook("45540_classic_Header.xlsx");
         XSSFOddHeader hdr;
         XSSFOddFooter ftr;
 
         // Sheet 1 has a header with center and right text
-        XSSFSheet s1 = workbook.getSheetAt(0);
+        XSSFSheet s1 = wb1.getSheetAt(0);
         assertNotNull(s1.getHeader());
         assertNotNull(s1.getFooter());
         hdr = (XSSFOddHeader) s1.getHeader();
@@ -98,7 +125,7 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertEquals("", ftr.getRight());
 
         // Sheet 2 has a footer, but it's empty
-        XSSFSheet s2 = workbook.getSheetAt(1);
+        XSSFSheet s2 = wb1.getSheetAt(1);
         assertNotNull(s2.getHeader());
         assertNotNull(s2.getFooter());
         hdr = (XSSFOddHeader) s2.getHeader();
@@ -116,10 +143,11 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertEquals("", ftr.getRight());
 
         // Save and reload
-        XSSFWorkbook wb = XSSFTestDataSamples.writeOutAndReadBack(workbook);
+        XSSFWorkbook wb2 = XSSFTestDataSamples.writeOutAndReadBack(wb1);
+        wb1.close();
 
-        hdr = (XSSFOddHeader) wb.getSheetAt(0).getHeader();
-        ftr = (XSSFOddFooter) wb.getSheetAt(0).getFooter();
+        hdr = (XSSFOddHeader) wb2.getSheetAt(0).getHeader();
+        ftr = (XSSFOddFooter) wb2.getSheetAt(0).getFooter();
 
         assertEquals("", hdr.getLeft());
         assertEquals("testdoc", hdr.getCenter());
@@ -128,10 +156,12 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertEquals("", ftr.getLeft());
         assertEquals("", ftr.getCenter());
         assertEquals("", ftr.getRight());
+        
+        wb2.close();
     }
 
     @Test
-    public void getAllHeadersFooters() {
+    public void getAllHeadersFooters() throws IOException {
         XSSFWorkbook workbook = new XSSFWorkbook();
         XSSFSheet sheet = workbook.createSheet("Sheet 1");
         assertNotNull(sheet.getOddFooter());
@@ -168,10 +198,12 @@ public final class TestXSSFSheet extends BaseTestSheet {
         // Defaults are odd
         assertEquals("odd footer left", sheet.getFooter().getLeft());
         assertEquals("odd header center", sheet.getHeader().getCenter());
+        
+        workbook.close();
     }
 
     @Test
-    public void autoSizeColumn() {
+    public void autoSizeColumn() throws IOException {
         XSSFWorkbook workbook = new XSSFWorkbook();
         XSSFSheet sheet = workbook.createSheet("Sheet 1");
         sheet.createRow(0).createCell(13).setCellValue("test");
@@ -181,11 +213,12 @@ public final class TestXSSFSheet extends BaseTestSheet {
         ColumnHelper columnHelper = sheet.getColumnHelper();
         CTCol col = columnHelper.getColumn(13, false);
         assertTrue(col.getBestFit());
+        workbook.close();
     }
 
 
     @Test
-    public void setCellComment() {
+    public void setCellComment() throws IOException {
         XSSFWorkbook workbook = new XSSFWorkbook();
         XSSFSheet sheet = workbook.createSheet();
 
@@ -200,20 +233,22 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertEquals("A1", ctComments.getCommentList().getCommentArray(0).getRef());
         comment.setAuthor("test A1 author");
         assertEquals("test A1 author", comments.getAuthor((int) ctComments.getCommentList().getCommentArray(0).getAuthorId()));
+        workbook.close();
     }
 
     @Test
-    public void getActiveCell() {
+    public void getActiveCell() throws IOException {
         XSSFWorkbook workbook = new XSSFWorkbook();
         XSSFSheet sheet = workbook.createSheet();
-        sheet.setActiveCell("R5");
+        CellAddress R5 = new CellAddress("R5");
+        sheet.setActiveCell(R5);
 
-        assertEquals("R5", sheet.getActiveCell());
-
+        assertEquals(R5, sheet.getActiveCell());
+        workbook.close();
     }
 
     @Test
-    public void createFreezePane_XSSF() {
+    public void createFreezePane_XSSF() throws IOException {
         XSSFWorkbook workbook = new XSSFWorkbook();
         XSSFSheet sheet = workbook.createSheet();
         CTWorksheet ctWorksheet = sheet.getCTWorksheet();
@@ -228,10 +263,12 @@ public final class TestXSSFSheet extends BaseTestSheet {
         sheet.createSplitPane(4, 8, 12, 12, 1);
         assertEquals(8.0, ctWorksheet.getSheetViews().getSheetViewArray(0).getPane().getYSplit(), 0.0);
         assertEquals(STPane.BOTTOM_RIGHT, ctWorksheet.getSheetViews().getSheetViewArray(0).getPane().getActivePane());
+        
+        workbook.close();
     }
 
     @Test
-    public void removeMergedRegion_lowlevel() {
+    public void removeMergedRegion_lowlevel() throws IOException {
         XSSFWorkbook workbook = new XSSFWorkbook();
         XSSFSheet sheet = workbook.createSheet();
         CTWorksheet ctWorksheet = sheet.getCTWorksheet();
@@ -263,10 +300,59 @@ public final class TestXSSFSheet extends BaseTestSheet {
         sheet.removeMergedRegions(rmIdx);
         assertEquals("A1:B2", ctWorksheet.getMergeCells().getMergeCellArray(0).getRef());
         assertEquals("E5:F6", ctWorksheet.getMergeCells().getMergeCellArray(1).getRef());
+        workbook.close();
+    }
+
+    /**
+     * bug 58885: checking for overlapping merged regions when
+     * adding a merged region is safe, but runs in O(n).
+     * the check for merged regions when adding a merged region
+     * can be skipped (unsafe) and run in O(1).
+     */
+    @Test
+    public void addMergedRegionUnsafe() throws IOException {
+        XSSFWorkbook wb = new XSSFWorkbook();
+        XSSFSheet sh = wb.createSheet();
+        CellRangeAddress region1 = CellRangeAddress.valueOf("A1:B2");
+        CellRangeAddress region2 = CellRangeAddress.valueOf("B2:C3");
+        CellRangeAddress region3 = CellRangeAddress.valueOf("C3:D4");
+        CellRangeAddress region4 = CellRangeAddress.valueOf("J10:K11");
+        assumeTrue(region1.intersects(region2));
+        assumeTrue(region2.intersects(region3));
+
+        sh.addMergedRegionUnsafe(region1);
+        assertTrue(sh.getMergedRegions().contains(region1));        
+
+        // adding a duplicate or overlapping merged region should not
+        // raise an exception with the unsafe version of addMergedRegion.
+           
+        sh.addMergedRegionUnsafe(region2);
+
+        // the safe version of addMergedRegion should throw when trying to add a merged region that overlaps an existing region
+        assertTrue(sh.getMergedRegions().contains(region2));
+        try {
+            sh.addMergedRegion(region3);
+            fail("Expected IllegalStateException. region3 overlaps already added merged region2.");
+        } catch (final IllegalStateException e) {
+            // expected
+            assertFalse(sh.getMergedRegions().contains(region3));
+        }
+        // addMergedRegion should not re-validate previously-added merged regions
+        sh.addMergedRegion(region4);
+
+        // validation methods should detect a problem with previously added merged regions (runs in O(n^2) time)
+        try {
+            sh.validateMergedRegions();
+            fail("Expected validation to fail. Sheet contains merged regions A1:B2 and B2:C3, which overlap at B2.");
+        } catch (final IllegalStateException e) {
+            // expected
+        }
+
+        wb.close();
     }
 
     @Test
-    public void setDefaultColumnStyle() {
+    public void setDefaultColumnStyle() throws IOException {
         XSSFWorkbook workbook = new XSSFWorkbook();
         XSSFSheet sheet = workbook.createSheet();
         CTWorksheet ctWorksheet = sheet.getCTWorksheet();
@@ -288,12 +374,12 @@ public final class TestXSSFSheet extends BaseTestSheet {
 
         sheet.setDefaultColumnStyle(3, cellStyle);
         assertEquals(1, ctWorksheet.getColsArray(0).getColArray(0).getStyle());
+        workbook.close();
     }
 
 
     @Test
-    @SuppressWarnings("deprecation")
-    public void groupUngroupColumn() {
+    public void groupUngroupColumn() throws IOException {
         XSSFWorkbook workbook = new XSSFWorkbook();
         XSSFSheet sheet = workbook.createSheet();
 
@@ -334,10 +420,12 @@ public final class TestXSSFSheet extends BaseTestSheet {
         colArray = cols.getColArray();
         assertEquals(4, colArray.length);
         assertEquals(2, sheet.getCTWorksheet().getSheetFormatPr().getOutlineLevelCol());
+        
+        workbook.close();
     }
 
     @Test
-    public void groupUngroupRow() {
+    public void groupUngroupRow() throws IOException {
         XSSFWorkbook workbook = new XSSFWorkbook();
         XSSFSheet sheet = workbook.createSheet();
 
@@ -369,13 +457,15 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertEquals(3, sheet.getPhysicalNumberOfRows());
 
         assertEquals(1, sheet.getCTWorksheet().getSheetFormatPr().getOutlineLevelRow());
+        
+        workbook.close();
     }
 
-    @Test
-    public void setZoom() {
+    @Test(expected=IllegalArgumentException.class)
+    public void setZoom() throws IOException {
         XSSFWorkbook workBook = new XSSFWorkbook();
         XSSFSheet sheet1 = workBook.createSheet("new sheet");
-        sheet1.setZoom(3, 4);   // 75 percent magnification
+        sheet1.setZoom(75);   // 75 percent magnification
         long zoom = sheet1.getCTWorksheet().getSheetViews().getSheetViewArray(0).getZoomScale();
         assertEquals(zoom, 75);
 
@@ -383,11 +473,11 @@ public final class TestXSSFSheet extends BaseTestSheet {
         zoom = sheet1.getCTWorksheet().getSheetViews().getSheetViewArray(0).getZoomScale();
         assertEquals(zoom, 200);
 
+        // Valid scale values range from 10 to 400
         try {
             sheet1.setZoom(500);
-            fail("Expecting exception");
-        } catch (IllegalArgumentException e) {
-            assertEquals("Valid scale values range from 10 to 400", e.getMessage());
+        } finally {
+            workBook.close();
         }
     }
 
@@ -398,9 +488,9 @@ public final class TestXSSFSheet extends BaseTestSheet {
      *  better should really review this!
      */
     @Test
-    public void setColumnGroupCollapsed(){
-        Workbook wb = new XSSFWorkbook();
-        XSSFSheet sheet1 =(XSSFSheet) wb.createSheet();
+    public void setColumnGroupCollapsed() throws IOException {
+        XSSFWorkbook wb1 = new XSSFWorkbook();
+        XSSFSheet sheet1 = wb1.createSheet();
 
         CTCols cols=sheet1.getCTWorksheet().getColsArray(0);
         assertEquals(0,cols.sizeOfColArray());
@@ -498,7 +588,7 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertEquals(5, cols.getColArray(0).getMin()); // 1 based
         assertEquals(8, cols.getColArray(0).getMax()); // 1 based
         assertEquals(false,cols.getColArray(1).isSetHidden());
-        assertEquals(true,cols.getColArray(1).isSetCollapsed());
+        assertEquals(false,cols.getColArray(1).isSetCollapsed());
         assertEquals(9, cols.getColArray(1).getMin()); // 1 based
         assertEquals(9, cols.getColArray(1).getMax()); // 1 based
         assertEquals(true, cols.getColArray(2).isSetHidden());
@@ -533,7 +623,7 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertEquals(5, cols.getColArray(0).getMin()); // 1 based
         assertEquals(8, cols.getColArray(0).getMax()); // 1 based
         assertEquals(false,cols.getColArray(1).isSetHidden());
-        assertEquals(true,cols.getColArray(1).isSetCollapsed());
+        assertEquals(false,cols.getColArray(1).isSetCollapsed());
         assertEquals(9, cols.getColArray(1).getMin()); // 1 based
         assertEquals(9, cols.getColArray(1).getMax()); // 1 based
         assertEquals(false,cols.getColArray(2).isSetHidden());
@@ -562,7 +652,7 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertEquals(5, cols.getColArray(0).getMin()); // 1 based
         assertEquals(8, cols.getColArray(0).getMax()); // 1 based
         assertEquals(false,cols.getColArray(1).isSetHidden());
-        assertEquals(true,cols.getColArray(1).isSetCollapsed());
+        assertEquals(false,cols.getColArray(1).isSetCollapsed());
         assertEquals(9, cols.getColArray(1).getMin()); // 1 based
         assertEquals(9, cols.getColArray(1).getMax()); // 1 based
         assertEquals(false,cols.getColArray(2).isSetHidden());
@@ -592,8 +682,9 @@ public final class TestXSSFSheet extends BaseTestSheet {
 
 //      write out and give back
         // Save and re-load
-        wb = XSSFTestDataSamples.writeOutAndReadBack(wb);
-        sheet1 = (XSSFSheet)wb.getSheetAt(0);
+        XSSFWorkbook wb2 = XSSFTestDataSamples.writeOutAndReadBack(wb1);
+        wb1.close();
+        sheet1 = wb2.getSheetAt(0);
         assertEquals(6,cols.sizeOfColArray());
 
         assertEquals(false,cols.getColArray(0).isSetHidden());
@@ -601,7 +692,7 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertEquals(5, cols.getColArray(0).getMin()); // 1 based
         assertEquals(8, cols.getColArray(0).getMax()); // 1 based
         assertEquals(false,cols.getColArray(1).isSetHidden());
-        assertEquals(true,cols.getColArray(1).isSetCollapsed());
+        assertEquals(false,cols.getColArray(1).isSetCollapsed());
         assertEquals(9, cols.getColArray(1).getMin()); // 1 based
         assertEquals(9, cols.getColArray(1).getMax()); // 1 based
         assertEquals(false,cols.getColArray(2).isSetHidden());
@@ -620,6 +711,8 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertEquals(false,cols.getColArray(5).isSetCollapsed());
         assertEquals(14, cols.getColArray(5).getMin()); // 1 based
         assertEquals(14, cols.getColArray(5).getMax()); // 1 based
+        
+        wb2.close();
     }
 
     /**
@@ -629,84 +722,87 @@ public final class TestXSSFSheet extends BaseTestSheet {
      *  better should really review this!
      */
     @Test
-    public void setRowGroupCollapsed(){
-        Workbook wb = new XSSFWorkbook();
-        XSSFSheet sheet1 = (XSSFSheet)wb.createSheet();
+    public void setRowGroupCollapsed() throws IOException {
+        XSSFWorkbook wb1 = new XSSFWorkbook();
+        XSSFSheet sheet1 = wb1.createSheet();
 
         sheet1.groupRow( 5, 14 );
         sheet1.groupRow( 7, 14 );
         sheet1.groupRow( 16, 19 );
 
         assertEquals(14,sheet1.getPhysicalNumberOfRows());
-        assertEquals(false,sheet1.getRow(6).getCTRow().isSetCollapsed());
-        assertEquals(false,sheet1.getRow(6).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(7).getCTRow().isSetCollapsed());
-        assertEquals(false,sheet1.getRow(7).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(9).getCTRow().isSetCollapsed());
-        assertEquals(false,sheet1.getRow(9).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(14).getCTRow().isSetCollapsed());
-        assertEquals(false,sheet1.getRow(14).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(16).getCTRow().isSetCollapsed());
-        assertEquals(false,sheet1.getRow(16).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(18).getCTRow().isSetCollapsed());
-        assertEquals(false,sheet1.getRow(18).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(6).getCTRow().isSetCollapsed());
+        assertFalse(sheet1.getRow(6).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(7).getCTRow().isSetCollapsed());
+        assertFalse(sheet1.getRow(7).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(9).getCTRow().isSetCollapsed());
+        assertFalse(sheet1.getRow(9).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(14).getCTRow().isSetCollapsed());
+        assertFalse(sheet1.getRow(14).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(16).getCTRow().isSetCollapsed());
+        assertFalse(sheet1.getRow(16).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(18).getCTRow().isSetCollapsed());
+        assertFalse(sheet1.getRow(18).getCTRow().isSetHidden());
 
         //collapsed
         sheet1.setRowGroupCollapsed( 7, true );
 
-        assertEquals(false,sheet1.getRow(6).getCTRow().isSetCollapsed());
-        assertEquals(false,sheet1.getRow(6).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(7).getCTRow().isSetCollapsed());
-        assertEquals(true, sheet1.getRow(7).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(9).getCTRow().isSetCollapsed());
-        assertEquals(true, sheet1.getRow(9).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(14).getCTRow().isSetCollapsed());
-        assertEquals(true, sheet1.getRow(14).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(16).getCTRow().isSetCollapsed());
-        assertEquals(false,sheet1.getRow(16).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(18).getCTRow().isSetCollapsed());
-        assertEquals(false,sheet1.getRow(18).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(6).getCTRow().isSetCollapsed());
+        assertFalse(sheet1.getRow(6).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(7).getCTRow().isSetCollapsed());
+        assertTrue (sheet1.getRow(7).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(9).getCTRow().isSetCollapsed());
+        assertTrue (sheet1.getRow(9).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(14).getCTRow().isSetCollapsed());
+        assertTrue (sheet1.getRow(14).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(16).getCTRow().isSetCollapsed());
+        assertFalse(sheet1.getRow(16).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(18).getCTRow().isSetCollapsed());
+        assertFalse(sheet1.getRow(18).getCTRow().isSetHidden());
 
         //expanded
         sheet1.setRowGroupCollapsed( 7, false );
 
-        assertEquals(false,sheet1.getRow(6).getCTRow().isSetCollapsed());
-        assertEquals(false,sheet1.getRow(6).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(7).getCTRow().isSetCollapsed());
-        assertEquals(true, sheet1.getRow(7).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(9).getCTRow().isSetCollapsed());
-        assertEquals(true, sheet1.getRow(9).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(14).getCTRow().isSetCollapsed());
-        assertEquals(true, sheet1.getRow(14).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(16).getCTRow().isSetCollapsed());
-        assertEquals(false,sheet1.getRow(16).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(18).getCTRow().isSetCollapsed());
-        assertEquals(false,sheet1.getRow(18).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(6).getCTRow().isSetCollapsed());
+        assertFalse(sheet1.getRow(6).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(7).getCTRow().isSetCollapsed());
+        assertTrue (sheet1.getRow(7).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(9).getCTRow().isSetCollapsed());
+        assertTrue (sheet1.getRow(9).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(14).getCTRow().isSetCollapsed());
+        assertTrue (sheet1.getRow(14).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(16).getCTRow().isSetCollapsed());
+        assertFalse(sheet1.getRow(16).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(18).getCTRow().isSetCollapsed());
+        assertFalse(sheet1.getRow(18).getCTRow().isSetHidden());
 
 
         // Save and re-load
-        wb = XSSFTestDataSamples.writeOutAndReadBack(wb);
-        sheet1 = (XSSFSheet)wb.getSheetAt(0);
+        XSSFWorkbook wb2 = XSSFTestDataSamples.writeOutAndReadBack(wb1);
+        wb1.close();
+        sheet1 = wb2.getSheetAt(0);
 
-        assertEquals(false,sheet1.getRow(6).getCTRow().isSetCollapsed());
-        assertEquals(false,sheet1.getRow(6).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(7).getCTRow().isSetCollapsed());
-        assertEquals(true, sheet1.getRow(7).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(9).getCTRow().isSetCollapsed());
-        assertEquals(true, sheet1.getRow(9).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(14).getCTRow().isSetCollapsed());
-        assertEquals(true, sheet1.getRow(14).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(16).getCTRow().isSetCollapsed());
-        assertEquals(false,sheet1.getRow(16).getCTRow().isSetHidden());
-        assertEquals(false,sheet1.getRow(18).getCTRow().isSetCollapsed());
-        assertEquals(false,sheet1.getRow(18).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(6).getCTRow().isSetCollapsed());
+        assertFalse(sheet1.getRow(6).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(7).getCTRow().isSetCollapsed());
+        assertTrue (sheet1.getRow(7).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(9).getCTRow().isSetCollapsed());
+        assertTrue (sheet1.getRow(9).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(14).getCTRow().isSetCollapsed());
+        assertTrue (sheet1.getRow(14).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(16).getCTRow().isSetCollapsed());
+        assertFalse(sheet1.getRow(16).getCTRow().isSetHidden());
+        assertFalse(sheet1.getRow(18).getCTRow().isSetCollapsed());
+        assertFalse(sheet1.getRow(18).getCTRow().isSetHidden());
+        
+        wb2.close();
     }
 
     /**
      * Get / Set column width and check the actual values of the underlying XML beans
      */
     @Test
-    public void columnWidth_lowlevel() {
+    public void columnWidth_lowlevel() throws IOException {
         XSSFWorkbook workbook = new XSSFWorkbook();
         XSSFSheet sheet = workbook.createSheet("Sheet 1");
         sheet.setColumnWidth(1, 22 * 256);
@@ -746,15 +842,17 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertEquals(4, col.getMax());
         assertEquals(33.0, col.getWidth(), 0.0);
         assertTrue(col.getCustomWidth());
+        
+        workbook.close();
     }
 
     /**
      * Setting width of a column included in a column span
      */
     @Test
-    public void bug47862() {
-        XSSFWorkbook wb = XSSFTestDataSamples.openSampleWorkbook("47862.xlsx");
-        XSSFSheet sheet = wb.getSheetAt(0);
+    public void bug47862() throws IOException {
+        XSSFWorkbook wb1 = XSSFTestDataSamples.openSampleWorkbook("47862.xlsx");
+        XSSFSheet sheet = wb1.getSheetAt(0);
         CTCols cols = sheet.getCTWorksheet().getColsArray(0);
         //<cols>
         //  <col min="1" max="5" width="15.77734375" customWidth="1"/>
@@ -795,23 +893,26 @@ public final class TestXSSFSheet extends BaseTestSheet {
         }
 
         //serialize and check again
-        wb = XSSFTestDataSamples.writeOutAndReadBack(wb);
-        sheet = wb.getSheetAt(0);
+        XSSFWorkbook wb2 = XSSFTestDataSamples.writeOutAndReadBack(wb1);
+        wb1.close();
+        sheet = wb2.getSheetAt(0);
         cols = sheet.getCTWorksheet().getColsArray(0);
         assertEquals(5, cols.sizeOfColArray());
         for (int i = 0; i < 5; i++) {
             assertEquals(cw[i]*256, sheet.getColumnWidth(i));
             assertEquals(cw[i], cols.getColArray(i).getWidth(), 0.0);
         }
+        
+        wb2.close();
     }
 
     /**
      * Hiding a column included in a column span
      */
     @Test
-    public void bug47804() {
-        XSSFWorkbook wb = XSSFTestDataSamples.openSampleWorkbook("47804.xlsx");
-        XSSFSheet sheet = wb.getSheetAt(0);
+    public void bug47804() throws IOException {
+        XSSFWorkbook wb1 = XSSFTestDataSamples.openSampleWorkbook("47804.xlsx");
+        XSSFSheet sheet = wb1.getSheetAt(0);
         CTCols cols = sheet.getCTWorksheet().getColsArray(0);
         assertEquals(2, cols.sizeOfColArray());
         CTCol col;
@@ -866,31 +967,34 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertEquals(7, col.getMax());
 
         //serialize and check again
-        wb = XSSFTestDataSamples.writeOutAndReadBack(wb);
-        sheet = wb.getSheetAt(0);
+        XSSFWorkbook wb2 = XSSFTestDataSamples.writeOutAndReadBack(wb1);
+        wb1.close();
+        sheet = wb2.getSheetAt(0);
         assertTrue(sheet.isColumnHidden(2));
         assertTrue(sheet.isColumnHidden(6));
         assertFalse(sheet.isColumnHidden(1));
         assertFalse(sheet.isColumnHidden(3));
         assertFalse(sheet.isColumnHidden(4));
         assertFalse(sheet.isColumnHidden(5));
+        
+        wb2.close();
     }
 
     @Test
-    public void commentsTable() {
-        XSSFWorkbook workbook = new XSSFWorkbook();
-        XSSFSheet sheet1 = workbook.createSheet();
+    public void commentsTable() throws IOException {
+        XSSFWorkbook wb1 = new XSSFWorkbook();
+        XSSFSheet sheet1 = wb1.createSheet();
         CommentsTable comment1 = sheet1.getCommentsTable(false);
         assertNull(comment1);
 
         comment1 = sheet1.getCommentsTable(true);
         assertNotNull(comment1);
-        assertEquals("/xl/comments1.xml", comment1.getPackageRelationship().getTargetURI().toString());
+        assertEquals("/xl/comments1.xml", comment1.getPackagePart().getPartName().getName());
 
         assertSame(comment1, sheet1.getCommentsTable(true));
 
         //second sheet
-        XSSFSheet sheet2 = workbook.createSheet();
+        XSSFSheet sheet2 = wb1.createSheet();
         CommentsTable comment2 = sheet2.getCommentsTable(false);
         assertNull(comment2);
 
@@ -898,18 +1002,21 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertNotNull(comment2);
 
         assertSame(comment2, sheet2.getCommentsTable(true));
-        assertEquals("/xl/comments2.xml", comment2.getPackageRelationship().getTargetURI().toString());
+        assertEquals("/xl/comments2.xml", comment2.getPackagePart().getPartName().getName());
 
         //comment1 and  comment2 are different objects
         assertNotSame(comment1, comment2);
-
+        wb1.close();
+        
         //now test against a workbook containing cell comments
-        workbook = XSSFTestDataSamples.openSampleWorkbook("WithMoreVariousData.xlsx");
-        sheet1 = workbook.getSheetAt(0);
+        XSSFWorkbook wb2 = XSSFTestDataSamples.openSampleWorkbook("WithMoreVariousData.xlsx");
+        sheet1 = wb2.getSheetAt(0);
         comment1 = sheet1.getCommentsTable(true);
         assertNotNull(comment1);
-        assertEquals("/xl/comments1.xml", comment1.getPackageRelationship().getTargetURI().toString());
+        assertEquals("/xl/comments1.xml", comment1.getPackagePart().getPartName().getName());
         assertSame(comment1, sheet1.getCommentsTable(true));
+        
+        wb2.close();
     }
 
     /**
@@ -918,10 +1025,9 @@ public final class TestXSSFSheet extends BaseTestSheet {
      */
     @Override
     @Test
-    @SuppressWarnings("deprecation")
-    public void createRow() {
-        XSSFWorkbook workbook = new XSSFWorkbook();
-        XSSFSheet sheet = workbook.createSheet();
+    public void createRow() throws IOException {
+        XSSFWorkbook wb1 = new XSSFWorkbook();
+        XSSFSheet sheet = wb1.createSheet();
         CTWorksheet wsh = sheet.getCTWorksheet();
         CTSheetData sheetData = wsh.getSheetData();
         assertEquals(0, sheetData.sizeOfRowArray());
@@ -971,8 +1077,9 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertEquals(0, sheetData.getRowArray(1).sizeOfCArray());
         assertEquals(0, row2.getPhysicalNumberOfCells());
 
-        workbook = XSSFTestDataSamples.writeOutAndReadBack(workbook);
-        sheet = workbook.getSheetAt(0);
+        XSSFWorkbook wb2 = XSSFTestDataSamples.writeOutAndReadBack(wb1);
+        wb1.close();
+        sheet = wb2.getSheetAt(0);
         wsh = sheet.getCTWorksheet();
         xrow = sheetData.getRowArray();
         assertEquals(3, xrow.length);
@@ -994,15 +1101,16 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertEquals(2, xrow[2].sizeOfCArray());
         assertEquals(3, xrow[2].getR());
 
+        wb2.close();
     }
     
-    @Test
-    public void createRowAfterLastRow() {
+    @Test(expected=IllegalArgumentException.class)
+    public void createRowAfterLastRow() throws IOException {
         createRowAfterLastRow(SpreadsheetVersion.EXCEL2007);
     }
 
     @Test
-    public void setAutoFilter() {
+    public void setAutoFilter() throws IOException {
         XSSFWorkbook wb = new XSSFWorkbook();
         XSSFSheet sheet = wb.createSheet("new sheet");
         sheet.setAutoFilter(CellRangeAddress.valueOf("A1:D100"));
@@ -1017,10 +1125,12 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertEquals(true, nm.getCTName().getHidden());
         assertEquals("_xlnm._FilterDatabase", nm.getCTName().getName());
         assertEquals("'new sheet'!$A$1:$D$100", nm.getCTName().getStringValue());
+        
+        wb.close();
     }
 
     @Test
-    public void protectSheet_lowlevel() {
+    public void protectSheet_lowlevel() throws IOException {
         XSSFWorkbook wb = new XSSFWorkbook();
         XSSFSheet sheet = wb.createSheet();
         CTSheetProtection pr = sheet.getCTWorksheet().getSheetProtection();
@@ -1038,30 +1148,35 @@ public final class TestXSSFSheet extends BaseTestSheet {
 
         sheet.protectSheet(null);
         assertNull("protectSheet(null) should unset CTSheetProtection", sheet.getCTWorksheet().getSheetProtection());
+        
+        wb.close();
     }
 
     @Test
-    public void protectSheet_lowlevel_2013() {
+    public void protectSheet_lowlevel_2013() throws IOException {
         String password = "test";
-        XSSFWorkbook wb = new XSSFWorkbook();
-        XSSFSheet xs = wb.createSheet();
+        XSSFWorkbook wb1 = new XSSFWorkbook();
+        XSSFSheet xs = wb1.createSheet();
         xs.setSheetPassword(password, HashAlgorithm.sha384);
-        wb = writeOutAndReadBack(wb);
-        assertTrue(wb.getSheetAt(0).validateSheetPassword(password));
+        XSSFWorkbook wb2 = writeOutAndReadBack(wb1);
+        wb1.close();
+        assertTrue(wb2.getSheetAt(0).validateSheetPassword(password));
+        wb2.close();
         
-        wb = openSampleWorkbook("workbookProtection-sheet_password-2013.xlsx");
-        assertTrue(wb.getSheetAt(0).validateSheetPassword("pwd"));
+        XSSFWorkbook wb3 = openSampleWorkbook("workbookProtection-sheet_password-2013.xlsx");
+        assertTrue(wb3.getSheetAt(0).validateSheetPassword("pwd"));
+        wb3.close();
     }
     
 
     @Test
-    public void bug49966() {
-        XSSFWorkbook wb = XSSFTestDataSamples.openSampleWorkbook("49966.xlsx");
-        CalculationChain calcChain = wb.getCalculationChain();
-        assertNotNull(wb.getCalculationChain());
+    public void bug49966() throws IOException {
+        XSSFWorkbook wb1 = XSSFTestDataSamples.openSampleWorkbook("49966.xlsx");
+        CalculationChain calcChain = wb1.getCalculationChain();
+        assertNotNull(wb1.getCalculationChain());
         assertEquals(3, calcChain.getCTCalcChain().sizeOfCArray());
 
-        XSSFSheet sheet = wb.getSheetAt(0);
+        XSSFSheet sheet = wb1.getSheetAt(0);
         XSSFRow row = sheet.getRow(0);
 
         sheet.removeRow(row);
@@ -1069,16 +1184,17 @@ public final class TestXSSFSheet extends BaseTestSheet {
                 0, calcChain.getCTCalcChain().sizeOfCArray());
 
         //calcChain should be gone
-        wb = XSSFTestDataSamples.writeOutAndReadBack(wb);
-        assertNull(wb.getCalculationChain());
-
+        XSSFWorkbook wb2 = XSSFTestDataSamples.writeOutAndReadBack(wb1);
+        wb1.close();
+        assertNull(wb2.getCalculationChain());
+        wb2.close();
     }
 
     /**
      * See bug #50829
      */
     @Test
-    public void tables() {
+    public void tables() throws IOException {
        XSSFWorkbook wb = XSSFTestDataSamples.openSampleWorkbook("WithTable.xlsx");
        assertEquals(3, wb.getNumberOfSheets());
 
@@ -1100,15 +1216,16 @@ public final class TestXSSFSheet extends BaseTestSheet {
        assertEquals(0, s2.getTables().size());
        XSSFSheet s3 = wb.getSheetAt(2);
        assertEquals(0, s3.getTables().size());
+       wb.close();
     }
 
     /**
      * Test to trigger OOXML-LITE generating to include org.openxmlformats.schemas.spreadsheetml.x2006.main.CTSheetCalcPr
      */
     @Test
-    public void setForceFormulaRecalculation() {
-        XSSFWorkbook workbook = new XSSFWorkbook();
-        XSSFSheet sheet = workbook.createSheet("Sheet 1");
+    public void setForceFormulaRecalculation() throws IOException {
+        XSSFWorkbook wb1 = new XSSFWorkbook();
+        XSSFSheet sheet = wb1.createSheet("Sheet 1");
 
         assertFalse(sheet.getForceFormulaRecalculation());
         
@@ -1117,7 +1234,7 @@ public final class TestXSSFSheet extends BaseTestSheet {
         assertEquals(true, sheet.getForceFormulaRecalculation());
 
         // calcMode="manual" is unset when forceFormulaRecalculation=true
-        CTCalcPr calcPr = workbook.getCTWorkbook().addNewCalcPr();
+        CTCalcPr calcPr = wb1.getCTWorkbook().addNewCalcPr();
         calcPr.setCalcMode(STCalcMode.MANUAL);
         sheet.setForceFormulaRecalculation(true);
         assertEquals(STCalcMode.AUTO, calcPr.getCalcMode());
@@ -1128,9 +1245,11 @@ public final class TestXSSFSheet extends BaseTestSheet {
 
 
         // Save, re-load, and re-check
-        workbook = XSSFTestDataSamples.writeOutAndReadBack(workbook);
-        sheet = workbook.getSheet("Sheet 1");
+        XSSFWorkbook wb2 = XSSFTestDataSamples.writeOutAndReadBack(wb1);
+        wb1.close();
+        sheet = wb2.getSheet("Sheet 1");
         assertEquals(false, sheet.getForceFormulaRecalculation());
+        wb2.close();
     }
 
     @Test
@@ -1149,12 +1268,10 @@ public final class TestXSSFSheet extends BaseTestSheet {
     }
 
     private void runGetTopRow(String file, boolean isXSSF, int... topRows) throws IOException {
-        final Workbook wb;
-        if(isXSSF) {
-            wb = XSSFTestDataSamples.openSampleWorkbook(file);
-        } else {
-            wb = HSSFTestDataSamples.openSampleWorkbook(file);
-        }
+        final Workbook wb = (isXSSF)
+            ? XSSFTestDataSamples.openSampleWorkbook(file)
+            : HSSFTestDataSamples.openSampleWorkbook(file);
+
         for (int si = 0; si < wb.getNumberOfSheets(); si++) {
             Sheet sh = wb.getSheetAt(si);
             assertNotNull(sh.getSheetName());
@@ -1162,27 +1279,24 @@ public final class TestXSSFSheet extends BaseTestSheet {
         }
 
         // for XSSF also test with SXSSF
-        if(isXSSF) {
+        if (isXSSF) {
             Workbook swb = new SXSSFWorkbook((XSSFWorkbook) wb);
-            try {
-                for (int si = 0; si < swb.getNumberOfSheets(); si++) {
-                    Sheet sh = swb.getSheetAt(si);
-                    assertNotNull(sh.getSheetName());
-                    assertEquals("Did not match for sheet " + si, topRows[si], sh.getTopRow());
-                }
-            } finally {
-                swb.close();
+            for (int si = 0; si < swb.getNumberOfSheets(); si++) {
+                Sheet sh = swb.getSheetAt(si);
+                assertNotNull(sh.getSheetName());
+                assertEquals("Did not match for sheet " + si, topRows[si], sh.getTopRow());
             }
+            swb.close();
         }
+        
+        wb.close();
     }
 
     private void runGetLeftCol(String file, boolean isXSSF, int... topRows) throws IOException {
-        final Workbook wb;
-        if(isXSSF) {
-            wb = XSSFTestDataSamples.openSampleWorkbook(file);
-        } else {
-            wb = HSSFTestDataSamples.openSampleWorkbook(file);
-        }
+        final Workbook wb = (isXSSF)
+            ? XSSFTestDataSamples.openSampleWorkbook(file)
+            : HSSFTestDataSamples.openSampleWorkbook(file);
+
         for (int si = 0; si < wb.getNumberOfSheets(); si++) {
             Sheet sh = wb.getSheetAt(si);
             assertNotNull(sh.getSheetName());
@@ -1199,6 +1313,8 @@ public final class TestXSSFSheet extends BaseTestSheet {
             }
             swb.close();
         }
+        
+        wb.close();
     }
 
     @Test
@@ -1218,10 +1334,11 @@ public final class TestXSSFSheet extends BaseTestSheet {
         }*/
         assertEquals("Sheet should contain 8 tables", 8, tables.size());
         assertNotNull("Sheet should contain a comments table", sheet.getCommentsTable(false));
+        wb.close();
     }
 
     @Test
-    public void bug55723b(){
+    public void bug55723b() throws IOException {
         XSSFWorkbook wb = new XSSFWorkbook();
         Sheet sheet = wb.createSheet();
 
@@ -1245,11 +1362,13 @@ public final class TestXSSFSheet extends BaseTestSheet {
         name = wb.getBuiltInName(XSSFName.BUILTIN_FILTER_DB, 0);
         assertNotNull(name);
         assertEquals("Sheet0!$B:$C", name.getRefersToFormula());
+        
+        wb.close();
     }
 
     @Test(timeout=180000)
-    public void bug51585(){
-        XSSFTestDataSamples.openSampleWorkbook("51585.xlsx");
+    public void bug51585() throws IOException {
+        XSSFTestDataSamples.openSampleWorkbook("51585.xlsx").close();;
     }
 
     private XSSFWorkbook setupSheet(){
@@ -1279,107 +1398,558 @@ public final class TestXSSFSheet extends BaseTestSheet {
     }
 
     @Test
-    public void testCreateTwoPivotTablesInOneSheet(){
+    public void testCreateTwoPivotTablesInOneSheet() throws IOException {
         XSSFWorkbook wb = setupSheet();
         XSSFSheet sheet = wb.getSheetAt(0);
 
         assertNotNull(wb);
         assertNotNull(sheet);
-        XSSFPivotTable pivotTable = sheet.createPivotTable(new AreaReference("A1:B2"), new CellReference("H5"));
+        XSSFPivotTable pivotTable = sheet.createPivotTable(new AreaReference("A1:B2", SpreadsheetVersion.EXCEL2007), new CellReference("H5"));
         assertNotNull(pivotTable);
         assertTrue(wb.getPivotTables().size() > 0);
-        XSSFPivotTable pivotTable2 = sheet.createPivotTable(new AreaReference("A1:B2"), new CellReference("L5"), sheet);
+        XSSFPivotTable pivotTable2 = sheet.createPivotTable(new AreaReference("A1:B2", SpreadsheetVersion.EXCEL2007), new CellReference("L5"), sheet);
         assertNotNull(pivotTable2);
         assertTrue(wb.getPivotTables().size() > 1);
+        wb.close();
     }
 
     @Test
-    public void testCreateTwoPivotTablesInTwoSheets(){
+    public void testCreateTwoPivotTablesInTwoSheets() throws IOException {
         XSSFWorkbook wb = setupSheet();
         XSSFSheet sheet = wb.getSheetAt(0);
 
         assertNotNull(wb);
         assertNotNull(sheet);
-        XSSFPivotTable pivotTable = sheet.createPivotTable(new AreaReference("A1:B2"), new CellReference("H5"));
+        XSSFPivotTable pivotTable = sheet.createPivotTable(new AreaReference("A1:B2", SpreadsheetVersion.EXCEL2007), new CellReference("H5"));
         assertNotNull(pivotTable);
         assertTrue(wb.getPivotTables().size() > 0);
         assertNotNull(wb);
         XSSFSheet sheet2 = wb.createSheet();
-        XSSFPivotTable pivotTable2 = sheet2.createPivotTable(new AreaReference("A1:B2"), new CellReference("H5"), sheet);
+        XSSFPivotTable pivotTable2 = sheet2.createPivotTable(new AreaReference("A1:B2", SpreadsheetVersion.EXCEL2007), new CellReference("H5"), sheet);
         assertNotNull(pivotTable2);
         assertTrue(wb.getPivotTables().size() > 1);
+        wb.close();
     }
 
     @Test
-    public void testCreatePivotTable(){
+    public void testCreatePivotTable() throws IOException {
         XSSFWorkbook wb = setupSheet();
         XSSFSheet sheet = wb.getSheetAt(0);
 
         assertNotNull(wb);
         assertNotNull(sheet);
-        XSSFPivotTable pivotTable = sheet.createPivotTable(new AreaReference("A1:B2"), new CellReference("H5"));
+        XSSFPivotTable pivotTable = sheet.createPivotTable(new AreaReference("A1:B2", SpreadsheetVersion.EXCEL2007), new CellReference("H5"));
         assertNotNull(pivotTable);
         assertTrue(wb.getPivotTables().size() > 0);
+        wb.close();
     }
 
     @Test
-    public void testCreatePivotTableInOtherSheetThanDataSheet(){
+    public void testCreatePivotTableInOtherSheetThanDataSheet() throws IOException {
         XSSFWorkbook wb = setupSheet();
         XSSFSheet sheet1 = wb.getSheetAt(0);
         XSSFSheet sheet2 = wb.createSheet();
 
         XSSFPivotTable pivotTable = sheet2.createPivotTable
-                (new AreaReference("A1:B2"), new CellReference("H5"), sheet1);
+                (new AreaReference("A1:B2", SpreadsheetVersion.EXCEL2007), new CellReference("H5"), sheet1);
         assertEquals(0, pivotTable.getRowLabelColumns().size());
         
         assertEquals(1, wb.getPivotTables().size());
         assertEquals(0, sheet1.getPivotTables().size());
         assertEquals(1, sheet2.getPivotTables().size());
+        wb.close();
     }
 
     @Test
-    public void testCreatePivotTableInOtherSheetThanDataSheetUsingAreaReference(){
+    public void testCreatePivotTableInOtherSheetThanDataSheetUsingAreaReference() throws IOException {
         XSSFWorkbook wb = setupSheet();
         XSSFSheet sheet = wb.getSheetAt(0);
-        XSSFSheet sheet2 = wb.createSheet();
+        XSSFSheet sheet2 = wb.createSheet("TEST");
 
-        XSSFPivotTable pivotTable = sheet2.createPivotTable
-                (new AreaReference(sheet.getSheetName()+"!A$1:B$2"), new CellReference("H5"));
+        XSSFPivotTable pivotTable = sheet2.createPivotTable(
+                new AreaReference(sheet.getSheetName()+"!A$1:B$2", SpreadsheetVersion.EXCEL2007),
+                new CellReference("H5"));
         assertEquals(0, pivotTable.getRowLabelColumns().size());
+        wb.close();
     }
 
-    @Test
-    public void testCreatePivotTableWithConflictingDataSheets(){
+    @Test(expected=IllegalArgumentException.class)
+    public void testCreatePivotTableWithConflictingDataSheets() throws IOException {
         XSSFWorkbook wb = setupSheet();
         XSSFSheet sheet = wb.getSheetAt(0);
-        XSSFSheet sheet2 = wb.createSheet();
+        XSSFSheet sheet2 = wb.createSheet("TEST");
 
-        try {
-            sheet2.createPivotTable(new AreaReference(sheet.getSheetName()+"!A$1:B$2"), new CellReference("H5"), sheet2);
-        } catch(IllegalArgumentException e) {
-            return;
-        }
-        fail();
+        sheet2.createPivotTable(
+                new AreaReference(sheet.getSheetName()+"!A$1:B$2", SpreadsheetVersion.EXCEL2007),
+                new CellReference("H5"),
+                sheet2);
+        wb.close();
     }
     
-    @Test
-    public void testReadFails() {
+    @Test(expected=POIXMLException.class)
+    public void testReadFails() throws IOException {
         XSSFWorkbook wb = new XSSFWorkbook();
         XSSFSheet sheet = wb.createSheet();
         
+        // Throws exception because we cannot read here
         try {
             sheet.onDocumentRead();
-            fail("Throws exception because we cannot read here");
-        } catch (POIXMLException e) {
-            // expected here
+        } finally {
+            wb.close();
         }
     }
     
-    @SuppressWarnings("deprecation")
+    /** 
+     * This would be better off as a testable example rather than a simple unit test
+     * since Sheet.createComment() was deprecated and removed.
+     * https://poi.apache.org/spreadsheet/quick-guide.html#CellComments
+     * Feel free to relocated or delete this unit test if it doesn't belong here.
+     */
     @Test
-    public void testCreateComment() {
+    public void testCreateComment() throws IOException {
         XSSFWorkbook wb = new XSSFWorkbook();
+        ClientAnchor anchor = wb.getCreationHelper().createClientAnchor();
         XSSFSheet sheet = wb.createSheet();
-        assertNotNull(sheet.createComment());
+        XSSFComment comment = sheet.createDrawingPatriarch().createCellComment(anchor);
+        assertNotNull(comment);
+        wb.close();
+    }
+    
+    protected void testCopyOneRow(String copyRowsTestWorkbook) throws IOException {
+        final double FLOAT_PRECISION = 1e-9;
+        final XSSFWorkbook wb = XSSFTestDataSamples.openSampleWorkbook(copyRowsTestWorkbook);
+        final XSSFSheet sheet = wb.getSheetAt(0);
+        final CellCopyPolicy defaultCopyPolicy = new CellCopyPolicy();
+        sheet.copyRows(1, 1, 6, defaultCopyPolicy);
+
+        final Row srcRow = sheet.getRow(1);
+        final Row destRow = sheet.getRow(6);
+        int col = 0;
+        Cell cell;
+
+        cell = CellUtil.getCell(destRow, col++);
+        assertEquals("Source row ->", cell.getStringCellValue());
+
+        // Style
+        cell = CellUtil.getCell(destRow, col++);
+        assertEquals("[Style] B7 cell value", "Red", cell.getStringCellValue());
+        assertEquals("[Style] B7 cell style", CellUtil.getCell(srcRow, 1).getCellStyle(), cell.getCellStyle());
+
+        // Blank
+        cell = CellUtil.getCell(destRow, col++);
+        assertEquals("[Blank] C7 cell type", Cell.CELL_TYPE_BLANK, cell.getCellType());
+
+        // Error
+        cell = CellUtil.getCell(destRow, col++);
+        assertEquals("[Error] D7 cell type", Cell.CELL_TYPE_ERROR, cell.getCellType());
+        final FormulaError error = FormulaError.forInt(cell.getErrorCellValue());
+        assertEquals("[Error] D7 cell value", FormulaError.NA, error); //FIXME: XSSFCell and HSSFCell expose different interfaces. getErrorCellString would be helpful here
+
+        // Date
+        cell = CellUtil.getCell(destRow, col++);
+        assertEquals("[Date] E7 cell type", Cell.CELL_TYPE_NUMERIC, cell.getCellType());
+        final Date date = LocaleUtil.getLocaleCalendar(2000, Calendar.JANUARY, 1).getTime();
+        assertEquals("[Date] E7 cell value", date, cell.getDateCellValue());
+
+        // Boolean
+        cell = CellUtil.getCell(destRow, col++);
+        assertEquals("[Boolean] F7 cell type", Cell.CELL_TYPE_BOOLEAN, cell.getCellType());
+        assertEquals("[Boolean] F7 cell value", true, cell.getBooleanCellValue());
+
+        // String
+        cell = CellUtil.getCell(destRow, col++);
+        assertEquals("[String] G7 cell type", Cell.CELL_TYPE_STRING, cell.getCellType());
+        assertEquals("[String] G7 cell value", "Hello", cell.getStringCellValue());
+        
+        // Int
+        cell = CellUtil.getCell(destRow, col++);
+        assertEquals("[Int] H7 cell type", Cell.CELL_TYPE_NUMERIC, cell.getCellType());
+        assertEquals("[Int] H7 cell value", 15, (int) cell.getNumericCellValue());
+        
+        // Float
+        cell = CellUtil.getCell(destRow, col++);
+        assertEquals("[Float] I7 cell type", Cell.CELL_TYPE_NUMERIC, cell.getCellType());
+        assertEquals("[Float] I7 cell value", 12.5, cell.getNumericCellValue(), FLOAT_PRECISION);
+        
+        // Cell Formula
+        cell = CellUtil.getCell(destRow, col++);
+        assertEquals("J7", new CellReference(cell).formatAsString());
+        assertEquals("[Cell Formula] J7 cell type", Cell.CELL_TYPE_FORMULA, cell.getCellType());
+        assertEquals("[Cell Formula] J7 cell formula", "5+2", cell.getCellFormula());
+        System.out.println("Cell formula evaluation currently unsupported");
+        
+        // Cell Formula with Reference
+        // Formula row references should be adjusted by destRowNum-srcRowNum
+        cell = CellUtil.getCell(destRow, col++);
+        assertEquals("K7", new CellReference(cell).formatAsString());
+        assertEquals("[Cell Formula with Reference] K7 cell type",
+                Cell.CELL_TYPE_FORMULA, cell.getCellType());
+        assertEquals("[Cell Formula with Reference] K7 cell formula",
+                "J7+H$2", cell.getCellFormula());
+        
+        // Cell Formula with Reference spanning multiple rows
+        cell = CellUtil.getCell(destRow, col++);
+        assertEquals("[Cell Formula with Reference spanning multiple rows] L7 cell type",
+                Cell.CELL_TYPE_FORMULA, cell.getCellType());
+        assertEquals("[Cell Formula with Reference spanning multiple rows] L7 cell formula",
+                "G7&\" \"&G8", cell.getCellFormula());
+        
+        // Cell Formula with Reference spanning multiple rows
+        cell = CellUtil.getCell(destRow, col++);
+        assertEquals("[Cell Formula with Area Reference] M7 cell type",
+                Cell.CELL_TYPE_FORMULA, cell.getCellType());
+        assertEquals("[Cell Formula with Area Reference] M7 cell formula",
+                "SUM(H7:I8)", cell.getCellFormula());
+        
+        // Array Formula
+        cell = CellUtil.getCell(destRow, col++);
+        System.out.println("Array formulas currently unsupported");
+        // FIXME: Array Formula set with Sheet.setArrayFormula() instead of cell.setFormula()
+        /*
+        assertEquals("[Array Formula] N7 cell type", Cell.CELL_TYPE_FORMULA, cell.getCellType());
+        assertEquals("[Array Formula] N7 cell formula", "{SUM(H7:J7*{1,2,3})}", cell.getCellFormula());
+        */
+        
+        // Data Format
+        cell = CellUtil.getCell(destRow, col++);
+        assertEquals("[Data Format] O7 cell type;", Cell.CELL_TYPE_NUMERIC, cell.getCellType());
+        assertEquals("[Data Format] O7 cell value", 100.20, cell.getNumericCellValue(), FLOAT_PRECISION);
+        //FIXME: currently fails
+        final String moneyFormat = "\"$\"#,##0.00_);[Red]\\(\"$\"#,##0.00\\)";
+        assertEquals("[Data Format] O7 data format", moneyFormat, cell.getCellStyle().getDataFormatString());
+        
+        // Merged
+        cell = CellUtil.getCell(destRow, col);
+        assertEquals("[Merged] P7:Q7 cell value",
+                "Merged cells", cell.getStringCellValue());
+        assertTrue("[Merged] P7:Q7 merged region",
+                sheet.getMergedRegions().contains(CellRangeAddress.valueOf("P7:Q7")));
+        
+        // Merged across multiple rows
+        // Microsoft Excel 2013 does not copy a merged region unless all rows of
+        // the source merged region are selected
+        // POI's behavior should match this behavior
+        col += 2;
+        cell = CellUtil.getCell(destRow, col);
+        // Note: this behavior deviates from Microsoft Excel,
+        // which will not overwrite a cell in destination row if merged region extends beyond the copied row.
+        // The Excel way would require:
+        //assertEquals("[Merged across multiple rows] R7:S8 merged region", "Should NOT be overwritten", cell.getStringCellValue());
+        //assertFalse("[Merged across multiple rows] R7:S8 merged region", 
+        //        sheet.getMergedRegions().contains(CellRangeAddress.valueOf("R7:S8")));
+        // As currently implemented, cell value is copied but merged region is not copied
+        assertEquals("[Merged across multiple rows] R7:S8 cell value",
+                "Merged cells across multiple rows", cell.getStringCellValue());
+        assertFalse("[Merged across multiple rows] R7:S7 merged region (one row)", 
+                sheet.getMergedRegions().contains(CellRangeAddress.valueOf("R7:S7"))); //shouldn't do 1-row merge
+        assertFalse("[Merged across multiple rows] R7:S8 merged region", 
+                sheet.getMergedRegions().contains(CellRangeAddress.valueOf("R7:S8"))); //shouldn't do 2-row merge
+        
+        // Make sure other rows are blank (off-by-one errors)
+        assertNull(sheet.getRow(5));
+        assertNull(sheet.getRow(7));
+        
+        wb.close();
+    }
+    
+    public void testCopyMultipleRows(String copyRowsTestWorkbook) throws IOException {
+        final double FLOAT_PRECISION = 1e-9;
+        final XSSFWorkbook wb = XSSFTestDataSamples.openSampleWorkbook(copyRowsTestWorkbook);
+        final XSSFSheet sheet = wb.getSheetAt(0);
+        final CellCopyPolicy defaultCopyPolicy = new CellCopyPolicy();
+        sheet.copyRows(0, 3, 8, defaultCopyPolicy);
+
+        @SuppressWarnings("unused")
+        final Row srcHeaderRow = sheet.getRow(0);
+        final Row srcRow1 = sheet.getRow(1);
+        final Row srcRow2 = sheet.getRow(2);
+        final Row srcRow3 = sheet.getRow(3);
+        final Row destHeaderRow = sheet.getRow(8);
+        final Row destRow1 = sheet.getRow(9);
+        final Row destRow2 = sheet.getRow(10);
+        final Row destRow3 = sheet.getRow(11);
+        int col = 0;
+        Cell cell;
+        
+        // Header row should be copied
+        assertNotNull(destHeaderRow);
+        
+        // Data rows
+        cell = CellUtil.getCell(destRow1, col);
+        assertEquals("Source row ->", cell.getStringCellValue());
+        
+        // Style
+        col++;
+        cell = CellUtil.getCell(destRow1, col);
+        assertEquals("[Style] B10 cell value", "Red", cell.getStringCellValue());
+        assertEquals("[Style] B10 cell style", CellUtil.getCell(srcRow1, 1).getCellStyle(), cell.getCellStyle());
+        
+        cell = CellUtil.getCell(destRow2, col);
+        assertEquals("[Style] B11 cell value", "Blue", cell.getStringCellValue());
+        assertEquals("[Style] B11 cell style", CellUtil.getCell(srcRow2, 1).getCellStyle(), cell.getCellStyle());
+        
+        // Blank
+        col++;
+        cell = CellUtil.getCell(destRow1, col);
+        assertEquals("[Blank] C10 cell type", Cell.CELL_TYPE_BLANK, cell.getCellType());
+        
+        cell = CellUtil.getCell(destRow2, col);
+        assertEquals("[Blank] C11 cell type", Cell.CELL_TYPE_BLANK, cell.getCellType());
+        
+        // Error
+        col++;
+        cell = CellUtil.getCell(destRow1, col);
+        assertEquals("[Error] D10 cell type", Cell.CELL_TYPE_ERROR, cell.getCellType());
+        FormulaError error = FormulaError.forInt(cell.getErrorCellValue());
+        assertEquals("[Error] D10 cell value", FormulaError.NA, error); //FIXME: XSSFCell and HSSFCell expose different interfaces. getErrorCellString would be helpful here
+        
+        cell = CellUtil.getCell(destRow2, col);
+        assertEquals("[Error] D11 cell type", Cell.CELL_TYPE_ERROR, cell.getCellType());
+        error = FormulaError.forInt(cell.getErrorCellValue());
+        assertEquals("[Error] D11 cell value", FormulaError.NAME, error); //FIXME: XSSFCell and HSSFCell expose different interfaces. getErrorCellString would be helpful here
+        
+        // Date
+        col++;
+        cell = CellUtil.getCell(destRow1, col);
+        assertEquals("[Date] E10 cell type", Cell.CELL_TYPE_NUMERIC, cell.getCellType());
+        Date date = LocaleUtil.getLocaleCalendar(2000, Calendar.JANUARY, 1).getTime();
+        assertEquals("[Date] E10 cell value", date, cell.getDateCellValue());
+        
+        cell = CellUtil.getCell(destRow2, col);
+        assertEquals("[Date] E11 cell type", Cell.CELL_TYPE_NUMERIC, cell.getCellType());
+        date = LocaleUtil.getLocaleCalendar(2000, Calendar.JANUARY, 2).getTime();
+        assertEquals("[Date] E11 cell value", date, cell.getDateCellValue());
+        
+        // Boolean
+        col++;
+        cell = CellUtil.getCell(destRow1, col);
+        assertEquals("[Boolean] F10 cell type", Cell.CELL_TYPE_BOOLEAN, cell.getCellType());
+        assertEquals("[Boolean] F10 cell value", true, cell.getBooleanCellValue());
+        
+        cell = CellUtil.getCell(destRow2, col);
+        assertEquals("[Boolean] F11 cell type", Cell.CELL_TYPE_BOOLEAN, cell.getCellType());
+        assertEquals("[Boolean] F11 cell value", false, cell.getBooleanCellValue());
+        
+        // String
+        col++;
+        cell = CellUtil.getCell(destRow1, col);
+        assertEquals("[String] G10 cell type", Cell.CELL_TYPE_STRING, cell.getCellType());
+        assertEquals("[String] G10 cell value", "Hello", cell.getStringCellValue());
+        
+        cell = CellUtil.getCell(destRow2, col);
+        assertEquals("[String] G11 cell type", Cell.CELL_TYPE_STRING, cell.getCellType());
+        assertEquals("[String] G11 cell value", "World", cell.getStringCellValue());
+        
+        // Int
+        col++;
+        cell = CellUtil.getCell(destRow1, col);
+        assertEquals("[Int] H10 cell type", Cell.CELL_TYPE_NUMERIC, cell.getCellType());
+        assertEquals("[Int] H10 cell value", 15, (int) cell.getNumericCellValue());
+        
+        cell = CellUtil.getCell(destRow2, col);
+        assertEquals("[Int] H11 cell type", Cell.CELL_TYPE_NUMERIC, cell.getCellType());
+        assertEquals("[Int] H11 cell value", 42, (int) cell.getNumericCellValue());
+        
+        // Float
+        col++;
+        cell = CellUtil.getCell(destRow1, col);
+        assertEquals("[Float] I10 cell type", Cell.CELL_TYPE_NUMERIC, cell.getCellType());
+        assertEquals("[Float] I10 cell value", 12.5, cell.getNumericCellValue(), FLOAT_PRECISION);
+        
+        cell = CellUtil.getCell(destRow2, col);
+        assertEquals("[Float] I11 cell type", Cell.CELL_TYPE_NUMERIC, cell.getCellType());
+        assertEquals("[Float] I11 cell value", 5.5, cell.getNumericCellValue(), FLOAT_PRECISION);
+        
+        // Cell Formula
+        col++;
+        cell = CellUtil.getCell(destRow1, col);
+        assertEquals("[Cell Formula] J10 cell type", Cell.CELL_TYPE_FORMULA, cell.getCellType());
+        assertEquals("[Cell Formula] J10 cell formula", "5+2", cell.getCellFormula());
+        
+        cell = CellUtil.getCell(destRow2, col);
+        assertEquals("[Cell Formula] J11 cell type", Cell.CELL_TYPE_FORMULA, cell.getCellType());
+        assertEquals("[Cell Formula] J11 cell formula", "6+18", cell.getCellFormula());
+
+        // Cell Formula with Reference
+        col++;
+        // Formula row references should be adjusted by destRowNum-srcRowNum
+        cell = CellUtil.getCell(destRow1, col);
+        assertEquals("[Cell Formula with Reference] K10 cell type",
+                Cell.CELL_TYPE_FORMULA, cell.getCellType());
+        assertEquals("[Cell Formula with Reference] K10 cell formula",
+                "J10+H$2", cell.getCellFormula());
+        
+        cell = CellUtil.getCell(destRow2, col);
+        assertEquals("[Cell Formula with Reference] K11 cell type", Cell.CELL_TYPE_FORMULA, cell.getCellType());
+        assertEquals("[Cell Formula with Reference] K11 cell formula", "J11+H$2", cell.getCellFormula());
+        
+        // Cell Formula with Reference spanning multiple rows
+        col++;
+        cell = CellUtil.getCell(destRow1, col);
+        assertEquals("[Cell Formula with Reference spanning multiple rows] L10 cell type",
+                Cell.CELL_TYPE_FORMULA, cell.getCellType());
+        assertEquals("[Cell Formula with Reference spanning multiple rows] L10 cell formula",
+                "G10&\" \"&G11", cell.getCellFormula());
+        
+        cell = CellUtil.getCell(destRow2, col);
+        assertEquals("[Cell Formula with Reference spanning multiple rows] L11 cell type",
+                Cell.CELL_TYPE_FORMULA, cell.getCellType());
+        assertEquals("[Cell Formula with Reference spanning multiple rows] L11 cell formula",
+                "G11&\" \"&G12", cell.getCellFormula());
+        
+        // Cell Formula with Area Reference
+        col++;
+        cell = CellUtil.getCell(destRow1, col);
+        assertEquals("[Cell Formula with Area Reference] M10 cell type",
+                Cell.CELL_TYPE_FORMULA, cell.getCellType());
+        assertEquals("[Cell Formula with Area Reference] M10 cell formula",
+                "SUM(H10:I11)", cell.getCellFormula());
+        
+        cell = CellUtil.getCell(destRow2, col);
+        assertEquals("[Cell Formula with Area Reference] M11 cell type",
+                Cell.CELL_TYPE_FORMULA, cell.getCellType());
+        assertEquals("[Cell Formula with Area Reference] M11 cell formula",
+                "SUM($H$3:I10)", cell.getCellFormula()); //Also acceptable: SUM($H10:I$3), but this AreaReference isn't in ascending order
+        
+        // Array Formula
+        col++;
+        cell = CellUtil.getCell(destRow1, col);
+        // System.out.println("Array formulas currently unsupported");
+    /*
+        // FIXME: Array Formula set with Sheet.setArrayFormula() instead of cell.setFormula()
+        assertEquals("[Array Formula] N10 cell type", Cell.CELL_TYPE_FORMULA, cell.getCellType());
+        assertEquals("[Array Formula] N10 cell formula", "{SUM(H10:J10*{1,2,3})}", cell.getCellFormula());
+        
+        cell = CellUtil.getCell(destRow2, col);
+        // FIXME: Array Formula set with Sheet.setArrayFormula() instead of cell.setFormula() 
+        assertEquals("[Array Formula] N11 cell type", Cell.CELL_TYPE_FORMULA, cell.getCellType());
+        assertEquals("[Array Formula] N11 cell formula", "{SUM(H11:J11*{1,2,3})}", cell.getCellFormula());
+     */
+        
+        // Data Format
+        col++;
+        cell = CellUtil.getCell(destRow2, col);
+        assertEquals("[Data Format] O10 cell type", Cell.CELL_TYPE_NUMERIC, cell.getCellType());
+        assertEquals("[Data Format] O10 cell value", 100.20, cell.getNumericCellValue(), FLOAT_PRECISION);
+        final String moneyFormat = "\"$\"#,##0.00_);[Red]\\(\"$\"#,##0.00\\)";
+        assertEquals("[Data Format] O10 cell data format", moneyFormat, cell.getCellStyle().getDataFormatString());
+        
+        // Merged
+        col++;
+        cell = CellUtil.getCell(destRow1, col);
+        assertEquals("[Merged] P10:Q10 cell value",
+                "Merged cells", cell.getStringCellValue());
+        assertTrue("[Merged] P10:Q10 merged region",
+                sheet.getMergedRegions().contains(CellRangeAddress.valueOf("P10:Q10")));
+        
+        cell = CellUtil.getCell(destRow2, col);
+        assertEquals("[Merged] P11:Q11 cell value", "Merged cells", cell.getStringCellValue());
+        assertTrue("[Merged] P11:Q11 merged region",
+                sheet.getMergedRegions().contains(CellRangeAddress.valueOf("P11:Q11")));
+        
+        // Should Q10/Q11 be checked?
+        
+        // Merged across multiple rows
+        // Microsoft Excel 2013 does not copy a merged region unless all rows of
+        // the source merged region are selected
+        // POI's behavior should match this behavior
+        col += 2;
+        cell = CellUtil.getCell(destRow1, col);
+        assertEquals("[Merged across multiple rows] R10:S11 cell value", 
+                "Merged cells across multiple rows", cell.getStringCellValue());
+        assertTrue("[Merged across multiple rows] R10:S11 merged region", 
+                sheet.getMergedRegions().contains(CellRangeAddress.valueOf("R10:S11")));
+        
+        // Row 3 (zero-based) was empty, so Row 11 (zero-based) should be empty too.
+        if (srcRow3 == null) {
+            assertNull("Row 3 was empty, so Row 11 should be empty", destRow3);
+        }
+        
+        // Make sure other rows are blank (off-by-one errors)
+        assertNull("Off-by-one lower edge case", sheet.getRow(7)); //one row above destHeaderRow
+        assertNull("Off-by-one upper edge case", sheet.getRow(12)); //one row below destRow3
+        
+        wb.close();
+    }
+    
+    @Test
+    public void testCopyOneRow() throws IOException {
+        testCopyOneRow("XSSFSheet.copyRows.xlsx");
+    }
+    
+    @Test
+    public void testCopyMultipleRows() throws IOException {
+        testCopyMultipleRows("XSSFSheet.copyRows.xlsx");
+    }
+
+    @Test
+    public void testIgnoredErrors() throws IOException {
+        XSSFWorkbook workbook = new XSSFWorkbook();
+        XSSFSheet sheet = workbook.createSheet();
+        CellRangeAddress region = CellRangeAddress.valueOf("B2:D4");
+        sheet.addIgnoredErrors(region, IgnoredErrorType.NUMBER_STORED_AS_TEXT);
+        final CTIgnoredError ignoredError = sheet.getCTWorksheet().getIgnoredErrors().getIgnoredErrorArray(0);
+        assertEquals(1, ignoredError.getSqref().size());
+        assertEquals("B2:D4", ignoredError.getSqref().get(0));
+        assertTrue(ignoredError.getNumberStoredAsText());
+        
+        Map<IgnoredErrorType, Set<CellRangeAddress>> ignoredErrors = sheet.getIgnoredErrors();
+        assertEquals(1, ignoredErrors.size());
+        assertEquals(1, ignoredErrors.get(IgnoredErrorType.NUMBER_STORED_AS_TEXT).size());
+        assertEquals("B2:D4", ignoredErrors.get(IgnoredErrorType.NUMBER_STORED_AS_TEXT).iterator().next().formatAsString());
+        
+        workbook.close();
+    }
+
+    @Test
+    public void testIgnoredErrorsMultipleTypes() throws IOException {
+        XSSFWorkbook workbook = new XSSFWorkbook();
+        XSSFSheet sheet = workbook.createSheet();
+        CellRangeAddress region = CellRangeAddress.valueOf("B2:D4");
+        sheet.addIgnoredErrors(region, IgnoredErrorType.FORMULA, IgnoredErrorType.EVALUATION_ERROR);
+        final CTIgnoredError ignoredError = sheet.getCTWorksheet().getIgnoredErrors().getIgnoredErrorArray(0);
+        assertEquals(1, ignoredError.getSqref().size());
+        assertEquals("B2:D4", ignoredError.getSqref().get(0));
+        assertFalse(ignoredError.getNumberStoredAsText());
+        assertTrue(ignoredError.getFormula());
+        assertTrue(ignoredError.getEvalError());
+        
+        Map<IgnoredErrorType, Set<CellRangeAddress>> ignoredErrors = sheet.getIgnoredErrors();
+        assertEquals(2, ignoredErrors.size());
+        assertEquals(1, ignoredErrors.get(IgnoredErrorType.FORMULA).size());
+        assertEquals("B2:D4", ignoredErrors.get(IgnoredErrorType.FORMULA).iterator().next().formatAsString());
+        assertEquals(1, ignoredErrors.get(IgnoredErrorType.EVALUATION_ERROR).size());
+        assertEquals("B2:D4", ignoredErrors.get(IgnoredErrorType.EVALUATION_ERROR).iterator().next().formatAsString());
+        workbook.close();
+    }
+
+    @Test
+    public void testIgnoredErrorsMultipleCalls() throws IOException {
+        XSSFWorkbook workbook = new XSSFWorkbook();
+        XSSFSheet sheet = workbook.createSheet();
+        CellRangeAddress region = CellRangeAddress.valueOf("B2:D4");
+        // Two calls means two elements, no clever collapsing just yet.
+        sheet.addIgnoredErrors(region, IgnoredErrorType.EVALUATION_ERROR);
+        sheet.addIgnoredErrors(region, IgnoredErrorType.FORMULA);
+        
+        CTIgnoredError ignoredError = sheet.getCTWorksheet().getIgnoredErrors().getIgnoredErrorArray(0);
+        assertEquals(1, ignoredError.getSqref().size());
+        assertEquals("B2:D4", ignoredError.getSqref().get(0));
+        assertFalse(ignoredError.getFormula());
+        assertTrue(ignoredError.getEvalError());
+        
+        ignoredError = sheet.getCTWorksheet().getIgnoredErrors().getIgnoredErrorArray(1);
+        assertEquals(1, ignoredError.getSqref().size());
+        assertEquals("B2:D4", ignoredError.getSqref().get(0));
+        assertTrue(ignoredError.getFormula());
+        assertFalse(ignoredError.getEvalError());
+        
+        Map<IgnoredErrorType, Set<CellRangeAddress>> ignoredErrors = sheet.getIgnoredErrors();
+        assertEquals(2, ignoredErrors.size());
+        assertEquals(1, ignoredErrors.get(IgnoredErrorType.FORMULA).size());
+        assertEquals("B2:D4", ignoredErrors.get(IgnoredErrorType.FORMULA).iterator().next().formatAsString());
+        assertEquals(1, ignoredErrors.get(IgnoredErrorType.EVALUATION_ERROR).size());
+        assertEquals("B2:D4", ignoredErrors.get(IgnoredErrorType.EVALUATION_ERROR).iterator().next().formatAsString());
+        workbook.close();
     }
 }

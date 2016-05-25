@@ -240,7 +240,7 @@
             </source>
                 </section>
                 <anchor id="Hyperlinks"/>
-                <section><title>How to read hyperlinks from a slide show</title>
+                <section><title>How to create a hyperlink</title>
                     <source>
     XMLSlideShow ppt = new XMLSlideShow();
     XSLFSlide slide = ppt.createSlide();

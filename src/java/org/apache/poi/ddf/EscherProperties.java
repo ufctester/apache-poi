@@ -176,7 +176,7 @@ public final class EscherProperties {
 	public static final short LINESTYLE__LINESTARTARROWHEAD = 464;
 	public static final short LINESTYLE__LINEENDARROWHEAD = 465;
 	public static final short LINESTYLE__LINESTARTARROWWIDTH = 466;
-	public static final short LINESTYLE__LINEESTARTARROWLENGTH = 467;
+	public static final short LINESTYLE__LINESTARTARROWLENGTH = 467;
 	public static final short LINESTYLE__LINEENDARROWWIDTH = 468;
 	public static final short LINESTYLE__LINEENDARROWLENGTH = 469;
 	public static final short LINESTYLE__LINEJOINSTYLE = 470;
@@ -186,6 +186,10 @@ public final class EscherProperties {
 	public static final short LINESTYLE__HITLINETEST = 509;
 	public static final short LINESTYLE__LINEFILLSHAPE = 510;
 	public static final short LINESTYLE__NOLINEDRAWDASH = 511;
+	public static final short LINESTYLE__NOLINEDRAWDASH_LEFT = 0x057F;
+	public static final short LINESTYLE__NOLINEDRAWDASH_TOP = 0x05BF;
+	public static final short LINESTYLE__NOLINEDRAWDASH_BOTTOM = 0x063F;
+	public static final short LINESTYLE__NOLINEDRAWDASH_RIGHT = 0x05FF;
 	public static final short SHADOWSTYLE__TYPE = 512;
 	public static final short SHADOWSTYLE__COLOR = 513;
 	public static final short SHADOWSTYLE__HIGHLIGHT = 514;
@@ -478,7 +482,7 @@ public final class EscherProperties {
 		addProp(m, LINESTYLE__LINESTARTARROWHEAD, "linestyle.linestartarrowhead");
 		addProp(m, LINESTYLE__LINEENDARROWHEAD, "linestyle.lineendarrowhead");
 		addProp(m, LINESTYLE__LINESTARTARROWWIDTH, "linestyle.linestartarrowwidth");
-		addProp(m, LINESTYLE__LINEESTARTARROWLENGTH, "linestyle.lineestartarrowlength");
+		addProp(m, LINESTYLE__LINESTARTARROWLENGTH, "linestyle.linestartarrowlength");
 		addProp(m, LINESTYLE__LINEENDARROWWIDTH, "linestyle.lineendarrowwidth");
 		addProp(m, LINESTYLE__LINEENDARROWLENGTH, "linestyle.lineendarrowlength");
 		addProp(m, LINESTYLE__LINEJOINSTYLE, "linestyle.linejoinstyle");
@@ -488,6 +492,10 @@ public final class EscherProperties {
 		addProp(m, LINESTYLE__HITLINETEST, "linestyle.hitlinetest");
 		addProp(m, LINESTYLE__LINEFILLSHAPE, "linestyle.linefillshape");
 		addProp(m, LINESTYLE__NOLINEDRAWDASH, "linestyle.nolinedrawdash", EscherPropertyMetaData.TYPE_BOOLEAN);
+        addProp(m, LINESTYLE__NOLINEDRAWDASH_LEFT, "linestyle.nolinedrawdash.left", EscherPropertyMetaData.TYPE_BOOLEAN);
+        addProp(m, LINESTYLE__NOLINEDRAWDASH_TOP, "linestyle.nolinedrawdash.top", EscherPropertyMetaData.TYPE_BOOLEAN);
+        addProp(m, LINESTYLE__NOLINEDRAWDASH_BOTTOM, "linestyle.nolinedrawdash.bottom", EscherPropertyMetaData.TYPE_BOOLEAN);
+        addProp(m, LINESTYLE__NOLINEDRAWDASH_RIGHT, "linestyle.nolinedrawdash.right", EscherPropertyMetaData.TYPE_BOOLEAN);
 		addProp(m, SHADOWSTYLE__TYPE, "shadowstyle.type");
 		addProp(m, SHADOWSTYLE__COLOR, "shadowstyle.color", EscherPropertyMetaData.TYPE_RGB);
 		addProp(m, SHADOWSTYLE__HIGHLIGHT, "shadowstyle.highlight");

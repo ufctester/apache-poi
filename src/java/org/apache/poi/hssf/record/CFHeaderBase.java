@@ -26,7 +26,7 @@ import org.apache.poi.util.LittleEndianOutput;
  * Parent of Conditional Formatting Header records,
  *  {@link CFHeaderRecord} and {@link CFHeader12Record}.
  */
-public abstract class CFHeaderBase extends StandardRecord {
+public abstract class CFHeaderBase extends StandardRecord implements Cloneable {
     private int field_1_numcf;
     private int field_2_need_recalculation_and_id;
     private CellRangeAddress field_3_enclosing_cell_range;
@@ -62,13 +62,17 @@ public abstract class CFHeaderBase extends StandardRecord {
 
     public boolean getNeedRecalculation() {
         // Held on the 1st bit
-        return field_2_need_recalculation_and_id % 2 == 1;
+        return (field_2_need_recalculation_and_id & 1) == 1;
     }
     public void setNeedRecalculation(boolean b) {
         // held on the first bit
-        if (b == getNeedRecalculation()) return;
-        if (b) field_2_need_recalculation_and_id++;
-        else   field_2_need_recalculation_and_id--;
+        if (b == getNeedRecalculation()) {
+            return;
+        } else if (b) {
+            field_2_need_recalculation_and_id++;
+        } else {
+            field_2_need_recalculation_and_id--;
+        }
     }
 
     public int getID() {
@@ -79,7 +83,9 @@ public abstract class CFHeaderBase extends StandardRecord {
         // Remaining 15 bits of field 2
         boolean needsRecalc = getNeedRecalculation();
         field_2_need_recalculation_and_id = (id<<1);
-        if (needsRecalc) field_2_need_recalculation_and_id++;
+        if (needsRecalc) {
+            field_2_need_recalculation_and_id++;
+        }
     }
 
     public CellRangeAddress getEnclosingCellRange() {
@@ -150,4 +156,7 @@ public abstract class CFHeaderBase extends StandardRecord {
         result.field_3_enclosing_cell_range = field_3_enclosing_cell_range.copy();
         result.field_4_cell_ranges = field_4_cell_ranges.copy();
     }
+
+    @Override
+    public abstract CFHeaderBase clone(); // NOSONAR
 }

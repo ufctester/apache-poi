@@ -16,12 +16,15 @@
 ==================================================================== */
 package org.apache.poi.xslf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 
 import org.apache.poi.POIXMLDocumentPart;
 import org.apache.poi.openxml4j.opc.PackagePart;
 import org.apache.poi.openxml4j.opc.PackageRelationship;
 import org.apache.poi.sl.usermodel.MasterSheet;
+import org.apache.poi.sl.usermodel.Placeholder;
 import org.apache.poi.util.Beta;
 import org.apache.poi.util.Internal;
 import org.apache.xmlbeans.XmlException;
@@ -41,14 +44,24 @@ implements MasterSheet<XSLFShape,XSLFTextParagraph> {
         _layout = CTSlideLayout.Factory.newInstance();
     }
 
-    public XSLFSlideLayout(PackagePart part, PackageRelationship rel) throws IOException, XmlException {
-        super(part, rel);
+    /**
+     * @since POI 3.14-Beta1
+     */
+    public XSLFSlideLayout(PackagePart part) throws IOException, XmlException {
+        super(part);
         SldLayoutDocument doc =
-                SldLayoutDocument.Factory.parse(getPackagePart().getInputStream());
+                SldLayoutDocument.Factory.parse(getPackagePart().getInputStream(), DEFAULT_XML_OPTIONS);
         _layout = doc.getSldLayout();
         setCommonSlideData(_layout.getCSld());
     }
 
+    /**
+     * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+     */
+    @Deprecated
+    public XSLFSlideLayout(PackagePart part, PackageRelationship rel) throws IOException, XmlException {
+        this(part);
+    }
 
     public String getName() {
         return _layout.getCSld().getName();

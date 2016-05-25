@@ -24,6 +24,8 @@ import java.util.regex.Pattern;
 
 import org.apache.poi.ss.format.SimpleFraction;
 import org.apache.poi.ss.formula.eval.NotImplementedException;
+import org.apache.poi.util.POILogFactory;
+import org.apache.poi.util.POILogger;
 
 /**
  * <p>Format class that handles Excel style fractions, such as "# #/#" and "#/###"</p>
@@ -39,7 +41,8 @@ import org.apache.poi.ss.formula.eval.NotImplementedException;
 
 @SuppressWarnings("serial")
 public class FractionFormat extends Format {
-    private final static Pattern DENOM_FORMAT_PATTERN = Pattern.compile("(?:(#+)|(\\d+))");
+    private static final POILogger LOGGER = POILogFactory.getLogger(FractionFormat.class); 
+    private static final Pattern DENOM_FORMAT_PATTERN = Pattern.compile("(?:(#+)|(\\d+))");
 
     //this was chosen to match the earlier limitation of max denom power
     //it can be expanded to get closer to Excel's calculations
@@ -47,7 +50,7 @@ public class FractionFormat extends Format {
     //but as of this writing, the numerators and denominators
     //with formats of that nature on very small values were quite
     //far from Excel's calculations
-    private final static int MAX_DENOM_POW = 4;
+    private static final int MAX_DENOM_POW = 4;
 
     //there are two options:
     //a) an exact denominator is specified in the formatString
@@ -96,31 +99,33 @@ public class FractionFormat extends Format {
 
     public String format(Number num) {
 
-        double doubleValue = num.doubleValue();
+        final double doubleValue = num.doubleValue();
         
-        boolean isNeg = (doubleValue < 0.0f) ? true : false;
-        double absDoubleValue = Math.abs(doubleValue);
+        final boolean isNeg = (doubleValue < 0.0f) ? true : false;
+        final double absDoubleValue = Math.abs(doubleValue);
         
-        double wholePart = Math.floor(absDoubleValue);
-        double decPart = absDoubleValue - wholePart;
+        final double wholePart = Math.floor(absDoubleValue);
+        final double decPart = absDoubleValue - wholePart;
         if (wholePart + decPart == 0) {
             return "0";
         }
         
-        //if the absolute value is smaller than 1 over the exact or maxDenom
-        //you can stop here and return "0"
-        if (absDoubleValue < (1/Math.max(exactDenom,  maxDenom))){
-            return "0";
-        }
+        // if the absolute value is smaller than 1 over the exact or maxDenom
+        // you can stop here and return "0"
+        // reciprocal is result of an int devision ... and so it's nearly always 0
+        // double reciprocal = 1/Math.max(exactDenom,  maxDenom);
+        // if (absDoubleValue < reciprocal) {
+        //    return "0";
+        // }
         
         //this is necessary to prevent overflow in the maxDenom calculation
-        if (wholePart+(int)decPart == wholePart+decPart){
+        if (Double.compare(decPart, 0) == 0){
             
             StringBuilder sb = new StringBuilder();
             if (isNeg){
                 sb.append("-");
             }
-            sb.append(Integer.toString((int)wholePart));
+            sb.append((int)wholePart);
             return sb.toString();
         }
         
@@ -133,7 +138,7 @@ public class FractionFormat extends Format {
                 fract = SimpleFraction.buildFractionMaxDenominator(decPart, maxDenom);
             }
         } catch (RuntimeException e){
-            e.printStackTrace();
+            LOGGER.log(POILogger.WARN, "Can't format fraction", e);
             return Double.toString(doubleValue);
         }
 

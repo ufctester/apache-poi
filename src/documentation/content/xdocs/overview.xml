@@ -30,10 +30,28 @@
   </header>
   <body>
     <section><title>Apache POI Project Components</title>
+      <p>The Apache POI project is the master project for developing pure
+        Java ports of file formats based on Microsoft's OLE 2 Compound
+        Document Format.  OLE 2 Compound Document Format is used by
+        Microsoft Office Documents, as well as by programs using MFC
+        property sets to serialize their document objects.
+      </p>
+      <p>Apache POI is also the master project for developing pure
+        Java ports of file formats based on Office Open XML (ooxml). 
+        OOXML is part of an ECMA / ISO standardisation effort. This
+        documentation is quite large, but you can normally find the bit you
+        need without too much effort!
+        <link href="http://www.ecma-international.org/publications/standards/Ecma-376.htm">ECMA-376 standard is here</link>,
+        and is also under the 
+        <link href="https://msdn.microsoft.com/en-us/openspecifications/default">Microsoft OSP</link>.
+      </p>
+    
+    
       <section><title>POIFS for OLE 2 Documents</title>
         <p>
-	  POIFS is the oldest and most stable part of the project.  It is our port of the OLE 2 Compound Document Format to
-          pure Java.  It supports both read and write functionality.  All of our components ultimately rely on it by
+	  POIFS is the oldest and most stable part of POI.  It is our port of the OLE 2 Compound Document Format to
+          pure Java.  It supports both read and write functionality.  All of our components for the binary (non-XML)
+          Microsoft Office formats ultimately rely on it by
           definition.  Please see <link href="./poifs/index.html">the POIFS project page</link> for more information.
 	</p>
       </section>
@@ -133,23 +151,6 @@
 	</p>
       </section>
     </section>
-    <section><title>What is it?</title>
-      <p>The Apache POI project is the master project for developing pure
-        Java ports of file formats based on Microsoft's OLE 2 Compound
-        Document Format.  OLE 2 Compound Document Format is used by
-        Microsoft Office Documents, as well as by programs using MFC
-        property sets to serialize their document objects.
-      </p>
-      <p>Apache POI is also the master project for developing pure
-        Java ports of file formats based on Office Open XML (ooxml.) 
-        OOXML is part of an ECMA / ISO standardisation effort. This
-        documentation is quite large, but you can normally find the bit you
-        need without too much effort!
-        <link href="http://www.ecma-international.org/publications/standards/Ecma-376.htm">ECMA-376 standard is here</link>,
-        and is also under the 
-        <link href="https://msdn.microsoft.com/en-us/openspecifications/default">Microsoft OSP</link>.
-      </p>
-    </section>
     <section id="components"><title>Component Map</title>
       <p>
         The Apache POI distribution consists of support for many document file formats. This support is provided
@@ -172,73 +173,93 @@
         <tr>
           <td><link href="./hpsf/index.html">HPSF</link></td>
           <td>OLE2 Property Sets</td>
-          <td>poi</td>
+          <td><em>poi</em></td>
           <td>&nbsp;</td>
         </tr>
         <tr>
           <td><link href="./spreadsheet/index.html">HSSF</link></td>
           <td>Excel XLS</td>
-          <td>poi</td>
+          <td><em>poi</em></td>
           <td>For HSSF only, if common SS is needed see below</td>
         </tr>
         <tr>
           <td><link href="./slideshow/index.html">HSLF</link></td>
           <td>PowerPoint PPT</td>
-          <td>poi-scratchpad</td>
+          <td><em>poi-scratchpad</em></td>
           <td>&nbsp;</td>
         </tr>
         <tr>
           <td><link href="./document/index.html">HWPF</link></td>
           <td>Word DOC</td>
-          <td>poi-scratchpad</td>
+          <td><em>poi-scratchpad</em></td>
           <td>&nbsp;</td>
         </tr>
         <tr>
           <td><link href="./hdgf/index.html">HDGF</link></td>
           <td>Visio VSD</td>
-          <td>poi-scratchpad</td>
+          <td><em>poi-scratchpad</em></td>
           <td>&nbsp;</td>
         </tr>
         <tr>
           <td><link href="./hpbf/index.html">HPBF</link></td>
           <td>Publisher PUB</td>
-          <td>poi-scratchpad</td>
+          <td><em>poi-scratchpad</em></td>
           <td>&nbsp;</td>
         </tr>
         <tr>
           <td><link href="./hsmf/index.html">HSMF</link></td>
           <td>Outlook MSG</td>
-          <td>poi-scratchpad</td>
+          <td><em>poi-scratchpad</em></td>
+          <td>&nbsp;</td>
+        </tr>
+        <tr>
+          <td>DDF</td>
+          <td>Escher common drawings</td>
+          <td><em>poi</em></td>
+          <td>&nbsp;</td>
+        </tr>
+        <tr>
+          <td>HWMF</td>
+          <td>WMF drawings</td>
+          <td><em>poi-scratchpad</em></td>
           <td>&nbsp;</td>
         </tr>
         <tr>
           <td><link href="./oxml4j/index.html">OpenXML4J</link></td>
           <td>OOXML</td>
-          <td>poi-ooxml plus either poi-ooxml-schemas or<br/>ooxml-schemas and ooxml-security</td>
-          <td>see below for differences</td>
+          <td><em>poi-ooxml</em> plus either <em>poi-ooxml-schemas</em> or<br/>
+              <em>ooxml-schemas</em> and <em>ooxml-security</em></td>
+          <td>See notes below for differences between these options</td>
         </tr>
         <tr>
           <td><link href="./spreadsheet/index.html">XSSF</link></td>
           <td>Excel XLSX</td>
-          <td>poi-ooxml</td>
+          <td><em>poi-ooxml</em></td>
           <td>&nbsp;</td>
         </tr>
         <tr>
           <td><link href="./slideshow/index.html">XSLF</link></td>
           <td>PowerPoint PPTX</td>
-          <td>poi-ooxml</td>
+          <td><em>poi-ooxml</em></td>
           <td>&nbsp;</td>
         </tr>
         <tr>
           <td><link href="./document/index.html">XWPF</link></td>
           <td>Word DOCX</td>
-          <td>poi-ooxml</td>
+          <td><em>poi-ooxml</em></td>
           <td>&nbsp;</td>
+        </tr>
+        <tr>
+          <td><link href="./slideshow/index.html">Common SL</link></td>
+          <td>PowerPoint PPT and PPTX</td>
+          <td><em>poi-scratchpad</em> and <em>poi-ooxml</em></td>
+          <td>SL code is in the core POI jar, but implementations are in poi-scratchpad
+              and poi-ooxml.</td>
         </tr>
         <tr>
           <td><link href="./spreadsheet/index.html">Common SS</link></td>
           <td>Excel XLS and XLSX</td>
-          <td>poi-ooxml</td>
+          <td><em>poi-ooxml</em></td>
           <td>WorkbookFactory and friends all require poi-ooxml, not just core poi</td>
         </tr>
       </table>
@@ -247,8 +268,8 @@
 
       <p>
         This table maps artifacts into the jar file name. "version-yyyymmdd" is 
-        the POI version stamp. For the latest stable release it is 3.12-20150511.
-        For the latest beta release it is 3.12-beta1-20150228.
+        the POI version stamp. You can see what the latest stamp is on the
+        <link href="./download.html">downloads page</link>.
       </p>
       <table>
         <tr>
@@ -258,8 +279,8 @@
         </tr>
         <tr>
           <td>poi</td>
-          <td><link href="http://search.maven.org/#artifactdetails|commons-logging|commons-logging|1.1.3|jar">commons-logging</link>,
-              <link href="http://search.maven.org/#artifactdetails|commons-codec|commons-codec|1.9|jar">commons-codec</link>,
+          <td><link href="http://search.maven.org/#artifactdetails|commons-logging|commons-logging|1.2|jar">commons-logging</link>,
+              <link href="http://search.maven.org/#artifactdetails|commons-codec|commons-codec|1.10|jar">commons-codec</link>,
               <link href="http://search.maven.org/#artifactdetails|log4j|log4j|1.2.17|bundle">log4j</link>
           </td>
           <td>poi-version-yyyymmdd.jar</td>
@@ -292,31 +313,33 @@
         <tr>
           <td>ooxml-schemas</td>
           <td><link href="http://search.maven.org/#artifactdetails|org.apache.xmlbeans|xmlbeans|2.6.0|jar">xmlbeans</link></td>
-          <td><link href="http://search.maven.org/#artifactdetails|org.apache.poi|ooxml-schemas|1.1|jar">ooxml-schemas-1.1.jar</link></td>
+          <td><link href="http://search.maven.org/#artifactdetails|org.apache.poi|ooxml-schemas|1.3|jar">ooxml-schemas-1.3.jar</link></td>
         </tr>
         <tr>
           <td>ooxml-security</td>
           <td><link href="http://search.maven.org/#artifactdetails|org.apache.xmlbeans|xmlbeans|2.6.0|jar">xmlbeans</link><br/>
           For signing: 
-          <link href="http://search.maven.org/#artifactdetails|org.bouncycastle|bcpkix-jdk15on|1.51|jar">bcpkix-jdk15on</link>,
-          <link href="http://search.maven.org/#artifactdetails|org.bouncycastle|bcprov-jdk15on|1.51|jar">bcprov-jdk15on</link>,
-          <link href="http://search.maven.org/#artifactdetails|org.apache.santuario|xmlsec|2.0.1|bundle">xmlsec</link>,
-          <link href="http://search.maven.org/#artifactdetails|org.slf4j|slf4j-api|1.7.7|jar">slf4j-api</link>
+          <link href="http://search.maven.org/#artifactdetails|org.bouncycastle|bcpkix-jdk15on|1.53|jar">bcpkix-jdk15on</link>,
+          <link href="http://search.maven.org/#artifactdetails|org.bouncycastle|bcprov-jdk15on|1.53|jar">bcprov-jdk15on</link>,
+          <link href="http://search.maven.org/#artifactdetails|org.apache.santuario|xmlsec|2.0.6|bundle">xmlsec</link>,
+          <link href="http://search.maven.org/#artifactdetails|org.slf4j|slf4j-api|1.7.12|jar">slf4j-api</link>
           </td>
-          <td><link href="http://search.maven.org/#artifactdetails|org.apache.poi|ooxml-security|1.0|jar">ooxml-security-1.0.jar</link></td>
+          <td><link href="http://search.maven.org/#artifactdetails|org.apache.poi|ooxml-security|1.1|jar">ooxml-security-1.1.jar</link></td>
         </tr>
       </table>
 
       <p>&nbsp;</p>
       <p>
         poi-ooxml requires poi-ooxml-schemas. This is a substantially smaller 
-        version of the ooxml-schemas jar (ooxml-schemas-1.1.jar for POI 3.7 or 
-        later, ooxml-scheams-1.0.jar for POI 3.5 and 3.6).
+        version of the ooxml-schemas jar (ooxml-schemas-1.3.jar for POI 3.14 or 
+        later, ooxml-schemas-1.1.jar for POI 3.7 up to POI 3.13, ooxml-schemas-1.0.jar 
+        for POI 3.5 and 3.6).
         The larger ooxml-schemas jar is <link href="faq.html#faq-N10025">normally</link> 
-        only required for development.
-        Similar to the ooxml-schemas jar, the ooxml-security jar contains 
-        all generated classes for the encryption and signing schemas
-        and is subsetted in poi-ooxml-schemas.
+        only required for development. Similarly, the ooxml-security jar, which contains
+        all of the classes relating to encryption and signing, is normally only
+        required for development. A subset of its contents are in poi-ooxml-schemas.
+        This JAR is ooxml-security-1.1.jar for POI 3.14 onwards and ooxml-security-1.0.jar
+        prior to that.
       </p>
       <p>
         The OOXML jars require a stax implementation, but now that Apache

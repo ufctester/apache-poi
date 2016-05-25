@@ -21,6 +21,7 @@ import java.awt.font.FontRenderContext;
 import java.awt.font.TextAttribute;
 import java.awt.font.TextLayout;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Rectangle2D;
 import java.text.AttributedString;
 import java.util.Locale;
 import java.util.Map;
@@ -35,6 +36,7 @@ import org.apache.poi.ss.usermodel.RichTextString;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.util.Internal;
 
 
 /**
@@ -102,9 +104,10 @@ public class SheetUtil {
         Row row = cell.getRow();
         int column = cell.getColumnIndex();
 
+        // FIXME: this looks very similar to getCellWithMerges below. Consider consolidating.
+        // We should only be checking merged regions if useMergedCells is true. Why are we doing this for-loop?
         int colspan = 1;
-        for (int i = 0 ; i < sheet.getNumMergedRegions(); i++) {
-            CellRangeAddress region = sheet.getMergedRegion(i);
+        for (CellRangeAddress region : sheet.getMergedRegions()) {
             if (containsCell(region, row.getRowNum(), column)) {
                 if (!useMergedCells) {
                     // If we're not using merged cells, skip this one and move on to the next.
@@ -162,9 +165,21 @@ public class SheetUtil {
         return width;
     }
 
+    /**
+     * Calculate the best-fit width for a cell
+     * If a merged cell spans multiple columns, evenly distribute the column width among those columns
+     *
+     * @param defaultCharWidth the width of a character using the default font in a workbook
+     * @param colspan the number of columns that is spanned by the cell (1 if the cell is not part of a merged region)
+     * @param style the cell style, which contains text rotation and indention information needed to compute the cell width
+     * @param width the minimum best-fit width. This algorithm will only return values greater than or equal to the minimum width.
+     * @param str the text contained in the cell
+     * @return the best fit cell width
+     */
     private static double getCellWidth(int defaultCharWidth, int colspan,
-            CellStyle style, double width, AttributedString str) {
+            CellStyle style, double minWidth, AttributedString str) {
         TextLayout layout = new TextLayout(str.getIterator(), fontRenderContext);
+        final Rectangle2D bounds;
         if(style.getRotation() != 0){
             /*
              * Transform the text using a scale so that it's height is increased by a multiple of the leading,
@@ -177,10 +192,13 @@ public class SheetUtil {
             trans.concatenate(
             AffineTransform.getScaleInstance(1, fontHeightMultiple)
             );
-            width = Math.max(width, ((layout.getOutline(trans).getBounds().getWidth() / colspan) / defaultCharWidth) + style.getIndention());
+            bounds = layout.getOutline(trans).getBounds();
         } else {
-            width = Math.max(width, ((layout.getBounds().getWidth() / colspan) / defaultCharWidth) + style.getIndention());
+            bounds = layout.getBounds();
         }
+        // frameWidth accounts for leading spaces which is excluded from bounds.getWidth()
+        final double frameWidth = bounds.getX() + bounds.getWidth();
+        final double width = Math.max(minWidth, ((frameWidth / colspan) / defaultCharWidth) + style.getIndention());
         return width;
     }
 
@@ -207,31 +225,61 @@ public class SheetUtil {
      * @return  the width in pixels or -1 if cell is empty
      */
     public static double getColumnWidth(Sheet sheet, int column, boolean useMergedCells, int firstRow, int lastRow){
-        Workbook wb = sheet.getWorkbook();
         DataFormatter formatter = new DataFormatter();
-        Font defaultFont = wb.getFontAt((short) 0);
-
-        AttributedString str = new AttributedString(String.valueOf(defaultChar));
-        copyAttributes(defaultFont, str, 0, 1);
-        TextLayout layout = new TextLayout(str.getIterator(), fontRenderContext);
-        int defaultCharWidth = (int)layout.getAdvance();
+        int defaultCharWidth = getDefaultCharWidth(sheet.getWorkbook());
 
         double width = -1;
         for (int rowIdx = firstRow; rowIdx <= lastRow; ++rowIdx) {
             Row row = sheet.getRow(rowIdx);
             if( row != null ) {
-
-                Cell cell = row.getCell(column);
-
-                if (cell == null) {
-                    continue;
-                }
-
-                double cellWidth = getCellWidth(cell, defaultCharWidth, formatter, useMergedCells);
+                double cellWidth = getColumnWidthForRow(row, column, defaultCharWidth, formatter, useMergedCells);
                 width = Math.max(width, cellWidth);
             }
         }
         return width;
+    }
+
+    /**
+     * Get default character width using the Workbook's default font
+     *
+     * @param wb the workbook to get the default character width from
+     * @return default character width in pixels
+     */
+    @Internal
+    public static int getDefaultCharWidth(final Workbook wb) {
+        Font defaultFont = wb.getFontAt((short) 0);
+
+        AttributedString str = new AttributedString(String.valueOf(defaultChar));
+        copyAttributes(defaultFont, str, 0, 1);
+        TextLayout layout = new TextLayout(str.getIterator(), fontRenderContext);
+        int defaultCharWidth = (int) layout.getAdvance();
+        return defaultCharWidth;
+    }
+
+    /**
+     * Compute width of a single cell in a row
+     * Convenience method for {@link getCellWidth}
+     *
+     * @param row the row that contains the cell of interest
+     * @param column the column number of the cell whose width is to be calculated
+     * @param defaultCharWidth the width of a single character
+     * @param formatter formatter used to prepare the text to be measured
+     * @param useMergedCells    whether to use merged cells
+     * @return  the width in pixels or -1 if cell is empty
+     */
+    private static double getColumnWidthForRow(
+            Row row, int column, int defaultCharWidth, DataFormatter formatter, boolean useMergedCells) {
+        if( row == null ) {
+            return -1;
+        }
+
+        Cell cell = row.getCell(column);
+
+        if (cell == null) {
+            return -1;
+        }
+
+        return getCellWidth(cell, defaultCharWidth, formatter, useMergedCells);
     }
 
     /**
@@ -246,7 +294,7 @@ public class SheetUtil {
      * @param font The Font that is used in the Cell
      * @return true if computing the size for this Font will succeed, false otherwise
      */
-    public static boolean canComputeColumnWidht(Font font) {
+    public static boolean canComputeColumnWidth(Font font) {
         // not sure what is the best value sample-here, only "1" did not work on some platforms...
         AttributedString str = new AttributedString("1w");
         copyAttributes(font, str, 0, "1w".length());
@@ -270,13 +318,16 @@ public class SheetUtil {
         if (font.getUnderline() == Font.U_SINGLE ) str.addAttribute(TextAttribute.UNDERLINE, TextAttribute.UNDERLINE_ON, startIdx, endIdx);
     }
 
+    /**
+     * Check if the cell is in the specified cell range
+     *
+     * @param cr    the cell range to check in
+     * @param rowIx the row to check
+     * @param colIx the column to check
+     * @return true if the range contains the cell [rowIx, colIx]
+     */
     public static boolean containsCell(CellRangeAddress cr, int rowIx, int colIx) {
-        if (cr.getFirstRow() <= rowIx && cr.getLastRow() >= rowIx
-                && cr.getFirstColumn() <= colIx && cr.getLastColumn() >= colIx)
-        {
-            return true;
-        }
-        return false;
+        return cr.isInRange(rowIx,  colIx);
     }
 
     /**
@@ -300,8 +351,7 @@ public class SheetUtil {
             }
         }
         
-        for (int mr=0; mr<sheet.getNumMergedRegions(); mr++) {
-            CellRangeAddress mergedRegion = sheet.getMergedRegion(mr);
+        for (CellRangeAddress mergedRegion : sheet.getMergedRegions()) {
             if (mergedRegion.isInRange(rowIx, colIx)) {
                 // The cell wanted is in this merged range
                 // Return the primary (top-left) cell for the range

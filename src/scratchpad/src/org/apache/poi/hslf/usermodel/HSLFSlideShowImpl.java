@@ -19,6 +19,7 @@ package org.apache.poi.hslf.usermodel;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -64,7 +65,7 @@ import org.apache.poi.util.POILogger;
  *
  * @author Nick Burch
  */
-public final class HSLFSlideShowImpl extends POIDocument {
+public final class HSLFSlideShowImpl extends POIDocument implements Closeable {
     public static final int UNSET_OFFSET = -1;
     
     // For logging
@@ -221,8 +222,15 @@ public final class HSLFSlideShowImpl extends POIDocument {
 			(DocumentEntry)directory.getEntry("PowerPoint Document");
 
 		// Grab the document stream
-		_docstream = new byte[docProps.getSize()];
-		directory.createDocumentInputStream("PowerPoint Document").read(_docstream);
+		int len = docProps.getSize();
+		_docstream = new byte[len];
+		InputStream is = directory.createDocumentInputStream("PowerPoint Document");
+		int readLen = is.read(_docstream);
+		is.close();
+		
+		if (len != readLen) {
+		    throw new IOException("Document input stream ended prematurely - expected "+len+" bytes - received "+readLen+" bytes");
+		}
 	}
 
 	/**
@@ -374,10 +382,15 @@ public final class HSLFSlideShowImpl extends POIDocument {
         HSLFSlideShowEncrypted decryptData = new HSLFSlideShowEncrypted(getDocumentEncryptionAtom());
         
 		DocumentEntry entry = (DocumentEntry)directory.getEntry("Pictures");
-		byte[] pictstream = new byte[entry.getSize()];
+		int len = entry.getSize();
+		byte[] pictstream = new byte[len];
 		DocumentInputStream is = directory.createDocumentInputStream(entry);
-		is.read(pictstream);
+		int readLen = is.read(pictstream);
 		is.close();
+
+		if (len != readLen) {
+		    throw new IOException("Picture stream ended prematurely - expected "+len+" bytes - received "+readLen+" bytes");
+		}
 
 		
         int pos = 0;
@@ -461,7 +474,7 @@ public final class HSLFSlideShowImpl extends POIDocument {
 	 *        May be null, if not needed. 
 	 * @throws IOException
 	 */
-	public void updateAndWriteDependantRecords(OutputStream os, Map<RecordTypes.Type,PositionDependentRecord> interestingRecords)
+	public void updateAndWriteDependantRecords(OutputStream os, Map<RecordTypes,PositionDependentRecord> interestingRecords)
 	throws IOException {
         // For position dependent records, hold where they were and now are
         // As we go along, update, and hand over, to any Position Dependent
@@ -489,7 +502,7 @@ public final class HSLFSlideShowImpl extends POIDocument {
 
             // Grab interesting records as they come past
             // this will only save the very last record of each type
-            RecordTypes.Type saveme = null;
+            RecordTypes saveme = null;
             int recordType = (int)record.getRecordType();
             if (recordType == RecordTypes.PersistPtrIncrementalBlock.typeID) {
                 saveme = RecordTypes.PersistPtrIncrementalBlock;
@@ -507,7 +520,9 @@ public final class HSLFSlideShowImpl extends POIDocument {
         }
         cos.close();
         
-        assert(usr != null && ptr != null);
+        if (usr == null || ptr == null) {
+            throw new HSLFException("UserEditAtom or PersistPtr can't be determined.");
+        }
         
         Map<Integer,Integer> persistIds = new HashMap<Integer,Integer>();
         for (Map.Entry<Integer,Integer> entry : ptr.getSlideLocationsLookup().entrySet()) {
@@ -540,7 +555,7 @@ public final class HSLFSlideShowImpl extends POIDocument {
         // Update and write out the Current User atom
         int oldLastUserEditAtomPos = (int)currentUser.getCurrentEditOffset();
         Integer newLastUserEditAtomPos = oldToNewPositions.get(oldLastUserEditAtomPos);
-        if(usr == null || newLastUserEditAtomPos == null || usr.getLastOnDiskOffset() != newLastUserEditAtomPos) {
+        if(newLastUserEditAtomPos == null || usr.getLastOnDiskOffset() != newLastUserEditAtomPos) {
             throw new HSLFException("Couldn't find the new location of the last UserEditAtom that used to be at " + oldLastUserEditAtomPos);
         }
         currentUser.setCurrentEditOffset(usr.getLastOnDiskOffset());
@@ -779,6 +794,14 @@ public final class HSLFSlideShowImpl extends POIDocument {
             _objects = objects.toArray(new HSLFObjectData[objects.size()]);
         }
         return _objects;
+    }
+    
+    @Override
+    public void close() throws IOException {
+        NPOIFSFileSystem fs = directory.getFileSystem();
+        if (fs != null) {
+            fs.close();
+        }
     }
     
     

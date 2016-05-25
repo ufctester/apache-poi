@@ -23,6 +23,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PushbackInputStream;
 import java.lang.reflect.Field;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.zip.InflaterInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
@@ -31,6 +33,7 @@ import java.util.zip.ZipInputStream;
 
 import org.apache.poi.util.POILogFactory;
 import org.apache.poi.util.POILogger;
+import org.apache.poi.util.SuppressForbidden;
 
 /**
  * This class wraps a {@link ZipFile} in order to check the
@@ -46,7 +49,13 @@ public class ZipSecureFile extends ZipFile {
     
     private static double MIN_INFLATE_RATIO = 0.01d;
     private static long MAX_ENTRY_SIZE = 0xFFFFFFFFl;
+    
+    // don't alert for expanded sizes smaller than 100k
+    private static long GRACE_ENTRY_SIZE = 100*1024;
 
+    // The default maximum size of extracted text 
+    private static long MAX_TEXT_SIZE = 10*1024*1024;
+    
     /**
      * Sets the ratio between de- and inflated bytes to detect zipbomb.
      * It defaults to 1% (= 0.01d), i.e. when the compression is better than
@@ -97,6 +106,34 @@ public class ZipSecureFile extends ZipFile {
         return MAX_ENTRY_SIZE;
     }
 
+    /**
+     * Sets the maximum number of characters of text that are
+     * extracted before an exception is thrown during extracting
+     * text from documents.
+     * 
+     * This can be used to limit memory consumption and protect against 
+     * security vulnerabilities when documents are provided by users.
+     *
+     * @param maxTextSize the max. file size of a single zip entry
+     */
+    public static void setMaxTextSize(long maxTextSize) {
+        if (maxTextSize < 0 || maxTextSize > 0xFFFFFFFFl) {
+            throw new IllegalArgumentException("Max text size is bounded [0-4GB].");
+        }
+        MAX_TEXT_SIZE = maxTextSize;
+    }
+
+    /**
+     * Returns the current maximum allowed text size.
+     * 
+     * See setMaxTextSize() for details.
+     *
+     * @return The max accepted text size. 
+     */
+    public static long getMaxTextSize() {
+        return MAX_TEXT_SIZE;
+    }
+
     public ZipSecureFile(File file, int mode) throws IOException {
         super(file, mode);
     }
@@ -123,24 +160,33 @@ public class ZipSecureFile extends ZipFile {
      * @throws IOException if an I/O error has occurred
      * @throws IllegalStateException if the zip file has been closed
      */
+    @SuppressWarnings("resource")
     public InputStream getInputStream(ZipEntry entry) throws IOException {
         InputStream zipIS = super.getInputStream(entry);
         return addThreshold(zipIS);
     }
 
-    public static ThresholdInputStream addThreshold(InputStream zipIS) throws IOException {
+    public static ThresholdInputStream addThreshold(final InputStream zipIS) throws IOException {
         ThresholdInputStream newInner;
         if (zipIS instanceof InflaterInputStream) {
-            try {
-                Field f = FilterInputStream.class.getDeclaredField("in");
-                f.setAccessible(true);
-                InputStream oldInner = (InputStream)f.get(zipIS);
-                newInner = new ThresholdInputStream(oldInner, null);
-                f.set(zipIS, newInner);
-            } catch (Exception ex) {
-                logger.log(POILogger.WARN, "SecurityManager doesn't allow manipulation via reflection for zipbomb detection - continue with original input stream", ex);
-                newInner = null;
-            }
+            newInner = AccessController.doPrivileged(new PrivilegedAction<ThresholdInputStream>() {
+                @SuppressForbidden("TODO: Fix this to not use reflection (it will break in Java 9)! " +
+                        "Better would be to wrap *before* instead of tyring to insert wrapper afterwards.")
+                public ThresholdInputStream run() {
+                    ThresholdInputStream newInner = null;
+                    try {
+                        Field f = FilterInputStream.class.getDeclaredField("in");
+                        f.setAccessible(true);
+                        InputStream oldInner = (InputStream)f.get(zipIS);
+                        newInner = new ThresholdInputStream(oldInner, null);
+                        f.set(zipIS, newInner);
+                    } catch (Exception ex) {
+                        logger.log(POILogger.WARN, "SecurityManager doesn't allow manipulation via reflection for zipbomb detection - continue with original input stream", ex);
+                        newInner = null;
+                    }
+                    return newInner;
+                }
+            });
         } else {
             // the inner stream is a ZipFileInputStream, i.e. the data wasn't compressed
             newInner = null;
@@ -183,16 +229,37 @@ public class ZipSecureFile extends ZipFile {
 
         public void advance(int advance) throws IOException {
             counter += advance;
+            
             // check the file size first, in case we are working on uncompressed streams
-            if (counter < MAX_ENTRY_SIZE) {
-                if (cis == null) return;
-                double ratio = (double)cis.counter/(double)counter;
-                if (ratio >= MIN_INFLATE_RATIO) return;
+            if(counter > MAX_ENTRY_SIZE) {
+                throw new IOException("Zip bomb detected! The file would exceed the max size of the expanded data in the zip-file. "
+                        + "This may indicates that the file is used to inflate memory usage and thus could pose a security risk. "
+                        + "You can adjust this limit via ZipSecureFile.setMaxEntrySize() if you need to work with files which are very large. "
+                        + "Counter: " + counter + ", cis.counter: " + (cis == null ? 0 : cis.counter)
+                        + "Limits: MAX_ENTRY_SIZE: " + MAX_ENTRY_SIZE);
             }
-            throw new IOException("Zip bomb detected! The file would exceed certain limits which usually indicate that the file is used to inflate memory usage and thus could pose a security risk. "
-                    + "You can adjust these limits via setMinInflateRatio() and setMaxEntrySize() if you need to work with files which exceed these limits. "
-                    + "Counter: " + counter + ", cis.counter: " + (cis == null ? 0 : cis.counter) + ", ratio: " + (cis == null ? 0 : ((double)cis.counter)/counter)
-                    + "Limits: MIN_INFLATE_RATIO: " + MIN_INFLATE_RATIO + ", MAX_ENTRY_SIZE: " + MAX_ENTRY_SIZE);
+
+            // no expanded size?
+            if (cis == null) {
+                return;
+            }
+            
+            // don't alert for small expanded size
+            if (counter <= GRACE_ENTRY_SIZE) {
+                return;
+            }
+
+            double ratio = (double)cis.counter/(double)counter;
+            if (ratio >= MIN_INFLATE_RATIO) {
+                return;
+            }
+
+            // one of the limits was reached, report it
+            throw new IOException("Zip bomb detected! The file would exceed the max. ratio of compressed file size to the size of the expanded data. "
+                    + "This may indicate that the file is used to inflate memory usage and thus could pose a security risk. "
+                    + "You can adjust this limit via ZipSecureFile.setMinInflateRatio() if you need to work with files which exceed this limit. "
+                    + "Counter: " + counter + ", cis.counter: " + cis.counter + ", ratio: " + (((double)cis.counter)/counter)
+                    + "Limits: MIN_INFLATE_RATIO: " + MIN_INFLATE_RATIO);
         }
 
         public ZipEntry getNextEntry() throws IOException {

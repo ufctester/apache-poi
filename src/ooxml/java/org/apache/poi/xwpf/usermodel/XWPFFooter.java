@@ -16,11 +16,11 @@
 ==================================================================== */
 package org.apache.poi.xwpf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.HashMap;
-import java.util.Map;
 
 import javax.xml.namespace.QName;
 
@@ -67,8 +67,19 @@ public class XWPFFooter extends XWPFHeaderFooter {
         cursor.dispose();
     }
 
+    /**
+     * @since POI 3.14-Beta1
+     */
+    public XWPFFooter(POIXMLDocumentPart parent, PackagePart part) throws IOException {
+        super(parent, part);
+    }
+    
+    /**
+     * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+     */
+    @Deprecated
     public XWPFFooter(POIXMLDocumentPart parent, PackagePart part, PackageRelationship rel) throws IOException {
-        super(parent, part, rel);
+        this(parent, part);
     }
 
     /**
@@ -78,17 +89,6 @@ public class XWPFFooter extends XWPFHeaderFooter {
     protected void commit() throws IOException {
         XmlOptions xmlOptions = new XmlOptions(DEFAULT_XML_OPTIONS);
         xmlOptions.setSaveSyntheticDocumentElement(new QName(CTNumbering.type.getName().getNamespaceURI(), "ftr"));
-        Map<String, String> map = new HashMap<String, String>();
-        map.put("http://schemas.openxmlformats.org/markup-compatibility/2006", "ve");
-        map.put("urn:schemas-microsoft-com:office:office", "o");
-        map.put("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "r");
-        map.put("http://schemas.openxmlformats.org/officeDocument/2006/math", "m");
-        map.put("urn:schemas-microsoft-com:vml", "v");
-        map.put("http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing", "wp");
-        map.put("urn:schemas-microsoft-com:office:word", "w10");
-        map.put("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "w");
-        map.put("http://schemas.microsoft.com/office/word/2006/wordml", "wne");
-        xmlOptions.setSaveSuggestedPrefixes(map);
         PackagePart part = getPackagePart();
         OutputStream out = part.getOutputStream();
         super._getHdrFtr().save(out, xmlOptions);
@@ -99,10 +99,10 @@ public class XWPFFooter extends XWPFHeaderFooter {
     protected void onDocumentRead() throws IOException {
         super.onDocumentRead();
         FtrDocument ftrDocument = null;
-        InputStream is;
+        InputStream is = null;
         try {
             is = getPackagePart().getInputStream();
-            ftrDocument = FtrDocument.Factory.parse(is);
+            ftrDocument = FtrDocument.Factory.parse(is, DEFAULT_XML_OPTIONS);
             headerFooter = ftrDocument.getFtr();
             // parse the document with cursor and add
             // the XmlObject to its lists
@@ -128,6 +128,10 @@ public class XWPFFooter extends XWPFHeaderFooter {
             cursor.dispose();
         } catch (Exception e) {
             throw new POIXMLException(e);
+        } finally {
+            if (is != null) {
+                is.close();
+            }
         }
     }
 

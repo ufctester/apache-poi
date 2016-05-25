@@ -22,7 +22,6 @@ import java.util.List;
 import org.apache.poi.POIXMLTextExtractor;
 import org.apache.poi.openxml4j.exceptions.OpenXML4JException;
 import org.apache.poi.openxml4j.opc.OPCPackage;
-import org.apache.poi.xslf.XSLFSlideShow;
 import org.apache.poi.xslf.usermodel.DrawingParagraph;
 import org.apache.poi.xslf.usermodel.DrawingTextBody;
 import org.apache.poi.xslf.usermodel.DrawingTextPlaceholder;
@@ -35,6 +34,7 @@ import org.apache.poi.xslf.usermodel.XSLFRelation;
 import org.apache.poi.xslf.usermodel.XSLFSlide;
 import org.apache.poi.xslf.usermodel.XSLFSlideLayout;
 import org.apache.poi.xslf.usermodel.XSLFSlideMaster;
+import org.apache.poi.xslf.usermodel.XSLFSlideShow;
 import org.apache.xmlbeans.XmlException;
 import org.openxmlformats.schemas.presentationml.x2006.main.CTComment;
 import org.openxmlformats.schemas.presentationml.x2006.main.CTCommentAuthor;
@@ -119,7 +119,6 @@ public class XSLFPowerPointExtractor extends POIXMLTextExtractor {
     * @param notesText Should we retrieve text from notes?
     * @param masterText Should we retrieve text from master slides?
     */
-   @SuppressWarnings("deprecation")
    public String getText(boolean slideText, boolean notesText, boolean masterText) {
       StringBuffer text = new StringBuffer();
 

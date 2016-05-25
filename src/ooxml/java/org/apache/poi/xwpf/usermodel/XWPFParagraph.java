@@ -215,7 +215,13 @@ public class XWPFParagraph implements IBodyElement, IRunBody, ISDTContents, Para
     public String getText() {
         StringBuffer out = new StringBuffer();
         for (IRunElement run : iruns) {
-            if (run instanceof XWPFSDT) {
+            if (run instanceof XWPFRun) {
+                XWPFRun xRun = (XWPFRun) run;
+                // don't include the text if reviewing is enabled and this is a deleted run
+                if (!xRun.getCTR().isSetRsidDel()) {
+                    out.append(xRun.toString());
+                }
+            } else if (run instanceof XWPFSDT) {
                 out.append(((XWPFSDT) run).getContent().getText());
             } else {
                 out.append(run.toString());
@@ -1168,7 +1174,7 @@ public class XWPFParagraph implements IBodyElement, IRunBody, ISDTContents, Para
     }
 
     public int getIndentFromLeft() {
-        return getIndentFromLeft();
+        return getIndentationLeft();
     }
 
     public void setIndentFromLeft(int dxaLeft) {
@@ -1176,7 +1182,7 @@ public class XWPFParagraph implements IBodyElement, IRunBody, ISDTContents, Para
     }
 
     public int getIndentFromRight() {
-        return getIndentFromRight();
+        return getIndentationRight();
     }
 
     public void setIndentFromRight(int dxaRight) {
@@ -1332,13 +1338,26 @@ public class XWPFParagraph implements IBodyElement, IRunBody, ISDTContents, Para
     /**
      * insert a new Run in RunArray
      *
-     * @param pos
-     * @return the inserted run
+     * @param pos The position at which the new run should be added.
+     * 
+     * @return the inserted run or null if the given pos is out of bounds.
      */
     public XWPFRun insertNewRun(int pos) {
-        if (pos >= 0 && pos <= paragraph.sizeOfRArray()) {
-            CTR ctRun = paragraph.insertNewR(pos);
-            XWPFRun newRun = new XWPFRun(ctRun, (IRunBody)this);
+        if (pos >= 0 && pos <= runs.size()) {
+            // calculate the correct pos as our run/irun list contains
+            // hyperlinks
+            // and fields so it is different to the paragraph R array.
+            int rPos = 0;
+            for (int i = 0; i < pos; i++) {
+                XWPFRun currRun = runs.get(i);
+                if (!(currRun instanceof XWPFHyperlinkRun
+                        || currRun instanceof XWPFFieldRun)) {
+                    rPos++;
+                }
+            }
+
+            CTR ctRun = paragraph.insertNewR(rPos);
+            XWPFRun newRun = new XWPFRun(ctRun, (IRunBody) this);
 
             // To update the iruns, find where we're going
             // in the normal runs, and go in there
@@ -1357,6 +1376,7 @@ public class XWPFParagraph implements IBodyElement, IRunBody, ISDTContents, Para
 
             return newRun;
         }
+
         return null;
     }
     // TODO Add methods to allow adding a HyperlinkRun or a FieldRun
@@ -1437,7 +1457,6 @@ public class XWPFParagraph implements IBodyElement, IRunBody, ISDTContents, Para
      *
      * @param segment
      */
-    @SuppressWarnings("deprecation")
     public String getText(TextSegement segment) {
         int runBegin = segment.getBeginRun();
         int textBegin = segment.getBeginText();
@@ -1446,8 +1465,10 @@ public class XWPFParagraph implements IBodyElement, IRunBody, ISDTContents, Para
         int textEnd = segment.getEndText();
         int charEnd = segment.getEndChar();
         StringBuilder out = new StringBuilder();
+        @SuppressWarnings("deprecation")
         CTR[] rArray = paragraph.getRArray();
         for (int i = runBegin; i <= runEnd; i++) {
+            @SuppressWarnings("deprecation")
             CTText[] tArray = rArray[i].getTArray();
             int startText = 0, endText = tArray.length - 1;
             if (i == runBegin)
@@ -1475,7 +1496,7 @@ public class XWPFParagraph implements IBodyElement, IRunBody, ISDTContents, Para
      * @return true if the run was removed
      */
     public boolean removeRun(int pos) {
-        if (pos >= 0 && pos < paragraph.sizeOfRArray()) {
+        if (pos >= 0 && pos < runs.size()) {
             // Remove the run from our high level lists
             XWPFRun run = runs.get(pos);
             if (run instanceof XWPFHyperlinkRun ||
@@ -1487,7 +1508,14 @@ public class XWPFParagraph implements IBodyElement, IRunBody, ISDTContents, Para
             runs.remove(pos);
             iruns.remove(run);
             // Remove the run from the low-level XML
-            getCTP().removeR(pos);
+            //calculate the correct pos as our run/irun list contains hyperlinks and fields so is different to the paragraph R array.
+            int rPos = 0;
+            for(int i=0;i<pos;i++) {
+              XWPFRun currRun = runs.get(i);
+              if(!(currRun instanceof XWPFHyperlinkRun || currRun instanceof XWPFFieldRun))
+                rPos++;
+            }
+            getCTP().removeR(rPos);
             return true;
         }
         return false;

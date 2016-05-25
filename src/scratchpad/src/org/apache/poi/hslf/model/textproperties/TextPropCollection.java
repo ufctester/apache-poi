@@ -17,12 +17,20 @@
 
 package org.apache.poi.hslf.model.textproperties;
 
-import java.io.*;
-import java.util.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+import org.apache.poi.hslf.exceptions.HSLFException;
 import org.apache.poi.hslf.record.StyleTextPropAtom;
 import org.apache.poi.util.HexDump;
 import org.apache.poi.util.LittleEndian;
+import org.apache.poi.util.POILogFactory;
+import org.apache.poi.util.POILogger;
 
 /**
  * For a given run of characters, holds the properties (which could
@@ -31,8 +39,10 @@ import org.apache.poi.util.LittleEndian;
  *  properties, and the indent level if required.
  */
 public class TextPropCollection {
+    private static final POILogger LOG = POILogFactory.getLogger(TextPropCollection.class);
+    
     /** All the different kinds of paragraph properties we might handle */
-    public static final TextProp[] paragraphTextPropTypes = {
+    private static final TextProp[] paragraphTextPropTypes = {
         // TextProp order is according to 2.9.20 TextPFException,
         // bitmask order can be different
         new ParagraphFlagsTextProp(),
@@ -60,7 +70,7 @@ public class TextPropCollection {
     };
     
     /** All the different kinds of character properties we might handle */
-    public static final TextProp[] characterTextPropTypes = new TextProp[] {
+    private static final TextProp[] characterTextPropTypes = new TextProp[] {
         new TextProp(0, 0x100000, "pp10ext"),
         new TextProp(0, 0x1000000, "newAsian.font.index"), // A bit that specifies whether the newEAFontRef field of the TextCFException10 structure that contains this CFMasks exists.
         new TextProp(0, 0x2000000, "cs.font.index"), // A bit that specifies whether the csFontRef field of the TextCFException10 structure that contains this CFMasks exists.
@@ -84,7 +94,7 @@ public class TextPropCollection {
     // indentLevel is only valid for paragraph collection
     // if it's set to -1, it must be omitted - see 2.9.36 TextMasterStyleLevel
     private short indentLevel = 0;
-	private final List<TextProp> textPropList = new ArrayList<TextProp>();
+	private final Map<String,TextProp> textProps = new HashMap<String,TextProp>();
     private int maskSpecial = 0;
     private final TextPropType textPropType;
     
@@ -98,101 +108,89 @@ public class TextPropCollection {
         this.textPropType = textPropType;
     }
 
-    public int getSpecialMask() { return maskSpecial; }
+    public int getSpecialMask() {
+        return maskSpecial;
+    }
 
 	/** Fetch the number of characters this styling applies to */
-	public int getCharactersCovered() { return charactersCovered; }
-	/** Fetch the TextProps that define this styling */
-	public List<TextProp> getTextPropList() { return textPropList; }
+	public int getCharactersCovered() {
+	    return charactersCovered;
+    }
+
+	/** Fetch the TextProps that define this styling in the record order */
+	public List<TextProp> getTextPropList() {
+	    List<TextProp> orderedList = new ArrayList<TextProp>();
+        for (TextProp potProp : getPotentialProperties()) {
+            TextProp textProp = textProps.get(potProp.getName());
+            if (textProp != null) {
+                orderedList.add(textProp);
+            }
+        }
+	    return orderedList;
+    }
 	
 	/** Fetch the TextProp with this name, or null if it isn't present */
-	public TextProp findByName(String textPropName) {
-		for(TextProp prop : textPropList) {
-			if(prop.getName().equals(textPropName)) {
-				return prop;
-			}
-		}
-		return null;
+	public final TextProp findByName(String textPropName) {
+		return textProps.get(textPropName);
 	}
 
-	public TextProp removeByName(String name) {
-	    Iterator<TextProp> iter = textPropList.iterator();
-	    TextProp tp = null;
-	    while (iter.hasNext()) {
-	        tp = iter.next();
-	        if (tp.getName().equals(name)){
-	            iter.remove();
-	            break;
-	        }
-	    }
-	    return tp;
+	public final TextProp removeByName(String name) {
+	    return textProps.remove(name);
 	}
 	
-	/** Add the TextProp with this name to the list */
-	public TextProp addWithName(String name) {
-		// Find the base TextProp to base on
-		TextProp existing = findByName(name);
-		if (existing != null) return existing;
-		
-		TextProp base = null;
-		for (TextProp tp : getPotentialProperties()) {
-		    if (tp.getName().equals(name)) {
-		        base = tp;
-		        break;
-		    }
-		}
-		
-		if(base == null) {
-			throw new IllegalArgumentException("No TextProp with name " + name + " is defined to add from. "
-		        + "Character and paragraphs have their own properties/names.");
-		}
-		
-		// Add a copy of this property, in the right place to the list
-		TextProp textProp = base.clone();
-		addProp(textProp);
-		return textProp;
-	}
-
-	public TextPropType getTextPropType() {
+	public final TextPropType getTextPropType() {
 	    return textPropType;
 	}
 	
 	private TextProp[] getPotentialProperties() {
 	    return (textPropType == TextPropType.paragraph) ? paragraphTextPropTypes : characterTextPropTypes;
 	}
+
+	/**
+	 * Checks the paragraph or character properties for the given property name.
+	 * Throws a HSLFException, if the name doesn't belong into this set of properties 
+	 *
+	 * @param name the property name
+	 * @return if found, the property template to copy from
+	 */
+	private TextProp validatePropName(String name) {
+       for (TextProp tp : getPotentialProperties()) {
+            if (tp.getName().equals(name)) {
+                return tp;
+            }
+        }
+       String errStr = 
+           "No TextProp with name " + name + " is defined to add from. " +
+           "Character and paragraphs have their own properties/names.";
+       throw new HSLFException(errStr);       
+	}
 	
+    /** Add the TextProp with this name to the list */
+    public final TextProp addWithName(String name) {
+        // Find the base TextProp to base on
+        TextProp existing = findByName(name);
+        if (existing != null) return existing;
+        
+        // Add a copy of this property
+        TextProp textProp = validatePropName(name).clone();
+        textProps.put(name,textProp);
+        return textProp;
+    }
+
 	/**
 	 * Add the property at the correct position. Replaces an existing property with the same name.
 	 *
 	 * @param textProp the property to be added
 	 */
-	public void addProp(TextProp textProp) {
-	    assert(textProp != null);
-	    
-        int pos = 0;
-        boolean found = false;
-        for (TextProp curProp : getPotentialProperties()) {
-            String potName = curProp.getName();
-            if (pos == textPropList.size() || potName.equals(textProp.getName())) {
-                if (textPropList.size() > pos && potName.equals(textPropList.get(pos).getName())) {
-                    // replace existing prop (with same name)
-                    textPropList.set(pos, textProp);
-                } else {
-                    textPropList.add(pos, textProp);
-                }
-                found = true;
-                break;
-            }
-            
-            if (potName.equals(textPropList.get(pos).getName())) {
-                pos++;
-            }
-        }
+	public final void addProp(TextProp textProp) {
+	    if (textProp == null) {
+	        throw new HSLFException("TextProp must not be null");
+	    }
 
-        if(!found) {
-            String err = "TextProp with name " + textProp.getName() + " doesn't belong to this collection.";
-            throw new IllegalArgumentException(err);
-        }
+	    String propName = textProp.getName();
+	    validatePropName(propName);
+	    
+	    textProps.put(propName, textProp);
 	}
 
 	/**
@@ -220,13 +218,11 @@ public class TextPropCollection {
 				// Bingo, data contains this property
 				TextProp prop = tp.clone();
 				int val = 0;
-				if (prop instanceof TabStopPropCollection) {
-				    ((TabStopPropCollection)prop).parseProperty(data, dataOffset+bytesPassed);
-				} else if (prop.getSize() == 2) {
+				if (prop.getSize() == 2) {
 					val = LittleEndian.getShort(data,dataOffset+bytesPassed);
 				} else if(prop.getSize() == 4) {
 					val = LittleEndian.getInt(data,dataOffset+bytesPassed);
-				} else if (prop.getSize() == 0) {
+				} else if (prop.getSize() == 0 && !(prop instanceof TabStopPropCollection)) {
                     //remember "special" bits.
                     maskSpecial |= tp.getMask();
                     continue;
@@ -234,6 +230,8 @@ public class TextPropCollection {
 				
 				if (prop instanceof BitMaskTextProp) {
 				    ((BitMaskTextProp)prop).setValueWithMask(val, containsField);
+				} else if (prop instanceof TabStopPropCollection) {
+				    ((TabStopPropCollection)prop).parseProperty(data, dataOffset+bytesPassed);
 				} else {
 				    prop.setValue(val);
 				}
@@ -250,12 +248,15 @@ public class TextPropCollection {
      * Clones the given text properties
      */
 	public void copy(TextPropCollection other) {
+	    if (other == null) {
+	        throw new HSLFException("trying to copy null TextPropCollection");
+	    }
 	    if (this == other) return;
         this.charactersCovered = other.charactersCovered;
         this.indentLevel = other.indentLevel;
         this.maskSpecial = other.maskSpecial;
-        this.textPropList.clear();
-        for (TextProp tp : other.textPropList) {
+        this.textProps.clear();
+        for (TextProp tp : other.textProps.values()) {
             TextProp tpCopy = (tp instanceof BitMaskTextProp)
                 ? ((BitMaskTextProp)tp).cloneAll()
                 : tp.clone();
@@ -271,12 +272,22 @@ public class TextPropCollection {
 		charactersCovered = textSize;
 	}
 
+	   /**
+     * Writes out to disk the header, and then all the properties
+     */
+    public void writeOut(OutputStream o) throws IOException {
+        writeOut(o, false);
+    }
+	
 	/**
 	 * Writes out to disk the header, and then all the properties
 	 */
-	public void writeOut(OutputStream o) throws IOException {
-		// First goes the number of characters we affect
-		StyleTextPropAtom.writeLittleEndian(charactersCovered,o);
+	public void writeOut(OutputStream o, boolean isMasterStyle) throws IOException {
+	    if (!isMasterStyle) {
+	        // First goes the number of characters we affect
+	        // MasterStyles don't have this field
+	        StyleTextPropAtom.writeLittleEndian(charactersCovered,o);
+	    }
 
 		// Then we have the indentLevel field if it's a paragraph collection
 		if (textPropType == TextPropType.paragraph && indentLevel > -1) {
@@ -285,25 +296,22 @@ public class TextPropCollection {
 
 		// Then the mask field
 		int mask = maskSpecial;
-		for (TextProp textProp : textPropList) {
+		for (TextProp textProp : textProps.values()) {
             mask |= textProp.getWriteMask();
         }
 		StyleTextPropAtom.writeLittleEndian(mask,o);
 
 		// Then the contents of all the properties
-		for (TextProp potProp : getPotentialProperties()) {
-    		for(TextProp textProp : textPropList) {
-    		    if (!textProp.getName().equals(potProp.getName())) continue;
-                int val = textProp.getValue();
-                if (textProp instanceof BitMaskTextProp && textProp.getWriteMask() == 0) {
-                    // don't add empty properties, as they can't be recognized while reading
-                    continue;
-                } else if (textProp.getSize() == 2) {
-    				StyleTextPropAtom.writeLittleEndian((short)val,o);
-    			} else if (textProp.getSize() == 4) {
-    				StyleTextPropAtom.writeLittleEndian(val,o);
-    			}
-    		}
+		for (TextProp textProp : getTextPropList()) {
+            int val = textProp.getValue();
+            if (textProp instanceof BitMaskTextProp && textProp.getWriteMask() == 0) {
+                // don't add empty properties, as they can't be recognized while reading
+                continue;
+            } else if (textProp.getSize() == 2) {
+                StyleTextPropAtom.writeLittleEndian((short)val,o);
+            } else if (textProp.getSize() == 4) {
+                StyleTextPropAtom.writeLittleEndian(val,o);
+            }
 		}
 	}
 
@@ -324,7 +332,7 @@ public class TextPropCollection {
         result = prime * result + charactersCovered;
         result = prime * result + maskSpecial;
         result = prime * result + indentLevel;
-        result = prime * result + ((textPropList == null) ? 0 : textPropList.hashCode());
+        result = prime * result + ((textProps == null) ? 0 : textProps.hashCode());
         return result;
     }
     /**
@@ -340,21 +348,7 @@ public class TextPropCollection {
             return false;
         }
 
-        if (textPropList == null) {
-            return (o.textPropList == null);
-        }        
-        
-        Map<String,TextProp> m = new HashMap<String,TextProp>();
-        for (TextProp tp : o.textPropList) {
-            m.put(tp.getName(), tp);
-        }
-        
-        for (TextProp tp : this.textPropList) {
-            TextProp otp = m.get(tp.getName());
-            if (!tp.equals(otp)) return false;
-        }
-        
-        return true;
+        return textProps.equals(o.textProps);
     }
 
     public String toString() {
@@ -386,8 +380,8 @@ public class TextPropCollection {
             writeOut(baos);
             byte[] b = baos.toByteArray();
             out.append(HexDump.dump(b, 0, 0));
-        } catch (Exception e ) {
-            e.printStackTrace();
+        } catch (IOException e ) {
+            LOG.log(POILogger.ERROR, "can't dump TextPropCollection", e);
         }
         
         return out.toString();

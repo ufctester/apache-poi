@@ -31,7 +31,6 @@ import org.apache.poi.hslf.exceptions.OldPowerPointFormatException;
 import org.apache.poi.poifs.filesystem.DirectoryNode;
 import org.apache.poi.poifs.filesystem.DocumentEntry;
 import org.apache.poi.poifs.filesystem.NPOIFSFileSystem;
-import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 import org.apache.poi.util.LittleEndian;
 import org.apache.poi.util.POILogFactory;
 import org.apache.poi.util.POILogger;
@@ -112,13 +111,7 @@ public class CurrentUserAtom
 		isEncrypted = false;
 	}
 
-	/** 
-	 * Find the Current User in the filesystem, and create from that
-	 * @deprecated Use {@link #CurrentUserAtom(DirectoryNode)} instead
-	 */
-	public CurrentUserAtom(POIFSFileSystem fs) throws IOException {
-		this(fs.getRoot());
-	}
+
 	/** 
 	 * Find the Current User in the filesystem, and create from that
 	 */
@@ -133,10 +126,17 @@ public class CurrentUserAtom
 		}
 		
 		// Grab the contents
-		_contents = new byte[docProps.getSize()];
+		int len = docProps.getSize();
+		_contents = new byte[len];
 		InputStream in = dir.createDocumentInputStream("Current User");
-		in.read(_contents);
+		int readLen = in.read(_contents);
+		in.close();
 
+        if (len != readLen) {
+            throw new IOException("Current User input stream ended prematurely - expected "+len+" bytes - received "+readLen+" bytes");
+        }
+		
+		
 		// See how long it is. If it's under 28 bytes long, we can't
 		//  read it
 		if(_contents.length < 28) {
@@ -152,14 +152,6 @@ public class CurrentUserAtom
 		}
 
 		// Set everything up
-		init();
-	}
-
-	/** 
-	 * Create things from the bytes
-	 */
-	public CurrentUserAtom(byte[] b) {
-		_contents = b;
 		init();
 	}
 

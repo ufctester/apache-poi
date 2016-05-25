@@ -37,9 +37,9 @@ import org.apache.poi.util.POILogger;
  * 
  * <p>This is for the older-style Excel conditional formattings,
  *  new-style (Excel 2007+) also make use of {@link CFRule12Record}
- *  and {@link CFExRuleRecord} for their rules.
+ *  for their rules.</p>
  */
-public abstract class CFRuleBase extends StandardRecord {
+public abstract class CFRuleBase extends StandardRecord implements Cloneable {
     public static final class ComparisonOperator {
         public static final byte NO_COMPARISON = 0;
         public static final byte BETWEEN       = 1;
@@ -440,10 +440,10 @@ public abstract class CFRuleBase extends StandardRecord {
         rec.formatting_options = formatting_options;
         rec.formatting_not_used = formatting_not_used;
         if (containsFontFormattingBlock()) {
-            rec._fontFormatting = (FontFormatting) _fontFormatting.clone();
+            rec._fontFormatting = _fontFormatting.clone();
         }
         if (containsBorderFormattingBlock()) {
-            rec._borderFormatting = (BorderFormatting) _borderFormatting.clone();
+            rec._borderFormatting = _borderFormatting.clone();
         }
         if (containsPatternFormattingBlock()) {
             rec._patternFormatting = (PatternFormatting) _patternFormatting.clone();
@@ -452,4 +452,7 @@ public abstract class CFRuleBase extends StandardRecord {
         rec.setFormula1(getFormula1().copy());
         rec.setFormula2(getFormula2().copy());
     }
+    
+    @Override
+    public abstract CFRuleBase clone();
 }

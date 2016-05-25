@@ -26,11 +26,12 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.usermodel.HSSFRow;
 import org.apache.poi.hssf.usermodel.HSSFClientAnchor;
 import org.apache.poi.hssf.usermodel.HSSFPatriarch;
-import org.apache.poi.hssf.util.CellReference;
+import org.apache.poi.ss.usermodel.ClientAnchor.AnchorType;
 
 
 /**
@@ -250,7 +251,6 @@ public class AddDimensionedImage {
             String imageFile, double reqImageWidthMM, double reqImageHeightMM,
             int resizeBehaviour) throws FileNotFoundException, IOException,
                                                      IllegalArgumentException  {
-        HSSFRow row = null;
         HSSFClientAnchor anchor = null;
         HSSFPatriarch patriarch = null;
         ClientAnchorDetail rowClientAnchorDetail = null;
@@ -292,7 +292,7 @@ public class AddDimensionedImage {
         // image as the size of the row/column is adjusted. This could easilly
         // become another parameter passed to the method.
         //anchor.setAnchorType(HSSFClientAnchor.DONT_MOVE_AND_RESIZE);
-        anchor.setAnchorType(HSSFClientAnchor.MOVE_AND_RESIZE);
+        anchor.setAnchorType(AnchorType.MOVE_AND_RESIZE);
         
         // Now, add the picture to the workbook. Note that the type is assumed
         // to be a JPEG/JPG, this could easily (and should) be parameterised
@@ -720,9 +720,7 @@ public class AddDimensionedImage {
     public static void main(String[] args) {
         String imageFile = null;
         String outputFile = null;
-        FileInputStream fis = null;
         FileOutputStream fos = null;
-        HSSFWorkbook workbook = null;
         HSSFSheet sheet = null;
         try {
             if(args.length < 2){
@@ -732,13 +730,14 @@ public class AddDimensionedImage {
             imageFile = args[0];
             outputFile = args[1];
 
-            workbook = new HSSFWorkbook();
+            HSSFWorkbook workbook = new HSSFWorkbook();
             sheet = workbook.createSheet("Picture Test");
             new AddDimensionedImage().addImageToSheet("A1", sheet,
                     imageFile, 125, 125,
                     AddDimensionedImage.EXPAND_ROW_AND_COLUMN);
             fos = new FileOutputStream(outputFile);
             workbook.write(fos);
+            workbook.close();
         }
         catch(FileNotFoundException fnfEx) {
             System.out.println("Caught an: " + fnfEx.getClass().getName());
@@ -753,14 +752,13 @@ public class AddDimensionedImage {
             ioEx.printStackTrace(System.out);
         }
         finally {
-            if(fos != null) {
-                try {
+            try {
+                if(fos != null) {
                     fos.close();
                     fos = null;
                 }
-                catch(IOException ioEx) {
-                    // I G N O R E
-                }
+            } catch(IOException ioEx) {
+                // I G N O R E
             }
         }
     }
@@ -912,7 +910,7 @@ public class AddDimensionedImage {
             int pixels = (widthUnits / EXCEL_COLUMN_WIDTH_FACTOR)
                     * UNIT_OFFSET_LENGTH;
             int offsetWidthUnits = widthUnits % EXCEL_COLUMN_WIDTH_FACTOR;
-            pixels += Math.round((float) offsetWidthUnits /
+            pixels += Math.round(offsetWidthUnits /
                     ((float) EXCEL_COLUMN_WIDTH_FACTOR / UNIT_OFFSET_LENGTH));
             return pixels;
         }

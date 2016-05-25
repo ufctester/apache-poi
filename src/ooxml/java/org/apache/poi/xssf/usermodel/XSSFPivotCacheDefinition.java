@@ -16,6 +16,8 @@
 ==================================================================== */
 package org.apache.poi.xssf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -55,14 +57,23 @@ public class XSSFPivotCacheDefinition extends POIXMLDocumentPart{
      * Should only be called when reading in an existing file.
      *
      * @param part - The package part that holds xml data representing this pivot cache definition.
-     * @param rel - the relationship of the given package part in the underlying OPC package
+     * 
+     * @since POI 3.14-Beta1
      */
     @Beta
-    protected XSSFPivotCacheDefinition(PackagePart part, PackageRelationship rel) throws IOException {
-        super(part, rel);
+    protected XSSFPivotCacheDefinition(PackagePart part) throws IOException {
+        super(part);
         readFrom(part.getInputStream());
     }
 
+    /**
+     * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+     */
+    @Deprecated
+    protected XSSFPivotCacheDefinition(PackagePart part, PackageRelationship rel) throws IOException {
+        this(part);
+    }
+    
     @Beta
     public void readFrom(InputStream is) throws IOException {
 	try {

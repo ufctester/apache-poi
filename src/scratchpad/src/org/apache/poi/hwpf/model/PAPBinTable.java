@@ -61,7 +61,6 @@ public class PAPBinTable
      *             {@link #PAPBinTable(byte[], byte[], byte[], int, int, CharIndexTranslator)}
      *             instead
      */
-    @SuppressWarnings( "unused" )
     public PAPBinTable( byte[] documentStream, byte[] tableStream,
             byte[] dataStream, int offset, int size, int fcMin,
             TextPieceTable tpt )
@@ -278,18 +277,9 @@ public class PAPBinTable
                 if ( papx.getGrpprl() == null || papx.getGrpprl().length == 0 )
                     continue;
 
-                if ( sprmBuffer == null )
-                    try
-                    {
-                        sprmBuffer = (SprmBuffer) papx.getSprmBuf().clone();
-                    }
-                    catch ( CloneNotSupportedException e )
-                    {
-                        // can't happen
-                        throw new Error( e );
-                    }
-                else
-                {
+                if ( sprmBuffer == null ) {
+                    sprmBuffer = papx.getSprmBuf().clone();
+                } else {
                     sprmBuffer.append( papx.getGrpprl(), 2 );
                 }
             }
@@ -326,15 +316,7 @@ public class PAPBinTable
       PAPX currentPap = _paragraphs.get(listIndex);
       if (currentPap != null && currentPap.getStart() < cpStart)
       {
-        SprmBuffer clonedBuf = null;
-        try
-        {
-          clonedBuf = (SprmBuffer)currentPap.getSprmBuf().clone();
-        }
-        catch (CloneNotSupportedException exc)
-        {
-          exc.printStackTrace();
-        }
+        SprmBuffer clonedBuf = currentPap.getSprmBuf().clone();
 
     	// Copy the properties of the one before to afterwards
     	// Will go:

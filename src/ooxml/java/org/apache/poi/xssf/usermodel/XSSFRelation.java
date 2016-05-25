@@ -44,7 +44,8 @@ import org.apache.poi.xssf.model.StylesTable;
 import org.apache.poi.xssf.model.ThemesTable;
 
 /**
- *
+ * Defines namespaces, content types and normal file names / naming
+ *  patterns, for the well-known XSSF format parts. 
  */
 public final class XSSFRelation extends POIXMLRelation {
 
@@ -344,11 +345,20 @@ public final class XSSFRelation extends POIXMLRelation {
             XSSFPivotCacheRecords.class
     );
 
+    public static final XSSFRelation CTRL_PROP_RECORDS = new XSSFRelation(
+            null,
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/ctrlProp",
+            "/xl/ctrlProps/ctrlProp#.xml",
+            null
+    );
+    
+    public static final String NS_SPREADSHEETML = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+    public static final String NS_DRAWINGML = "http://schemas.openxmlformats.org/drawingml/2006/main";
+    public static final String NS_CHART = "http://schemas.openxmlformats.org/drawingml/2006/chart";
 
     private XSSFRelation(String type, String rel, String defaultName, Class<? extends POIXMLDocumentPart> cls) {
         super(type, rel, defaultName, cls);
-
-        if(cls != null && !_table.containsKey(rel)) _table.put(rel, this);
+        _table.put(rel, this);
     }
 
     /**

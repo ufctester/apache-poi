@@ -16,35 +16,37 @@
 ==================================================================== */
 package org.apache.poi.xwpf.usermodel;
 
+import junit.framework.TestCase;
+import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
+import org.apache.poi.util.Units;
+import org.apache.poi.xwpf.XWPFTestDataSamples;
+import org.apache.poi.xwpf.model.XWPFHeaderFooterPolicy;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.Iterator;
 import java.util.List;
 
-import junit.framework.TestCase;
-import org.apache.poi.xwpf.XWPFTestDataSamples;
-import org.apache.poi.xwpf.model.XWPFHeaderFooterPolicy;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTBr;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTR;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRPr;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.STBrClear;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.STOnOff;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.STUnderline;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.STVerticalAlignRun;
-
 /**
  * Tests for XWPF Run
  */
+@SuppressWarnings("deprecation")
 public class TestXWPFRun extends TestCase {
-    public CTR ctRun;
-    public XWPFParagraph p;
+    private CTR ctRun;
+    private XWPFParagraph p;
+    private XWPFDocument doc;
 
     protected void setUp() {
-        XWPFDocument doc = new XWPFDocument();
+        doc = new XWPFDocument();
         p = doc.createParagraph();
 
         this.ctRun = CTR.Factory.newInstance();
+    }
+    
+    protected void tearDown() throws Exception {
+        doc.close();
     }
 
     public void testSetGetText() {
@@ -382,6 +384,19 @@ public class TestXWPFRun extends TestCase {
 
         assertEquals(1, count);
     }
+    
+    public void testSetGetHighlight() throws Exception {
+        XWPFRun run = p.createRun();
+        assertEquals(false, run.isHighlighted());
+        
+        // TODO Do this using XWPFRun methods
+        run.getCTR().addNewRPr().addNewHighlight().setVal(STHighlightColor.NONE);
+        assertEquals(false, run.isHighlighted());
+        run.getCTR().getRPr().getHighlight().setVal(STHighlightColor.CYAN);
+        assertEquals(true, run.isHighlighted());
+        run.getCTR().getRPr().getHighlight().setVal(STHighlightColor.NONE);
+        assertEquals(false, run.isHighlighted());
+    }
 
     public void testAddPicture() throws Exception {
         XWPFDocument doc = XWPFTestDataSamples.openSampleDocument("TestDocument.docx");
@@ -395,6 +410,13 @@ public class TestXWPFRun extends TestCase {
 
         assertEquals(1, doc.getAllPictures().size());
         assertEquals(1, r.getEmbeddedPictures().size());
+        
+        XWPFDocument docBack = XWPFTestDataSamples.writeOutAndReadBack(doc);
+        XWPFParagraph pBack = docBack.getParagraphArray(2);
+        XWPFRun rBack = pBack.getRuns().get(0);
+        
+        assertEquals(1, docBack.getAllPictures().size());
+        assertEquals(1, rBack.getEmbeddedPictures().size());
     }
 
     /**
@@ -415,5 +437,27 @@ public class TestXWPFRun extends TestCase {
                 }
             }
         }
+    }
+
+    public void testBug55476() throws IOException, InvalidFormatException {
+        byte[] image = XWPFTestDataSamples.getImage("abstract1.jpg");
+        XWPFDocument document = new XWPFDocument();
+
+        document.createParagraph().createRun().addPicture(
+                new ByteArrayInputStream(image), Document.PICTURE_TYPE_JPEG, "test.jpg", Units.toEMU(300), Units.toEMU(100));
+
+        XWPFDocument docBack = XWPFTestDataSamples.writeOutAndReadBack(document);
+        List<XWPFPicture> pictures = docBack.getParagraphArray(0).getRuns().get(0).getEmbeddedPictures();
+        assertEquals(1, pictures.size());
+        docBack.close();
+
+        /*OutputStream stream = new FileOutputStream("c:\\temp\\55476.docx");
+        try {
+            document.write(stream);
+        } finally {
+            stream.close();
+        }*/
+
+        document.close();
     }
 }

@@ -20,7 +20,7 @@
 package org.apache.poi.xslf.usermodel;
 
 import java.awt.Color;
-import java.awt.Rectangle;
+import java.awt.geom.Rectangle2D;
 
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
@@ -35,6 +35,7 @@ import org.apache.poi.sl.usermodel.LineDecoration.DecorationShape;
 import org.apache.poi.sl.usermodel.LineDecoration.DecorationSize;
 import org.apache.poi.sl.usermodel.PaintStyle;
 import org.apache.poi.sl.usermodel.PaintStyle.SolidPaint;
+import org.apache.poi.sl.usermodel.Placeholder;
 import org.apache.poi.sl.usermodel.ShapeType;
 import org.apache.poi.sl.usermodel.SimpleShape;
 import org.apache.poi.sl.usermodel.StrokeStyle;
@@ -52,6 +53,7 @@ import org.openxmlformats.schemas.drawingml.x2006.main.CTGeomGuide;
 import org.openxmlformats.schemas.drawingml.x2006.main.CTLineEndProperties;
 import org.openxmlformats.schemas.drawingml.x2006.main.CTLineProperties;
 import org.openxmlformats.schemas.drawingml.x2006.main.CTLineStyleList;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTNonVisualDrawingProps;
 import org.openxmlformats.schemas.drawingml.x2006.main.CTOuterShadowEffect;
 import org.openxmlformats.schemas.drawingml.x2006.main.CTPoint2D;
 import org.openxmlformats.schemas.drawingml.x2006.main.CTPositiveSize2D;
@@ -88,25 +90,23 @@ public abstract class XSLFSimpleShape extends XSLFShape
         super(shape,sheet);
     }
 
-    /**
-     *
-     * @param type
-     */
-    public void setShapeType(ShapeType type){
+    @Override
+    public void setShapeType(ShapeType type) {
         STShapeType.Enum geom = STShapeType.Enum.forInt(type.ooxmlId);
         getSpPr().getPrstGeom().setPrst(geom);
     }
 
+    @Override
     public ShapeType getShapeType(){
         STShapeType.Enum geom = getSpPr().getPrstGeom().getPrst();
         return ShapeType.forId(geom.intValue(), true);
     }
-    
+
     protected CTTransform2D getSafeXfrm() {
         CTTransform2D xfrm = getXfrm();
         return (xfrm == null ? getSpPr().addNewXfrm() : xfrm);
     }
-    
+
     protected CTTransform2D getXfrm() {
         PropertyFetcher<CTTransform2D> fetcher = new PropertyFetcher<CTTransform2D>() {
             public boolean fetch(XSLFShape shape) {
@@ -123,21 +123,21 @@ public abstract class XSLFSimpleShape extends XSLFShape
     }
 
     @Override
-    public Rectangle getAnchor() {
+    public Rectangle2D getAnchor() {
 
         CTTransform2D xfrm = getXfrm();
 
         CTPoint2D off = xfrm.getOff();
-        int x = (int)Units.toPoints(off.getX());
-        int y = (int)Units.toPoints(off.getY());
+        double x = Units.toPoints(off.getX());
+        double y = Units.toPoints(off.getY());
         CTPositiveSize2D ext = xfrm.getExt();
-        int cx = (int)Units.toPoints(ext.getCx());
-        int cy = (int)Units.toPoints(ext.getCy());
-        return new Rectangle(x, y, cx, cy);
+        double cx = Units.toPoints(ext.getCx());
+        double cy = Units.toPoints(ext.getCy());
+        return new Rectangle2D.Double(x, y, cx, cy);
     }
 
     @Override
-    public void setAnchor(Rectangle anchor) {
+    public void setAnchor(Rectangle2D anchor) {
         CTTransform2D xfrm = getSafeXfrm();
         CTPoint2D off = xfrm.isSetOff() ? xfrm.getOff() : xfrm.addNewOff();
         long x = Units.toEMU(anchor.getX());
@@ -151,7 +151,7 @@ public abstract class XSLFSimpleShape extends XSLFShape
         ext.setCx(cx);
         ext.setCy(cy);
     }
-    
+
     @Override
     public void setRotation(double theta) {
         getSafeXfrm().setRot((int) (theta * 60000));
@@ -185,7 +185,7 @@ public abstract class XSLFSimpleShape extends XSLFShape
         return (xfrm == null || !xfrm.isSetFlipV()) ? false : getXfrm().getFlipV();
     }
 
-    
+
     /**
      * Get default line properties defined in the theme (if any).
      * Used internally to resolve shape properties.
@@ -199,7 +199,7 @@ public abstract class XSLFSimpleShape extends XSLFShape
         if (lnRef == null) return null;
         // 1-based index of a line style within the style matrix
         int idx = (int)lnRef.getIdx();
-        
+
         XSLFTheme theme = getSheet().getTheme();
         if (theme == null) return null;
         CTBaseStyles styles = theme.getXmlObject().getThemeElements();
@@ -208,7 +208,7 @@ public abstract class XSLFSimpleShape extends XSLFShape
         if (styleMatrix == null) return null;
         CTLineStyleList lineStyles = styleMatrix.getLnStyleLst();
         if (lineStyles == null || lineStyles.sizeOfLnArray() < idx) return null;
-        
+
         return lineStyles.getLnArray(idx - 1);
     }
 
@@ -262,7 +262,7 @@ public abstract class XSLFSimpleShape extends XSLFShape
                         setValue(null); // use it as 'nofill' value
                         return true;
                     }
-                    
+
                     PaintStyle paint = null;
                     PackagePart pp = getSheet().getPackagePart();
                     for (XmlObject obj : spPr.selectPath("*")) {
@@ -290,11 +290,11 @@ public abstract class XSLFSimpleShape extends XSLFShape
 
         PaintStyle paint = fetcher.getValue();
         if (paint != null) return paint;
-        
+
         // line color was not found, check if it is defined in the theme
         CTShapeStyle style = getSpStyle();
         if (style == null) return null;
-        
+
         // get a reference to a line style within the style matrix.
         CTStyleMatrixReference lnRef = style.getLnRef();
         int idx = (int)lnRef.getIdx();
@@ -308,7 +308,7 @@ public abstract class XSLFSimpleShape extends XSLFShape
 
         return paint;
     }
-    
+
     /**
      *
      * @param width line width in points. <code>0</code> means no line
@@ -362,6 +362,40 @@ public abstract class XSLFSimpleShape extends XSLFShape
         return lineWidth;
     }
 
+
+    /**
+     * @param compound set the line compound style
+     */
+    public void setLineCompound(LineCompound compound) {
+        CTShapeProperties spPr = getSpPr();
+        if (compound == null) {
+            if (spPr.isSetLn() && spPr.getLn().isSetCmpd())
+                spPr.getLn().unsetCmpd();
+        } else {
+            CTLineProperties ln = spPr.isSetLn() ? spPr.getLn() : spPr.addNewLn();
+            STCompoundLine.Enum xCmpd;
+            switch (compound) {
+                default:
+                case SINGLE:
+                    xCmpd = STCompoundLine.SNG;
+                    break;
+                case DOUBLE:
+                    xCmpd = STCompoundLine.DBL;
+                    break;
+                case THICK_THIN:
+                    xCmpd = STCompoundLine.THICK_THIN;
+                    break;
+                case THIN_THICK:
+                    xCmpd = STCompoundLine.THIN_THICK;
+                    break;
+                case TRIPLE:
+                    xCmpd = STCompoundLine.TRI;
+                    break;
+            }
+            ln.setCmpd(xCmpd);
+        }
+    }
+
     /**
      * @return the line compound
      */
@@ -392,7 +426,7 @@ public abstract class XSLFSimpleShape extends XSLFShape
                 }
             }
         }
-        
+
         if (cmpd == null) return null;
 
         switch (cmpd) {
@@ -417,15 +451,12 @@ public abstract class XSLFSimpleShape extends XSLFShape
     public void setLineDash(LineDash dash) {
         CTShapeProperties spPr = getSpPr();
         if (dash == null) {
-            if (spPr.isSetLn() &&  spPr.getLn().isSetPrstDash())
+            if (spPr.isSetLn() && spPr.getLn().isSetPrstDash())
                 spPr.getLn().unsetPrstDash();
         } else {
-            CTPresetLineDashProperties val = CTPresetLineDashProperties.Factory
-                    .newInstance();
-            val.setVal(STPresetLineDashVal.Enum.forInt(dash.ooxmlId));
-            CTLineProperties ln = spPr.isSetLn() ? spPr.getLn() : spPr
-                    .addNewLn();
-            ln.setPrstDash(val);
+            CTLineProperties ln = spPr.isSetLn() ? spPr.getLn() : spPr.addNewLn();
+            CTPresetLineDashProperties ldp = ln.isSetPrstDash() ? ln.getPrstDash() : ln.addNewPrstDash();
+            ldp.setVal(STPresetLineDashVal.Enum.forInt(dash.ooxmlId));
         }
     }
 
@@ -513,13 +544,7 @@ public abstract class XSLFSimpleShape extends XSLFShape
         return cap;
     }
 
-    /**
-     * Specifies a solid color fill. The shape is filled entirely with the
-     * specified color.
-     *
-     * @param color the solid color fill. The value of <code>null</code> unsets
-     *              the solidFIll attribute from the underlying xml
-     */
+    @Override
     public void setFillColor(Color color) {
         CTShapeProperties spPr = getSpPr();
         if (color == null) {
@@ -545,10 +570,7 @@ public abstract class XSLFSimpleShape extends XSLFShape
         }
     }
 
-    /**
-     * @return solid fill color of null if not set or fill color
-     * is not solid (pattern or gradient)
-     */
+    @Override
     public Color getFillColor() {
         PaintStyle ps = getFillPaint();
         if (ps instanceof SolidPaint) {
@@ -615,7 +637,7 @@ public abstract class XSLFSimpleShape extends XSLFShape
         }
         return geom;
     }
-    
+
     @Override
     void copy(XSLFShape sh){
         super.copy(sh);
@@ -635,7 +657,7 @@ public abstract class XSLFSimpleShape extends XSLFShape
             String relId = getSheet().importBlip(blipId, s.getSheet().getPackagePart());
             blip.setEmbed(relId);
         }
-        
+
         Color srcLineColor = s.getLineColor();
         Color tgtLineColor = getLineColor();
         if(srcLineColor != null && !srcLineColor.equals(tgtLineColor)) {
@@ -795,7 +817,6 @@ public abstract class XSLFSimpleShape extends XSLFShape
         return ph != null;
     }
 
-    @SuppressWarnings("deprecation")
     public Guide getAdjustValue(String name) {
         CTPresetGeometry2D prst = getSpPr().getPrstGeom();
         if (prst.isSetAvLst()) {
@@ -871,7 +892,55 @@ public abstract class XSLFSimpleShape extends XSLFShape
             public LineCompound getLineCompound() {
                 return XSLFSimpleShape.this.getLineCompound();
             }
-            
+
         };
+    }
+
+    @Override
+    public void setStrokeStyle(Object... styles) {
+        if (styles.length == 0) {
+            // remove stroke
+            setLineColor(null);
+            return;
+        }
+        
+        // TODO: handle PaintStyle
+        for (Object st : styles) {
+            if (st instanceof Number) {
+                setLineWidth(((Number)st).doubleValue());
+            } else if (st instanceof LineCap) {
+                setLineCap((LineCap)st);
+            } else if (st instanceof LineDash) {
+                setLineDash((LineDash)st);
+            } else if (st instanceof LineCompound) {
+                setLineCompound((LineCompound)st);
+            } else if (st instanceof Color) {
+                setLineColor((Color)st);
+            }
+        }
+    }
+    
+    @Override
+    public void setPlaceholder(Placeholder placeholder) {
+        super.setPlaceholder(placeholder);
+    }
+    
+    @Override
+    public XSLFHyperlink getHyperlink() {
+        CTNonVisualDrawingProps cNvPr = getCNvPr();
+        if (!cNvPr.isSetHlinkClick()) {
+            return null;
+        }
+        return new XSLFHyperlink(cNvPr.getHlinkClick(), getSheet());
+    }
+    
+    @Override
+    public XSLFHyperlink createHyperlink() {
+        XSLFHyperlink hl = getHyperlink();
+        if (hl == null) {
+            CTNonVisualDrawingProps cNvPr = getCNvPr();
+            hl = new XSLFHyperlink(cNvPr.addNewHlinkClick(), getSheet());
+        }
+        return hl;
     }
 }

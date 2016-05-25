@@ -17,9 +17,23 @@
 
 package org.apache.poi.hssf.usermodel;
 
-import org.apache.poi.hssf.HSSFTestDataSamples;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import org.junit.Test;
+
+import java.io.IOException;
+
 import org.apache.poi.hssf.HSSFITestDataProvider;
+import org.apache.poi.hssf.HSSFTestDataSamples;
 import org.apache.poi.ss.usermodel.BaseTestHyperlink;
+import org.apache.poi.ss.usermodel.Hyperlink;
+/*
+import org.apache.poi.ss.util.CellReference;
+import org.apache.poi.xssf.usermodel.XSSFCreationHelper;
+import org.apache.poi.xssf.usermodel.XSSFHyperlink;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+*/
 
 /**
  * Tests HSSFHyperlink.
@@ -34,6 +48,7 @@ public final class TestHSSFHyperlink extends BaseTestHyperlink {
     /**
      * Test that we can read hyperlinks.
      */
+    @Test
     public void testRead() {
 
         HSSFWorkbook wb = HSSFTestDataSamples.openSampleWorkbook("HyperlinksOnManySheets.xls");
@@ -79,6 +94,7 @@ public final class TestHSSFHyperlink extends BaseTestHyperlink {
         assertEquals(HSSFHyperlink.LINK_DOCUMENT, link.getType());
     }
 
+    @Test
     public void testModify() {
         HSSFWorkbook wb = HSSFTestDataSamples.openSampleWorkbook("HyperlinksOnManySheets.xls");
 
@@ -107,8 +123,10 @@ public final class TestHSSFHyperlink extends BaseTestHyperlink {
      *  link.setTextMark("'Target Sheet-1'!A1"); //HSSF-specific
      *  or
      *  link.setAddress("'Target Sheet-1'!A1"); //common between XSSF and HSSF
+     * @throws IOException 
      */
-    public void testCreateDocumentLink() {
+    @Test
+    public void testCreateDocumentLink() throws IOException {
         HSSFWorkbook wb = new HSSFWorkbook();
 
         //link to a place in this workbook
@@ -134,8 +152,10 @@ public final class TestHSSFHyperlink extends BaseTestHyperlink {
         link.setAddress("'Hyperlinks'!A1");
         cell.setHyperlink(link);
 
-        wb = HSSFTestDataSamples.writeOutAndReadBack(wb);
-        sheet = wb.getSheet("Hyperlinks");
+        HSSFWorkbook wbBack = HSSFTestDataSamples.writeOutAndReadBack(wb);
+        wb.close();
+        
+        sheet = wbBack.getSheet("Hyperlinks");
 
         cell = sheet.getRow(0).getCell(0);
         link = cell.getHyperlink();
@@ -148,8 +168,11 @@ public final class TestHSSFHyperlink extends BaseTestHyperlink {
         assertNotNull(link);
         assertEquals("'Hyperlinks'!A1", link.getTextMark());
         assertEquals("'Hyperlinks'!A1", link.getAddress());
+        
+        wbBack.close();
     }
 
+    @Test
     public void testCloneSheet() {
         HSSFWorkbook wb = HSSFTestDataSamples.openSampleWorkbook("HyperlinksOnManySheets.xls");
 
@@ -169,7 +192,8 @@ public final class TestHSSFHyperlink extends BaseTestHyperlink {
         assertEquals("http://poi.apache.org/hssf/", link.getAddress());
     }
 
-    public void testCreate() {
+    @Test
+    public void testCreate() throws IOException {
         HSSFWorkbook wb = new HSSFWorkbook();
 
         HSSFHyperlink link;
@@ -182,19 +206,25 @@ public final class TestHSSFHyperlink extends BaseTestHyperlink {
         link.setAddress("testfolder\\test.PDF");
         cell.setHyperlink(link);
 
-        wb = HSSFTestDataSamples.writeOutAndReadBack(wb);
-        sheet = wb.getSheet("Hyperlinks");
+        HSSFWorkbook wbBack = HSSFTestDataSamples.writeOutAndReadBack(wb);
+        
+        wb.close();
+
+        sheet = wbBack.getSheet("Hyperlinks");
 
         cell = sheet.getRow(1).getCell(0);
         link = cell.getHyperlink();
         assertNotNull(link);
         assertEquals("testfolder\\test.PDF", link.getAddress());
+        
+        wbBack.close();
     }
 
     /**
      * Test that HSSFSheet#shiftRows moves hyperlinks,
      * see bugs #46445 and #29957
      */
+    @Test
     public void testShiftRows(){
         HSSFWorkbook wb = HSSFTestDataSamples.openSampleWorkbook("46445.xls");
 
@@ -235,4 +265,28 @@ public final class TestHSSFHyperlink extends BaseTestHyperlink {
         assertEquals(5, link2_shifted.getFirstRow());
         assertEquals(5, link2_shifted.getLastRow());
     }
+    
+    @Override
+    public HSSFHyperlink copyHyperlink(Hyperlink link) {
+        return new HSSFHyperlink(link);
+    }
+    
+    /*
+    @Test
+    public void testCopyXSSFHyperlink() throws IOException {
+        XSSFWorkbook wb = new XSSFWorkbook();
+        XSSFCreationHelper helper = wb.getCreationHelper();
+        XSSFHyperlink xlink = helper.createHyperlink(Hyperlink.LINK_URL);
+        xlink.setAddress("http://poi.apache.org/");
+        xlink.setCellReference("D3");
+        xlink.setTooltip("tooltip");
+        HSSFHyperlink hlink = new HSSFHyperlink(xlink);
+        
+        assertEquals("http://poi.apache.org/", hlink.getAddress());
+        assertEquals("D3", new CellReference(hlink.getFirstRow(), hlink.getFirstColumn()).formatAsString());
+        // Are HSSFHyperlink.label and XSSFHyperlink.tooltip the same? If so, perhaps one of these needs renamed for a consistent Hyperlink interface
+        // assertEquals("tooltip", hlink.getLabel());
+        
+        wb.close();
+    }*/
 }

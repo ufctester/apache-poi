@@ -16,6 +16,8 @@
 ==================================================================== */
 package org.apache.poi.xslf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.awt.Graphics2D;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,6 +27,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+
 import javax.xml.namespace.QName;
 
 import org.apache.poi.POIXMLDocumentPart;
@@ -39,13 +42,13 @@ import org.apache.poi.sl.draw.DrawFactory;
 import org.apache.poi.sl.draw.DrawPictureShape;
 import org.apache.poi.sl.draw.Drawable;
 import org.apache.poi.sl.usermodel.PictureData;
+import org.apache.poi.sl.usermodel.Placeholder;
 import org.apache.poi.sl.usermodel.Sheet;
 import org.apache.poi.util.Beta;
 import org.apache.poi.util.IOUtils;
 import org.apache.poi.util.Internal;
 import org.apache.xmlbeans.XmlObject;
 import org.apache.xmlbeans.XmlOptions;
-import org.openxmlformats.schemas.officeDocument.x2006.relationships.STRelationshipId;
 import org.openxmlformats.schemas.presentationml.x2006.main.CTCommonSlideData;
 import org.openxmlformats.schemas.presentationml.x2006.main.CTConnector;
 import org.openxmlformats.schemas.presentationml.x2006.main.CTGraphicalObjectFrame;
@@ -69,9 +72,20 @@ implements XSLFShapeContainer, Sheet<XSLFShape,XSLFTextParagraph> {
     public XSLFSheet() {
         super();
     }
+    
+    /**
+     * @since POI 3.14-Beta1
+     */
+    public XSLFSheet(PackagePart part) {
+        super(part);
+    }    
 
+    /**
+     * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+     */
+    @Deprecated
     public XSLFSheet(PackagePart part, PackageRelationship rel){
-        super(part, rel);
+        this(part);
     }
 
     /**
@@ -89,20 +103,20 @@ implements XSLFShapeContainer, Sheet<XSLFShape,XSLFTextParagraph> {
         throw new IllegalStateException("SlideShow was not found");
     }
 
-    protected List<XSLFShape> buildShapes(CTGroupShape spTree){
+    protected static List<XSLFShape> buildShapes(CTGroupShape spTree, XSLFSheet sheet){
         List<XSLFShape> shapes = new ArrayList<XSLFShape>();
         for(XmlObject ch : spTree.selectPath("*")){
             if(ch instanceof CTShape){ // simple shape
-                XSLFAutoShape shape = XSLFAutoShape.create((CTShape)ch, this);
+                XSLFAutoShape shape = XSLFAutoShape.create((CTShape)ch, sheet);
                 shapes.add(shape);
             } else if (ch instanceof CTGroupShape){
-                shapes.add(new XSLFGroupShape((CTGroupShape)ch, this));
+                shapes.add(new XSLFGroupShape((CTGroupShape)ch, sheet));
             } else if (ch instanceof CTConnector){
-                shapes.add(new XSLFConnectorShape((CTConnector)ch, this));
+                shapes.add(new XSLFConnectorShape((CTConnector)ch, sheet));
             } else if (ch instanceof CTPicture){
-                shapes.add(new XSLFPictureShape((CTPicture)ch, this));
+                shapes.add(new XSLFPictureShape((CTPicture)ch, sheet));
             } else if (ch instanceof CTGraphicalObjectFrame){
-                XSLFGraphicFrame shape = XSLFGraphicFrame.create((CTGraphicalObjectFrame)ch, this);
+                XSLFGraphicFrame shape = XSLFGraphicFrame.create((CTGraphicalObjectFrame)ch, sheet);
                 shapes.add(shape);
             }
         }
@@ -155,7 +169,7 @@ implements XSLFShapeContainer, Sheet<XSLFShape,XSLFTextParagraph> {
             _drawing = new XSLFDrawing(this, cgs);
         }
         if (_shapes == null) {
-            _shapes = buildShapes(cgs);
+            _shapes = buildShapes(cgs, this);
         }
     }
 
@@ -209,11 +223,9 @@ implements XSLFShapeContainer, Sheet<XSLFShape,XSLFTextParagraph> {
         XSLFPictureData xPictureData = (XSLFPictureData)pictureData;
         PackagePart pic = xPictureData.getPackagePart();
 
-        PackageRelationship rel = getPackagePart().addRelationship(
-                pic.getPartName(), TargetMode.INTERNAL, XSLFRelation.IMAGES.getRelation());
-        addRelation(rel.getId(), new XSLFPictureData(pic, rel));
+        RelationPart rp = addRelation(null, XSLFRelation.IMAGES, new XSLFPictureData(pic));
 
-        XSLFPictureShape sh = getDrawing().createPicture(rel.getId());
+        XSLFPictureShape sh = getDrawing().createPicture(rp.getRelationship().getId());
         new DrawPictureShape(sh).resize();
         getShapes().add(sh);
         sh.setParent(this);
@@ -275,10 +287,16 @@ implements XSLFShapeContainer, Sheet<XSLFShape,XSLFTextParagraph> {
         CTGroupShape spTree = getSpTree();
         if(obj instanceof CTShape){
             spTree.getSpList().remove(obj);
-        } else if (obj instanceof CTGroupShape){
+        } else if (obj instanceof CTGroupShape) {
             spTree.getGrpSpList().remove(obj);
-        } else if (obj instanceof CTConnector){
+        } else if (obj instanceof CTConnector) {
             spTree.getCxnSpList().remove(obj);
+        } else if (obj instanceof CTGraphicalObjectFrame) {
+            spTree.getGraphicFrameList().remove(obj);
+        } else if (obj instanceof CTPicture) {
+            XSLFPictureShape ps = (XSLFPictureShape)xShape;
+            removePictureRelation(ps);
+            spTree.getPicList().remove(obj);
         } else {
             throw new IllegalArgumentException("Unsupported shape: " + xShape);
         }
@@ -311,12 +329,6 @@ implements XSLFShapeContainer, Sheet<XSLFShape,XSLFTextParagraph> {
 
     protected final void commit() throws IOException {
         XmlOptions xmlOptions = new XmlOptions(DEFAULT_XML_OPTIONS);
-
-        Map<String, String> map = new HashMap<String, String>();
-        map.put(STRelationshipId.type.getName().getNamespaceURI(), "r");
-        map.put("http://schemas.openxmlformats.org/drawingml/2006/main", "a");
-        map.put("http://schemas.openxmlformats.org/presentationml/2006/main", "p");
-        xmlOptions.setSaveSuggestedPrefixes(map);
         String docName = getRootElementName();
         if(docName != null) {
             xmlOptions.setSaveSyntheticDocumentElement(
@@ -547,17 +559,15 @@ implements XSLFShapeContainer, Sheet<XSLFShape,XSLFTextParagraph> {
         } catch (InvalidFormatException e){
             throw new POIXMLException(e);
         }
-        XSLFPictureData data = new XSLFPictureData(blipPart, null);
+        XSLFPictureData data = new XSLFPictureData(blipPart);
 
         XMLSlideShow ppt = getSlideShow();
         XSLFPictureData pictureData = ppt.addPicture(data.getData(), data.getType());
         PackagePart pic = pictureData.getPackagePart();
 
-        PackageRelationship rel = getPackagePart().addRelationship(
-                pic.getPartName(), TargetMode.INTERNAL, blipRel.getRelationshipType());
-        addRelation(rel.getId(), new XSLFPictureData(pic, rel));
-
-        return rel.getId();
+        RelationPart rp = addRelation(blipId, XSLFRelation.IMAGES, new XSLFPictureData(pic));
+        
+        return rp.getRelationship().getId();
     }
 
     /**
@@ -587,5 +597,15 @@ implements XSLFShapeContainer, Sheet<XSLFShape,XSLFTextParagraph> {
             throw new POIXMLException(e);
         }
         return part;
+    }
+    
+    /**
+     * Helper method for sheet and group shapes
+     *
+     * @param pictureShape the picture shapes whose relation is to be removed
+     */
+    void removePictureRelation(XSLFPictureShape pictureShape) {
+        POIXMLDocumentPart pd = getRelationById(pictureShape.getBlipId());
+        removeRelation(pd);
     }
 }

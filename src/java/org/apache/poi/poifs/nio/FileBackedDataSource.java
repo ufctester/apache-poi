@@ -22,21 +22,39 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
+import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.poi.util.IOUtils;
+import org.apache.poi.util.POILogFactory;
+import org.apache.poi.util.POILogger;
+import org.apache.poi.util.SuppressForbidden;
 
 /**
  * A POIFS {@link DataSource} backed by a File
  */
 public class FileBackedDataSource extends DataSource {
+   private final static POILogger logger = POILogFactory.getLogger( FileBackedDataSource.class );
+   
    private FileChannel channel;
    private boolean writable;
    // remember file base, which needs to be closed too
    private RandomAccessFile srcFile;
+   
+   // Buffers which map to a file-portion are not closed automatically when the Channel is closed
+   // therefore we need to keep the list of mapped buffers and do some ugly reflection to try to 
+   // clean the buffer during close().
+   // See https://bz.apache.org/bugzilla/show_bug.cgi?id=58480, 
+   // http://stackoverflow.com/questions/3602783/file-access-synchronized-on-java-object and
+   // http://bugs.java.com/view_bug.do?bug_id=4724038 for related discussions
+   private List<ByteBuffer> buffersToClean = new ArrayList<ByteBuffer>();
 
    public FileBackedDataSource(File file) throws FileNotFoundException {
        this(newSrcFile(file, "r"), true);
@@ -91,6 +109,9 @@ public class FileBackedDataSource extends DataSource {
       // Ready it for reading
       dst.position(0);
 
+      // remember the buffer for cleanup if necessary
+      buffersToClean.add(dst);
+      
       // All done
       return dst;
    }
@@ -115,7 +136,14 @@ public class FileBackedDataSource extends DataSource {
 
    @Override
    public void close() throws IOException {
-      if (srcFile != null) {
+	   // also ensure that all buffers are unmapped so we do not keep files locked on Windows
+	   // We consider it a bug if a Buffer is still in use now! 
+       for(ByteBuffer buffer : buffersToClean) {
+           unmap(buffer);
+       }
+       buffersToClean.clear();
+
+       if (srcFile != null) {
           // see http://bugs.java.com/bugdatabase/view_bug.do?bug_id=4796385
           srcFile.close();
       } else {
@@ -129,4 +157,27 @@ public class FileBackedDataSource extends DataSource {
         }
         return new RandomAccessFile(file, mode);
    }
+
+   // need to use reflection to avoid depending on the sun.nio internal API
+   // unfortunately this might break silently with newer/other Java implementations, 
+   // but we at least have unit-tests which will indicate this when run on Windows
+   private static void unmap(final ByteBuffer buffer) {
+        AccessController.doPrivileged(new PrivilegedAction<Void>() {
+            @Override
+            @SuppressForbidden("Java 9 Jigsaw whitelists access to sun.misc.Cleaner, so setAccessible works")
+            public Void run() {
+                try {
+                    final Method getCleanerMethod = buffer.getClass().getMethod("cleaner");
+                    getCleanerMethod.setAccessible(true);
+                    final Object cleaner = getCleanerMethod.invoke(buffer);
+                    if (cleaner != null) {
+                        cleaner.getClass().getMethod("clean").invoke(cleaner);
+                    }
+                } catch (Exception e) {
+                    logger.log(POILogger.WARN, "Unable to unmap memory mapped ByteBuffer.", e);
+                }
+                return null; // Void
+            }
+        });
+    }
 }

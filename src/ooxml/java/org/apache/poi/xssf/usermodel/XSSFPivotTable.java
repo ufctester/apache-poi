@@ -16,6 +16,8 @@
 ==================================================================== */
 package org.apache.poi.xssf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -85,14 +87,23 @@ public class XSSFPivotTable extends POIXMLDocumentPart {
      * Should only be called when reading in an existing file.
      *
      * @param part - The package part that holds xml data representing this pivot table.
-     * @param rel - the relationship of the given package part in the underlying OPC package
+     * 
+     * @since POI 3.14-Beta1
      */
     @Beta
-    protected XSSFPivotTable(PackagePart part, PackageRelationship rel) throws IOException {
-        super(part, rel);
+    protected XSSFPivotTable(PackagePart part) throws IOException {
+        super(part);
         readFrom(part.getInputStream());
     }
 
+    /**
+     * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+     */
+    @Deprecated
+    protected XSSFPivotTable(PackagePart part, PackageRelationship rel) throws IOException {
+        this(part);
+    }
+    
     @Beta
     public void readFrom(InputStream is) throws IOException {
 	try {
@@ -263,7 +274,6 @@ public class XSSFPivotTable extends POIXMLDocumentPart {
     }
     
     @Beta
-    @SuppressWarnings("deprecation")
     public List<Integer> getRowLabelColumns() {
         if (pivotTableDefinition.getRowFields() != null) {
             List<Integer> columnIndexes = new ArrayList<Integer>();

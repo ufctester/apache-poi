@@ -17,14 +17,24 @@
 
 package org.apache.poi.ss.usermodel;
 
-import java.io.IOException;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
-import junit.framework.TestCase;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.ITestDataProvider;
+import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellReference;
+import org.junit.Ignore;
+import org.junit.Test;
 
 /**
  * Tests row shifting capabilities.
@@ -32,7 +42,7 @@ import org.apache.poi.ss.util.CellReference;
  * @author Shawn Laubach (slaubach at apache dot com)
  * @author Toshiaki Kamoshida (kamoshida.toshiaki at future dot co dot jp)
  */
-public abstract class BaseTestSheetShiftRows extends TestCase {
+public abstract class BaseTestSheetShiftRows {
 
     private final ITestDataProvider _testDataProvider;
 
@@ -46,20 +56,22 @@ public abstract class BaseTestSheetShiftRows extends TestCase {
      * check.  This ensures that if some changes code that breaks
      * writing or what not, they realize it.
      */
-    public final void testShiftRows(){
+    @Test
+    public final void testShiftRows() throws IOException {
         // Read initial file in
         String sampleName = "SimpleMultiCell." + _testDataProvider.getStandardFileNameExtension();
-        Workbook wb = _testDataProvider.openSampleWorkbook(sampleName);
-        Sheet s = wb.getSheetAt( 0 );
+        Workbook wb1 = _testDataProvider.openSampleWorkbook(sampleName);
+        Sheet s = wb1.getSheetAt( 0 );
 
         // Shift the second row down 1 and write to temp file
         s.shiftRows( 1, 1, 1 );
 
-        wb = _testDataProvider.writeOutAndReadBack(wb);
+        Workbook wb2 = _testDataProvider.writeOutAndReadBack(wb1);
+        wb1.close();
 
         // Read from temp file and check the number of cells in each
         // row (in original file each row was unique)
-        s = wb.getSheetAt( 0 );
+        s = wb2.getSheetAt( 0 );
 
         assertEquals(s.getRow(0).getPhysicalNumberOfCells(), 1);
         confirmEmptyRow(s, 1);
@@ -70,10 +82,11 @@ public abstract class BaseTestSheetShiftRows extends TestCase {
         // Shift rows 1-3 down 3 in the current one.  This tests when
         // 1 row is blank.  Write to a another temp file
         s.shiftRows( 0, 2, 3 );
-        wb = _testDataProvider.writeOutAndReadBack(wb);
+        Workbook wb3 = _testDataProvider.writeOutAndReadBack(wb2);
+        wb2.close();
 
         // Read and ensure things are where they should be
-        s = wb.getSheetAt(0);
+        s = wb3.getSheetAt(0);
         confirmEmptyRow(s, 0);
         confirmEmptyRow(s, 1);
         confirmEmptyRow(s, 2);
@@ -81,19 +94,23 @@ public abstract class BaseTestSheetShiftRows extends TestCase {
         confirmEmptyRow(s, 4);
         assertEquals(s.getRow(5).getPhysicalNumberOfCells(), 2);
 
+        wb3.close();
+        
         // Read the first file again
-        wb = _testDataProvider.openSampleWorkbook(sampleName);
-        s = wb.getSheetAt( 0 );
+        Workbook wb4 = _testDataProvider.openSampleWorkbook(sampleName);
+        s = wb4.getSheetAt( 0 );
 
         // Shift rows 3 and 4 up and write to temp file
         s.shiftRows( 2, 3, -2 );
-        wb = _testDataProvider.writeOutAndReadBack(wb);
-        s = wb.getSheetAt( 0 );
+        Workbook wb5 = _testDataProvider.writeOutAndReadBack(wb4);
+        wb4.close();
+        s = wb5.getSheetAt( 0 );
         assertEquals(s.getRow(0).getPhysicalNumberOfCells(), 3);
         assertEquals(s.getRow(1).getPhysicalNumberOfCells(), 4);
         confirmEmptyRow(s, 2);
         confirmEmptyRow(s, 3);
         assertEquals(s.getRow(4).getPhysicalNumberOfCells(), 5);
+        wb5.close();
     }
     private static void confirmEmptyRow(Sheet s, int rowIx) {
         Row row = s.getRow(rowIx);
@@ -103,44 +120,51 @@ public abstract class BaseTestSheetShiftRows extends TestCase {
     /**
      * Tests when rows are null.
      */
-    public final void testShiftRow() {
-        Workbook b = _testDataProvider.createWorkbook();
-        Sheet s	= b.createSheet();
+    @Test
+    public final void testShiftRow() throws IOException {
+        Workbook wb = _testDataProvider.createWorkbook();
+        Sheet s	= wb.createSheet();
         s.createRow(0).createCell(0).setCellValue("TEST1");
         s.createRow(3).createCell(0).setCellValue("TEST2");
         s.shiftRows(0,4,1);
+        wb.close();
     }
 
     /**
      * Tests when shifting the first row.
      */
-    public final void testActiveCell() {
-        Workbook b = _testDataProvider.createWorkbook();
-        Sheet s	= b.createSheet();
+    @Test
+    public final void testActiveCell() throws IOException {
+        Workbook wb = _testDataProvider.createWorkbook();
+        Sheet s	= wb.createSheet();
 
         s.createRow(0).createCell(0).setCellValue("TEST1");
         s.createRow(3).createCell(0).setCellValue("TEST2");
         s.shiftRows(0,4,1);
+        wb.close();
     }
 
     /**
      * When shifting rows, the page breaks should go with it
      */
-    public void testShiftRowBreaks() { // TODO - enable XSSF test
-        Workbook b = _testDataProvider.createWorkbook();
-        Sheet s	= b.createSheet();
+    @Test
+    public void testShiftRowBreaks() throws IOException { // TODO - enable XSSF test
+        Workbook wb = _testDataProvider.createWorkbook();
+        Sheet s	= wb.createSheet();
         Row row = s.createRow(4);
         row.createCell(0).setCellValue("test");
         s.setRowBreak(4);
 
         s.shiftRows(4, 4, 2);
         assertTrue("Row number 6 should have a pagebreak", s.isRowBroken(6));
+        wb.close();
     }
 
-    public void testShiftWithComments() {
-        Workbook wb = _testDataProvider.openSampleWorkbook("comments." + _testDataProvider.getStandardFileNameExtension());
+    @Test
+    public void testShiftWithComments() throws IOException {
+        Workbook wb1 = _testDataProvider.openSampleWorkbook("comments." + _testDataProvider.getStandardFileNameExtension());
 
-        Sheet sheet = wb.getSheet("Sheet1");
+        Sheet sheet = wb1.getSheet("Sheet1");
         assertEquals(3, sheet.getLastRowNum());
 
         // Verify comments are in the position expected
@@ -178,8 +202,10 @@ public abstract class BaseTestSheetShiftRows extends TestCase {
 
         // Write out and read back in again
         // Ensure that the changes were persisted
-        wb = _testDataProvider.writeOutAndReadBack(wb);
-        sheet = wb.getSheet("Sheet1");
+        Workbook wb2 = _testDataProvider.writeOutAndReadBack(wb1);
+        wb1.close();
+        
+        sheet = wb2.getSheet("Sheet1");
         assertEquals(4, sheet.getLastRowNum());
 
         // Verify comments are in the position expected after the shift
@@ -201,7 +227,7 @@ public abstract class BaseTestSheetShiftRows extends TestCase {
 
         // TODO: it seems HSSFSheet does not correctly remove comments from rows that are overwritten
         // by shifting rows...
-        if(!(wb instanceof HSSFWorkbook)) {
+        if(!(wb2 instanceof HSSFWorkbook)) {
         	assertEquals(2, sheet.getLastRowNum());
         	
         	// Verify comments are in the position expected
@@ -215,9 +241,12 @@ public abstract class BaseTestSheetShiftRows extends TestCase {
         assertEquals(comment1,"comment top row3 (index2)\n");
         String comment2 = sheet.getCellComment(2,0).getString().getString();
         assertEquals(comment2,"comment top row4 (index3)\n");
+        
+        wb2.close();
     }
 
-    public final void testShiftWithNames() {
+    @Test
+    public final void testShiftWithNames() throws IOException {
         Workbook wb = _testDataProvider.createWorkbook();
         Sheet sheet1 = wb.createSheet("Sheet1");
         wb.createSheet("Sheet2");
@@ -257,9 +286,12 @@ public abstract class BaseTestSheetShiftRows extends TestCase {
 
         name4 = wb.getNameAt(3);
         assertEquals("A1", name4.getRefersToFormula());
+        
+        wb.close();
     }
 
-    public final void testShiftWithMergedRegions() {
+    @Test
+    public final void testShiftWithMergedRegions() throws IOException {
         Workbook wb = _testDataProvider.createWorkbook();
         Sheet sheet	= wb.createSheet();
         Row row = sheet.createRow(0);
@@ -273,12 +305,52 @@ public abstract class BaseTestSheetShiftRows extends TestCase {
         sheet.shiftRows(0, 1, 2);
         region = sheet.getMergedRegion(0);
         assertEquals("A3:C3", region.formatAsString());
-   }
+        wb.close();
+    }
+    
+    @Ignore
+    @Test
+    public final void shiftWithMergedRegions_bug56454() throws IOException {
+        Workbook wb = _testDataProvider.createWorkbook();
+        Sheet sheet = wb.createSheet();
+        // populate sheet cells
+        for (int i = 0; i < 10; i++) {
+            Row row = sheet.createRow(i);
+            
+            for (int j = 0; j < 10; j++) {
+                Cell cell = row.createCell(j, Cell.CELL_TYPE_STRING);
+                cell.setCellValue(i + "x" + j);
+            }
+        }
+        
+        CellRangeAddress A4_B7 = CellRangeAddress.valueOf("A4:B7");
+        CellRangeAddress C4_D7 = CellRangeAddress.valueOf("C4:D7");
+        
+        sheet.addMergedRegion(A4_B7);
+        sheet.addMergedRegion(C4_D7);
+        
+        assumeTrue(sheet.getLastRowNum() > 8);
+        
+        // Insert a row in the middle of both merged regions.
+        sheet.shiftRows(4, sheet.getLastRowNum(), 1);
+        
+        // all regions should still start at row 3, and elongate by 1 row
+        List<CellRangeAddress> expectedMergedRegions = new ArrayList<CellRangeAddress>();
+        CellRangeAddress A4_B8 = CellRangeAddress.valueOf("A4:B8"); //A4:B7 should be elongated by 1 row
+        CellRangeAddress C4_D8 = CellRangeAddress.valueOf("C4:D8"); //C4:B7 should be elongated by 1 row
+        expectedMergedRegions.add(A4_B8);
+        expectedMergedRegions.add(C4_D8);
+        
+        assertEquals(expectedMergedRegions, sheet.getMergedRegions());
+    }
+    
+    
 
     /**
      * See bug #34023
      */
-    public final void testShiftWithFormulas() {
+    @Test
+    public final void testShiftWithFormulas() throws IOException {
         Workbook wb = _testDataProvider.openSampleWorkbook("ForShifting." + _testDataProvider.getStandardFileNameExtension());
 
         Sheet sheet = wb.getSheet("Sheet1");
@@ -332,6 +404,7 @@ public abstract class BaseTestSheetShiftRows extends TestCase {
 
 
         // Note - named ranges formulas have not been updated
+        wb.close();
     }
 
     private static void confirmRow(Sheet sheet, int rowIx, double valA, double valB, double valC,
@@ -348,7 +421,8 @@ public abstract class BaseTestSheetShiftRows extends TestCase {
         assertEquals(expectedFormula, cell.getCellFormula());
     }
 
-    public final void testShiftSharedFormulasBug54206() {
+    @Test
+    public final void testShiftSharedFormulasBug54206() throws IOException {
         Workbook wb = _testDataProvider.openSampleWorkbook("54206." + _testDataProvider.getStandardFileNameExtension());
 
         Sheet sheet = wb.getSheetAt(0);
@@ -402,21 +476,21 @@ public abstract class BaseTestSheetShiftRows extends TestCase {
 
         assertEquals("SUM(G29:I29)", sheet.getRow(28).getCell(9).getCellFormula());
         assertEquals("SUM(G30:I30)", sheet.getRow(29).getCell(9).getCellFormula());
+        wb.close();
     }
 
+    @Test
 	public void testBug55280() throws IOException {
         Workbook w = _testDataProvider.createWorkbook();
-        try {
-            Sheet s = w.createSheet();
-            for (int row = 0; row < 5000; ++row)
-                s.addMergedRegion(new CellRangeAddress(row, row, 0, 3));
+        Sheet s = w.createSheet();
+        for (int row = 0; row < 5000; ++row)
+            s.addMergedRegion(new CellRangeAddress(row, row, 0, 3));
 
-            s.shiftRows(0, 4999, 1);        // takes a long time...
-        } finally {
-            w.close();
-        }
+        s.shiftRows(0, 4999, 1);        // takes a long time...
+        w.close();
 	}
 
+    @Test
     public void test47169() throws IOException {
         Workbook wb = _testDataProvider.createWorkbook();
         Sheet sheet = wb.createSheet();
@@ -425,5 +499,123 @@ public abstract class BaseTestSheetShiftRows extends TestCase {
         sheet.createRow(30);
 
         wb.close();
+    }
+    
+    /**
+     * Unified test for:
+     * bug 46742: XSSFSheet.shiftRows should shift hyperlinks
+     * bug 52903: HSSFSheet.shiftRows should shift hyperlinks
+     *
+     * @throws IOException
+     */
+    @Test
+    public void testBug46742_52903_shiftHyperlinks() throws IOException {
+        Workbook wb = _testDataProvider.createWorkbook();
+        Sheet sheet = wb.createSheet("test");
+        Row row = sheet.createRow(0);
+        
+        // How to create hyperlinks
+        // https://poi.apache.org/spreadsheet/quick-guide.html#Hyperlinks
+        CreationHelper helper = wb.getCreationHelper();
+        CellStyle hlinkStyle = wb.createCellStyle();
+        Font hlinkFont = wb.createFont();
+        hlinkFont.setUnderline(Font.U_SINGLE);
+        hlinkFont.setColor(IndexedColors.BLUE.getIndex());
+        hlinkStyle.setFont(hlinkFont);
+
+        // 3D relative document link
+        // CellAddress=A1, shifted to A4
+        Cell cell = row.createCell(0);
+        cell.setCellStyle(hlinkStyle);
+        createHyperlink(helper, cell, Hyperlink.LINK_DOCUMENT, "test!E1");
+        
+        // URL
+        cell = row.createCell(1);
+        // CellAddress=B1, shifted to B4
+        cell.setCellStyle(hlinkStyle);
+        createHyperlink(helper, cell, Hyperlink.LINK_URL, "http://poi.apache.org/");
+        
+        // row0 will be shifted on top of row1, so this URL should be removed from the workbook
+        Row overwrittenRow = sheet.createRow(3);
+        cell = overwrittenRow.createCell(2);
+        // CellAddress=C4, will be overwritten (deleted)
+        cell.setCellStyle(hlinkStyle);
+        createHyperlink(helper, cell, Hyperlink.LINK_EMAIL, "mailto:poi@apache.org");
+        
+        // hyperlinks on this row are unaffected by the row shifting, so the hyperlinks should not move
+        Row unaffectedRow = sheet.createRow(20);
+        cell = unaffectedRow.createCell(3);
+        // CellAddress=D21, will be unaffected
+        cell.setCellStyle(hlinkStyle);
+        createHyperlink(helper, cell, Hyperlink.LINK_FILE, "54524.xlsx");
+        
+        cell = wb.createSheet("other").createRow(0).createCell(0);
+        // CellAddress=Other!A1, will be unaffected
+        cell.setCellStyle(hlinkStyle);
+        createHyperlink(helper, cell, Hyperlink.LINK_URL, "http://apache.org/");
+        
+        int startRow = 0;
+        int endRow = 0;
+        int n = 3;
+        sheet.shiftRows(startRow, endRow, n);
+        
+        Workbook read = _testDataProvider.writeOutAndReadBack(wb);
+        wb.close();
+        
+        Sheet sh = read.getSheet("test");
+        
+        Row shiftedRow = sh.getRow(3);
+        
+        // document link anchored on a shifted cell should be moved
+        // Note that hyperlinks do not track what they point to, so this hyperlink should still refer to test!E1
+        verifyHyperlink(shiftedRow.getCell(0), Hyperlink.LINK_DOCUMENT, "test!E1");
+        
+        // URL, EMAIL, and FILE links anchored on a shifted cell should be moved
+        verifyHyperlink(shiftedRow.getCell(1), Hyperlink.LINK_URL, "http://poi.apache.org/");
+        
+        // Make sure hyperlinks were moved and not copied
+        assertNull("Document hyperlink should be moved, not copied", sh.getHyperlink(0, 0));
+        assertNull("URL hyperlink should be moved, not copied", sh.getHyperlink(0, 1));
+        
+        // Make sure hyperlink in overwritten row is deleted
+        assertEquals(3, sh.getHyperlinkList().size());
+        CellAddress unexpectedLinkAddress = new CellAddress("C4");
+        for (Hyperlink link : sh.getHyperlinkList()) {
+            final CellAddress linkAddress = new CellAddress(link.getFirstRow(), link.getFirstColumn());
+            if (linkAddress.equals(unexpectedLinkAddress)) {
+                fail("Row 4, including the hyperlink at C4, should have " +
+                     "been deleted when Row 1 was shifted on top of it.");
+            }
+        }
+        
+        // Make sure unaffected rows are not shifted
+        Cell unaffectedCell = sh.getRow(20).getCell(3);
+        assertTrue(cellHasHyperlink(unaffectedCell));
+        verifyHyperlink(unaffectedCell, Hyperlink.LINK_FILE, "54524.xlsx");
+        
+        // Make sure cells on other sheets are not affected
+        unaffectedCell = read.getSheet("other").getRow(0).getCell(0);
+        assertTrue(cellHasHyperlink(unaffectedCell));
+        verifyHyperlink(unaffectedCell, Hyperlink.LINK_URL, "http://apache.org/");
+        
+        read.close();
+    }
+    
+    private void createHyperlink(CreationHelper helper, Cell cell, int linkType, String ref) {
+        cell.setCellValue(ref);
+        Hyperlink link = helper.createHyperlink(linkType);
+        link.setAddress(ref);
+        cell.setHyperlink(link);
+    }
+    
+    private void verifyHyperlink(Cell cell, int linkType, String ref) {
+        assertTrue(cellHasHyperlink(cell));
+        Hyperlink link = cell.getHyperlink();
+        assertEquals(linkType, link.getType());
+        assertEquals(ref, link.getAddress());
+    }
+    
+    private boolean cellHasHyperlink(Cell cell) {
+        return (cell != null) && (cell.getHyperlink() != null);
     }
 }

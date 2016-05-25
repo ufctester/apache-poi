@@ -27,7 +27,6 @@ import org.apache.poi.ddf.EscherDggRecord;
 import org.apache.poi.ddf.EscherSpRecord;
 import org.apache.poi.hslf.model.Comment;
 import org.apache.poi.hslf.model.HeadersFooters;
-import org.apache.poi.hslf.model.Placeholder;
 import org.apache.poi.hslf.record.ColorSchemeAtom;
 import org.apache.poi.hslf.record.Comment2000;
 import org.apache.poi.hslf.record.EscherTextboxWrapper;
@@ -43,6 +42,7 @@ import org.apache.poi.hslf.record.TextHeaderAtom;
 import org.apache.poi.sl.draw.DrawFactory;
 import org.apache.poi.sl.draw.Drawable;
 import org.apache.poi.sl.usermodel.Notes;
+import org.apache.poi.sl.usermodel.Placeholder;
 import org.apache.poi.sl.usermodel.ShapeType;
 import org.apache.poi.sl.usermodel.Slide;
 
@@ -94,12 +94,6 @@ public final class HSLFSlide extends HSLFSheet implements Slide<HSLFShape,HSLFTe
 		for (List<HSLFTextParagraph> l : HSLFTextParagraph.findTextParagraphs(getPPDrawing(), this)) {
 		    if (!_paragraphs.contains(l)) _paragraphs.add(l);
 		}
-
-        for(List<HSLFTextParagraph> ltp : _paragraphs) {
-            for (HSLFTextParagraph tp : ltp) {
-                tp.supplySheet(this);
-            }
-        }
 	}
 
 	/**
@@ -163,7 +157,7 @@ public final class HSLFSlide extends HSLFSheet implements Slide<HSLFShape,HSLFTe
     public void onCreate(){
         //initialize drawing group id
         EscherDggRecord dgg = getSlideShow().getDocumentRecord().getPPDrawingGroup().getEscherDggRecord();
-        EscherContainerRecord dgContainer = (EscherContainerRecord)getSheetContainer().getPPDrawing().getEscherRecords()[0];
+        EscherContainerRecord dgContainer = getSheetContainer().getPPDrawing().getDgContainer();
         EscherDgRecord dg = (EscherDgRecord) HSLFShape.getEscherChild(dgContainer, EscherDgRecord.RECORD_ID);
         int dgId = dgg.getMaxDrawingGroupId() + 1;
         dg.setOptions((short)(dgId << 4));
@@ -180,6 +174,8 @@ public final class HSLFSlide extends HSLFSheet implements Slide<HSLFShape,HSLFTe
                 case EscherContainerRecord.SP_CONTAINER:
                     spr = c.getChildById(EscherSpRecord.RECORD_ID);
                     break;
+                default:
+                    break;
             }
             if(spr != null) spr.setShapeId(allocateShapeId());
         }
@@ -194,8 +190,9 @@ public final class HSLFSlide extends HSLFSheet implements Slide<HSLFShape,HSLFTe
 	 * @return <code>TextBox</code> object that represents the slide's title.
 	 */
 	public HSLFTextBox addTitle() {
-		Placeholder pl = new Placeholder();
+		HSLFPlaceholder pl = new HSLFPlaceholder();
 		pl.setShapeType(ShapeType.RECT);
+		pl.setPlaceholder(Placeholder.TITLE);
 		pl.setRunType(TextHeaderAtom.TITLE_TYPE);
 		pl.setText("Click to edit title");
 		pl.setAnchor(new java.awt.Rectangle(54, 48, 612, 90));
@@ -497,5 +494,10 @@ public final class HSLFSlide extends HSLFSheet implements Slide<HSLFShape,HSLFTe
     public void setFollowMasterColourScheme(boolean follow) {
         // TODO Auto-generated method stub
 
+    }
+    
+    @Override
+    public boolean getFollowMasterGraphics() {
+        return getFollowMasterObjects();
     }
 }

@@ -17,12 +17,27 @@
 
 package org.apache.poi.hslf.usermodel;
 
-import java.util.Iterator;
 import java.util.List;
 
-import org.apache.poi.ddf.*;
-import org.apache.poi.hslf.model.*;
-import org.apache.poi.hslf.record.*;
+import org.apache.poi.ddf.AbstractEscherOptRecord;
+import org.apache.poi.ddf.EscherClientDataRecord;
+import org.apache.poi.ddf.EscherContainerRecord;
+import org.apache.poi.ddf.EscherOptRecord;
+import org.apache.poi.ddf.EscherProperties;
+import org.apache.poi.ddf.EscherProperty;
+import org.apache.poi.ddf.EscherPropertyFactory;
+import org.apache.poi.ddf.EscherRecord;
+import org.apache.poi.ddf.EscherSimpleProperty;
+import org.apache.poi.ddf.EscherSpRecord;
+import org.apache.poi.ddf.EscherTextboxRecord;
+import org.apache.poi.hslf.model.MovieShape;
+import org.apache.poi.hslf.model.OLEShape;
+import org.apache.poi.hslf.record.ExObjRefAtom;
+import org.apache.poi.hslf.record.HSLFEscherClientDataRecord;
+import org.apache.poi.hslf.record.InteractiveInfo;
+import org.apache.poi.hslf.record.InteractiveInfoAtom;
+import org.apache.poi.hslf.record.Record;
+import org.apache.poi.hslf.record.RecordTypes;
 import org.apache.poi.sl.usermodel.ShapeContainer;
 import org.apache.poi.sl.usermodel.ShapeType;
 import org.apache.poi.util.POILogFactory;
@@ -50,24 +65,28 @@ public final class HSLFShapeFactory {
     public static HSLFGroupShape createShapeGroup(EscherContainerRecord spContainer, ShapeContainer<HSLFShape,HSLFTextParagraph> parent){
         boolean isTable = false;
         EscherContainerRecord ecr = (EscherContainerRecord)spContainer.getChild(0);
-        EscherRecord opt = HSLFShape.getEscherChild(ecr, (short)RecordTypes.EscherUserDefined);
+        EscherRecord opt = HSLFShape.getEscherChild(ecr, RecordTypes.EscherUserDefined);
 
         if (opt != null) {
             EscherPropertyFactory f = new EscherPropertyFactory();
             List<EscherProperty> props = f.createProperties( opt.serialize(), 8, opt.getInstance() );
             for (EscherProperty ep : props) {
-                if (ep.getPropertyNumber() == 0x39F
+                if (ep.getPropertyNumber() == EscherProperties.GROUPSHAPE__TABLEPROPERTIES
                     && ep instanceof EscherSimpleProperty
-                    && ((EscherSimpleProperty)ep).getPropertyValue() == 1) {
+                    && (((EscherSimpleProperty)ep).getPropertyValue() & 1) == 1) {
                     isTable = true;
                     break;
                 }
             }
         }
         
-        HSLFGroupShape group = (isTable)
-            ? new HSLFTable(spContainer, parent)
-            : new HSLFGroupShape(spContainer, parent);
+        HSLFGroupShape group;
+        if (isTable) {
+            group = new HSLFTable(spContainer, parent);
+            
+        } else {
+            group = new HSLFGroupShape(spContainer, parent);
+        }
         
         return group;
      }
@@ -82,65 +101,73 @@ public final class HSLFShapeFactory {
                 shape = new HSLFTextBox(spContainer, parent);
                 break;
             case HOST_CONTROL:
-            case FRAME: {
-                InteractiveInfo info = getClientDataRecord(spContainer, RecordTypes.InteractiveInfo.typeID);
-                OEShapeAtom oes = getClientDataRecord(spContainer, RecordTypes.OEShapeAtom.typeID);
-                if(info != null && info.getInteractiveInfoAtom() != null){
-                    switch(info.getInteractiveInfoAtom().getAction()){
-                        case InteractiveInfoAtom.ACTION_OLE:
-                            shape = new OLEShape(spContainer, parent);
-                            break;
-                        case InteractiveInfoAtom.ACTION_MEDIA:
-                            shape = new MovieShape(spContainer, parent);
-                            break;
-                        default:
-                            break;
-                    }
-                } else if (oes != null){
-                    shape = new OLEShape(spContainer, parent);
-                }
-
-                if(shape == null) shape = new HSLFPictureShape(spContainer, parent);
+            case FRAME:
+                shape = createFrame(spContainer, parent);
                 break;
-            }
             case LINE:
                 shape = new HSLFLine(spContainer, parent);
                 break;
-            case NOT_PRIMITIVE: {
-                AbstractEscherOptRecord opt = HSLFShape.getEscherChild(spContainer, EscherOptRecord.RECORD_ID);
-                EscherProperty prop = HSLFShape.getEscherProperty(opt, EscherProperties.GEOMETRY__VERTICES);
-                if(prop != null)
-                    shape = new HSLFFreeformShape(spContainer, parent);
-                else {
-                    logger.log(POILogger.INFO, "Creating AutoShape for a NotPrimitive shape");
+            case NOT_PRIMITIVE:
+                shape = createNonPrimitive(spContainer, parent);
+                break;
+            default:
+                if (parent instanceof HSLFTable) {
+                    EscherTextboxRecord etr = spContainer.getChildById(EscherTextboxRecord.RECORD_ID);
+                    if (etr == null) {
+                        logger.log(POILogger.WARN, "invalid ppt - add EscherTextboxRecord to cell");
+                        etr = new EscherTextboxRecord();
+                        etr.setRecordId(EscherTextboxRecord.RECORD_ID);
+                        etr.setOptions((short)15);
+                        spContainer.addChildRecord(etr);
+                    }
+                    shape = new HSLFTableCell(spContainer, (HSLFTable)parent);
+                } else {
                     shape = new HSLFAutoShape(spContainer, parent);
                 }
                 break;
-            }
-            default:
-                shape = new HSLFAutoShape(spContainer, parent);
-                break;
         }
         return shape;
-
     }
 
-    @SuppressWarnings("unchecked")
-    protected static <T extends Record> T getClientDataRecord(EscherContainerRecord spContainer, int recordType) {
-        Record oep = null;
-        for (Iterator<EscherRecord> it = spContainer.getChildIterator(); it.hasNext();) {
-            EscherRecord obj = it.next();
-            if (obj.getRecordId() == EscherClientDataRecord.RECORD_ID) {
-                byte[] data = obj.serialize();
-                Record[] records = Record.findChildRecords(data, 8, data.length - 8);
-                for (int j = 0; j < records.length; j++) {
-                    if (records[j].getRecordType() == recordType) {
-                        return (T)records[j];
-                    }
-                }
+    private static HSLFShape createFrame(EscherContainerRecord spContainer, ShapeContainer<HSLFShape,HSLFTextParagraph> parent) {
+        InteractiveInfo info = getClientDataRecord(spContainer, RecordTypes.InteractiveInfo.typeID);
+        if(info != null && info.getInteractiveInfoAtom() != null){
+            switch(info.getInteractiveInfoAtom().getAction()){
+                case InteractiveInfoAtom.ACTION_OLE:
+                    return new OLEShape(spContainer, parent);
+                case InteractiveInfoAtom.ACTION_MEDIA:
+                    return new MovieShape(spContainer, parent);
+                default:
+                    break;
             }
         }
-        return (T)oep;
+        
+        ExObjRefAtom oes = getClientDataRecord(spContainer, RecordTypes.ExObjRefAtom.typeID);
+        return (oes != null)
+            ? new OLEShape(spContainer, parent)
+            : new HSLFPictureShape(spContainer, parent);
+    }
+    
+    private static HSLFShape createNonPrimitive(EscherContainerRecord spContainer, ShapeContainer<HSLFShape,HSLFTextParagraph> parent) {
+        AbstractEscherOptRecord opt = HSLFShape.getEscherChild(spContainer, EscherOptRecord.RECORD_ID);
+        EscherProperty prop = HSLFShape.getEscherProperty(opt, EscherProperties.GEOMETRY__VERTICES);
+        if(prop != null) {
+            return new HSLFFreeformShape(spContainer, parent);
+        }
+        
+        logger.log(POILogger.INFO, "Creating AutoShape for a NotPrimitive shape");
+        return new HSLFAutoShape(spContainer, parent);
+    }
+    
+    @SuppressWarnings("unchecked")
+    protected static <T extends Record> T getClientDataRecord(EscherContainerRecord spContainer, int recordType) {
+        HSLFEscherClientDataRecord cldata = spContainer.getChildById(EscherClientDataRecord.RECORD_ID);
+        if (cldata != null) for (Record r : cldata.getHSLFChildRecords()) {
+            if (r.getRecordType() == recordType) {
+                return (T)r;
+            }
+        }
+        return null;
     }
 
 }

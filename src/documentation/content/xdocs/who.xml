@@ -78,6 +78,7 @@
       <li>Josh Micich (josh at apache dot org)</li>
       <li>Danny Mui (dmui at apache dot org)</li>
       <li><link href="http://people.apache.org/~dnorth/">David North</link> (dnorth at apache dot org)</li>
+      <li>Javen O'Neal (onealj at apache dot org)</li>
       <li>Uwe Schindler (uschindler at apache dot org)</li>
       <li>Avik Sengupta (avik at apache dot org)</li>
       <li>Dominik Stadler (centic at apache dot org)</li>
@@ -101,6 +102,34 @@
     </ul>
   </section>
  </section>
+
+ <section><title>I want some progress on a bug report!</title>
+  <p>
+      So you took the time to report a bug, provided information that should make
+      it possible to reproduce the problem and fix it. Surely the fix is easy and
+      should take a seasoned developer a few minutes at max to fix!
+
+      So why is there no progress on your bug report? Is there nobody
+      taking care when your problem is clearly stopping nearly everybody
+      from using POI?
+
+      We know that the absence of responses on bug-reports can be frustrating,
+      sometimes bugs lie dormant for a long time for no apparent reason.
+
+      Please always remember: <em>nobody is paid to work on POI</em>, the team is
+      a bunch of volunteers who look at things in their free time.
+
+      Because of that developers might choose to work on things based on a
+      different priority than yours! Especially the quality and maturity of
+      bug reports will affect if somebody decides to look at it.
+
+      So the best way to help a bug report see progress is to provide more information
+      if available or supply patches together with unit-tests.
+
+      If you can, look at <link href="http://poi.apache.org/guidelines.html">Contribution Guidelines</link>
+      for more information about providing patches.
+  </p>
+</section>
 
 </body>
 </document>

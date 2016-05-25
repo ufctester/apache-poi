@@ -17,6 +17,9 @@
 
 package org.apache.poi.hssf.usermodel;
 
+import static org.apache.poi.hssf.model.InternalWorkbook.WORKBOOK_DIR_ENTRY_NAMES;
+import static org.apache.poi.hssf.model.InternalWorkbook.OLD_WORKBOOK_DIR_ENTRY_NAME;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
@@ -76,6 +79,7 @@ import org.apache.poi.poifs.filesystem.FilteringDirectoryNode;
 import org.apache.poi.poifs.filesystem.NPOIFSFileSystem;
 import org.apache.poi.poifs.filesystem.Ole10Native;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
+import org.apache.poi.ss.SpreadsheetVersion;
 import org.apache.poi.ss.formula.FormulaShifter;
 import org.apache.poi.ss.formula.FormulaType;
 import org.apache.poi.ss.formula.SheetNameFormatter;
@@ -89,10 +93,10 @@ import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.WorkbookUtil;
 import org.apache.poi.util.Configurator;
 import org.apache.poi.util.HexDump;
+import org.apache.poi.util.Internal;
 import org.apache.poi.util.LittleEndian;
 import org.apache.poi.util.POILogFactory;
 import org.apache.poi.util.POILogger;
-
 
 /**
  * High level representation of a workbook.  This is the first object most users
@@ -241,17 +245,6 @@ public final class HSSFWorkbook extends POIDocument implements org.apache.poi.ss
         this(fs.getRoot(), fs, preserveNodes);
     }
 
-    /**
-     * Normally, the Workbook will be in a POIFS Stream
-     * called "Workbook". However, some weird XLS generators use "WORKBOOK"
-     */
-    private static final String[] WORKBOOK_DIR_ENTRY_NAMES = {
-        "Workbook", // as per BIFF8 spec
-        "WORKBOOK", // Typically from third party programs
-        "BOOK",     // Typically odd Crystal Reports exports
-    };
-
-
     public static String getWorkbookDirEntryName(DirectoryNode directory) {
 
         for (int i = 0; i < WORKBOOK_DIR_ENTRY_NAMES.length; i++) {
@@ -275,7 +268,7 @@ public final class HSSFWorkbook extends POIDocument implements org.apache.poi.ss
 
         // check for previous version of file format
         try {
-            directory.getEntry("Book");
+            directory.getEntry(OLD_WORKBOOK_DIR_ENTRY_NAME);
             throw new OldExcelFormatException("The supplied spreadsheet seems to be Excel 5.0/7.0 (BIFF5) format. "
                     + "POI only supports BIFF8 format (from Excel versions 97/2000/XP/2003)");
         } catch (FileNotFoundException e) {
@@ -1321,11 +1314,10 @@ public final class HSSFWorkbook extends POIDocument implements org.apache.poi.ss
      * get the number of styles the workbook contains
      * @return count of cell styles
      */
-
     @Override
-    public short getNumCellStyles()
+    public int getNumCellStyles()
     {
-        return (short) workbook.getNumExFormats();
+        return workbook.getNumExFormats();
     }
 
     /**
@@ -1334,10 +1326,10 @@ public final class HSSFWorkbook extends POIDocument implements org.apache.poi.ss
      * @return HSSFCellStyle object at the index
      */
     @Override
-    public HSSFCellStyle getCellStyleAt(short idx)
+    public HSSFCellStyle getCellStyleAt(int idx)
     {
         ExtendedFormatRecord xfr = workbook.getExFormatAt(idx);
-        HSSFCellStyle style = new HSSFCellStyle(idx, xfr, this);
+        HSSFCellStyle style = new HSSFCellStyle((short)idx, xfr, this);
 
         return style;
     }
@@ -1372,36 +1364,38 @@ public final class HSSFWorkbook extends POIDocument implements org.apache.poi.ss
 	public void write(OutputStream stream)
             throws IOException
     {
-        byte[] bytes = getBytes();
         NPOIFSFileSystem fs = new NPOIFSFileSystem();
-
-        // For tracking what we've written out, used if we're
-        //  going to be preserving nodes
-        List<String> excepts = new ArrayList<String>(1);
-
-        // Write out the Workbook stream
-        fs.createDocument(new ByteArrayInputStream(bytes), "Workbook");
-
-        // Write out our HPFS properties, if we have them
-        writeProperties(fs, excepts);
-
-        if (preserveNodes) {
-            // Don't write out the old Workbook, we'll be doing our new one
-            // If the file had an "incorrect" name for the workbook stream,
-            // don't write the old one as we'll use the correct name shortly
-        	excepts.addAll(Arrays.asList(WORKBOOK_DIR_ENTRY_NAMES));
-
-            // Copy over all the other nodes to our new poifs
-            EntryUtils.copyNodes(
-                    new FilteringDirectoryNode(this.directory, excepts)
-                    , new FilteringDirectoryNode(fs.getRoot(), excepts)
-            );
-
-            // YK: preserve StorageClsid, it is important for embedded workbooks,
-            // see Bugzilla 47920
-            fs.getRoot().setStorageClsid(this.directory.getStorageClsid());
+        try {
+            // For tracking what we've written out, used if we're
+            //  going to be preserving nodes
+            List<String> excepts = new ArrayList<String>(1);
+    
+            // Write out the Workbook stream
+            fs.createDocument(new ByteArrayInputStream(getBytes()), "Workbook");
+    
+            // Write out our HPFS properties, if we have them
+            writeProperties(fs, excepts);
+    
+            if (preserveNodes) {
+                // Don't write out the old Workbook, we'll be doing our new one
+                // If the file had an "incorrect" name for the workbook stream,
+                // don't write the old one as we'll use the correct name shortly
+            	excepts.addAll(Arrays.asList(WORKBOOK_DIR_ENTRY_NAMES));
+    
+                // Copy over all the other nodes to our new poifs
+                EntryUtils.copyNodes(
+                        new FilteringDirectoryNode(this.directory, excepts)
+                        , new FilteringDirectoryNode(fs.getRoot(), excepts)
+                );
+    
+                // YK: preserve StorageClsid, it is important for embedded workbooks,
+                // see Bugzilla 47920
+                fs.getRoot().setStorageClsid(this.directory.getStorageClsid());
+            }
+            fs.writeFilesystem(stream);
+        } finally {
+            fs.close();
         }
-        fs.writeFilesystem(stream);
     }
 
     /**
@@ -2144,5 +2138,21 @@ public final class HSSFWorkbook extends POIDocument implements org.apache.poi.ss
 
     public DirectoryNode getRootDirectory(){
         return directory;
+    }
+    
+    @Internal
+    public InternalWorkbook getInternalWorkbook() {
+        return workbook;
+    }
+    
+    /**
+     * Returns the spreadsheet version (EXCLE97) of this workbook
+     * 
+     * @return EXCEL97 SpreadsheetVersion enum
+     * @since 3.14 beta 2
+     */
+    @Override
+    public SpreadsheetVersion getSpreadsheetVersion() {
+        return SpreadsheetVersion.EXCEL97;
     }
 }

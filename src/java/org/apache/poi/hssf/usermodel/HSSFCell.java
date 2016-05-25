@@ -48,6 +48,7 @@ import org.apache.poi.ss.usermodel.Comment;
 import org.apache.poi.ss.usermodel.FormulaError;
 import org.apache.poi.ss.usermodel.Hyperlink;
 import org.apache.poi.ss.usermodel.RichTextString;
+import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.ss.util.NumberToTextConverter;
@@ -223,17 +224,9 @@ public class HSSFCell implements Cell {
     /**
      * @return the (zero based) index of the row containing this cell
      */
+    @Override
     public int getRowIndex() {
         return _record.getRow();
-    }
-    /**
-     * Set the cell's number within the row (0 based).
-     * @param num  short the cell number
-     * @deprecated (Jan 2008) Doesn't update the row's idea of what cell this is, use {@link HSSFRow#moveCell(HSSFCell, short)} instead
-     */
-    public void setCellNum(short num)
-    {
-        _record.setColumn(num);
     }
 
     /**
@@ -246,16 +239,19 @@ public class HSSFCell implements Cell {
         _record.setColumn(num);
     }
 
-    /**
-     * @deprecated (Oct 2008) use {@link #getColumnIndex()}
-     */
-    public short getCellNum() {
-        return (short) getColumnIndex();
-    }
-
+    @Override
     public int getColumnIndex() {
         return _record.getColumn() & 0xFFFF;
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public CellAddress getAddress() {
+        return new CellAddress(this);
+    }
+    
 
     /**
      * Set the cells type (numeric, formula or string).
@@ -884,12 +880,15 @@ public class HSSFCell implements Cell {
     }
 
     /**
-     * set the style for the cell.  The style should be an HSSFCellStyle created/retreived from
-     * the HSSFWorkbook.
+     * <p>Set the style for the cell.  The style should be an HSSFCellStyle created/retreived from
+     * the HSSFWorkbook.</p>
+     * 
+     * <p>To change the style of a cell without affecting other cells that use the same style,
+     * use {@link org.apache.poi.ss.util.CellUtil#setCellStyleProperties(org.apache.poi.ss.usermodel.Cell, Map)}</p>
      *
      * @param style  reference contained in the workbook
      * @see org.apache.poi.hssf.usermodel.HSSFWorkbook#createCellStyle()
-     * @see org.apache.poi.hssf.usermodel.HSSFWorkbook#getCellStyleAt(short)
+     * @see org.apache.poi.hssf.usermodel.HSSFWorkbook#getCellStyleAt(int)
      */
     public void setCellStyle(CellStyle style) {
         setCellStyle( (HSSFCellStyle)style );
@@ -918,7 +917,7 @@ public class HSSFCell implements Cell {
     /**
      * get the style for the cell.  This is a reference to a cell style contained in the workbook
      * object.
-     * @see org.apache.poi.hssf.usermodel.HSSFWorkbook#getCellStyleAt(short)
+     * @see org.apache.poi.hssf.usermodel.HSSFWorkbook#getCellStyleAt(int)
      */
     public HSSFCellStyle getCellStyle()
     {
@@ -950,8 +949,9 @@ public class HSSFCell implements Cell {
     }
 
     /**
-     * Sets this cell as the active cell for the worksheet
+     * {@inheritDoc}
      */
+    @Override
     public void setAsActiveCell()
     {
         int row=_record.getRow();
@@ -1045,17 +1045,9 @@ public class HSSFCell implements Cell {
     /**
      * @return hyperlink associated with this cell or <code>null</code> if not found
      */
+    @Override
     public HSSFHyperlink getHyperlink(){
-        for (Iterator<RecordBase> it = _sheet.getSheet().getRecords().iterator(); it.hasNext(); ) {
-            RecordBase rec = it.next();
-            if (rec instanceof HyperlinkRecord){
-                HyperlinkRecord link = (HyperlinkRecord)rec;
-                if(link.getFirstColumn() == _record.getColumn() && link.getFirstRow() == _record.getRow()){
-                    return new HSSFHyperlink(link);
-                }
-            }
-        }
-        return null;
+        return _sheet.getHyperlink(_record.getRow(), _record.getColumn());
     }
 
     /**
@@ -1064,6 +1056,7 @@ public class HSSFCell implements Cell {
      *
      * @param hyperlink hyperlink associated with this cell
      */
+    @Override
     public void setHyperlink(Hyperlink hyperlink){
         if (hyperlink == null) {
             removeHyperlink();

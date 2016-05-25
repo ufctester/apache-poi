@@ -17,13 +17,16 @@ limitations under the License.
 
 package org.apache.poi.ss.util;
 
+import static org.junit.Assert.assertNotEquals;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-import junit.framework.TestCase;
-
 import org.apache.poi.hssf.record.TestcaseRecordInputStream;
 import org.apache.poi.util.LittleEndianOutputStream;
+
+//TODO: replace junit3 with junit4 code
+import junit.framework.TestCase; //junit3
 
 public final class TestCellRangeAddress extends TestCase {
     byte[] data = new byte[] { (byte) 0x02, (byte) 0x00, (byte) 0x04,
@@ -189,5 +192,80 @@ public final class TestCellRangeAddress extends TestCase {
         // is this a valid address?
         ref = new CellRangeAddress(-1, -1, -1, -1);
         assertEquals(":", ref.formatAsString());
+    }
+    
+    public void testEquals() {
+        final CellRangeAddress ref1 = new CellRangeAddress(1, 2, 3, 4);
+        final CellRangeAddress ref2 = new CellRangeAddress(1, 2, 3, 4);
+        assertEquals(ref1, ref2);
+        
+        // Invert first/last row, but refer to same area
+        ref2.setFirstRow(2);
+        ref2.setLastRow(1);
+        assertEquals(ref1, ref2);
+        
+        // Invert first/last column, but refer to same area
+        ref2.setFirstColumn(4);
+        ref2.setLastColumn(3);
+        assertEquals(ref1, ref2);
+        
+        // Refer to a different area
+        assertNotEquals(ref1, new CellRangeAddress(3, 4, 1, 2));
+    }
+    
+    public void testGetMinMaxRow() {
+        final CellRangeAddress ref = new CellRangeAddress(1, 2, 3, 4);
+        assertEquals(1, ref.getMinRow());
+        assertEquals(2, ref.getMaxRow());
+        
+        ref.setFirstRow(10);
+        //now ref is CellRangeAddress(10, 2, 3, 4)
+        assertEquals(2, ref.getMinRow());
+        assertEquals(10, ref.getMaxRow());
+    }
+    
+    public void testGetMinMaxColumn() {
+        final CellRangeAddress ref = new CellRangeAddress(1, 2, 3, 4);
+        assertEquals(3, ref.getMinColumn());
+        assertEquals(4, ref.getMaxColumn());
+        
+        ref.setFirstColumn(10);
+        //now ref is CellRangeAddress(1, 2, 10, 4)
+        assertEquals(4, ref.getMinColumn());
+        assertEquals(10, ref.getMaxColumn());
+    }
+    
+    public void testIntersects() {
+        final CellRangeAddress baseRegion = new CellRangeAddress(0, 1, 0, 1);
+        
+        final CellRangeAddress duplicateRegion = new CellRangeAddress(0, 1, 0, 1);
+        assertIntersects(baseRegion, duplicateRegion);
+        
+        final CellRangeAddress partiallyOverlappingRegion = new CellRangeAddress(1, 2, 1, 2);
+        assertIntersects(baseRegion, partiallyOverlappingRegion);
+        
+        final CellRangeAddress subsetRegion = new CellRangeAddress(0, 1, 0, 0);
+        assertIntersects(baseRegion, subsetRegion);
+    
+        final CellRangeAddress supersetRegion = new CellRangeAddress(0, 2, 0, 2);
+        assertIntersects(baseRegion, supersetRegion);
+        
+        final CellRangeAddress disjointRegion = new CellRangeAddress(10, 11, 10, 11);
+        assertNotIntersects(baseRegion, disjointRegion);
+    }
+    
+    private static void assertIntersects(CellRangeAddress regionA, CellRangeAddress regionB) {
+        if (!(regionA.intersects(regionB) && regionB.intersects(regionA))) {
+            final String A = regionA.formatAsString();
+            final String B = regionB.formatAsString();
+            fail("expected: regions "+A+" and "+B+" intersect");
+        }
+    }
+    private static void assertNotIntersects(CellRangeAddress regionA, CellRangeAddress regionB) {
+        if ((regionA.intersects(regionB) || regionB.intersects(regionA))) {
+            final String A = regionA.formatAsString();
+            final String B = regionB.formatAsString();
+            fail("expected: regions "+A+" and "+B+" do not intersect");
+        }
     }
 }

@@ -17,13 +17,13 @@
 
 package org.apache.poi.xwpf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import javax.xml.namespace.QName;
 
@@ -62,12 +62,21 @@ public class XWPFStyles extends POIXMLDocumentPart {
      * Construct XWPFStyles from a package part
      *
      * @param part the package part holding the data of the styles,
-     * @param rel  the package relationship of type "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"
+     * 
+     * @since POI 3.14-Beta1
      */
-    public XWPFStyles(PackagePart part, PackageRelationship rel) throws IOException, OpenXML4JException {
-        super(part, rel);
+    public XWPFStyles(PackagePart part) throws IOException, OpenXML4JException {
+        super(part);
     }
 
+    /**
+     * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+     */
+    @Deprecated
+    public XWPFStyles(PackagePart part, PackageRelationship rel) throws IOException, OpenXML4JException {
+        this(part);
+    }
+    
     /**
      * Construct XWPFStyles from scratch for a new document.
      */
@@ -80,13 +89,15 @@ public class XWPFStyles extends POIXMLDocumentPart {
     @Override
     protected void onDocumentRead() throws IOException {
         StylesDocument stylesDoc;
+        InputStream is = getPackagePart().getInputStream();
         try {
-            InputStream is = getPackagePart().getInputStream();
-            stylesDoc = StylesDocument.Factory.parse(is);
+            stylesDoc = StylesDocument.Factory.parse(is, DEFAULT_XML_OPTIONS);
             setStyles(stylesDoc.getStyles());
             latentStyles = new XWPFLatentStyles(ctStyles.getLatentStyles(), this);
         } catch (XmlException e) {
             throw new POIXMLException("Unable to read styles", e);
+        } finally {
+            is.close();
         }
     }
 
@@ -98,10 +109,6 @@ public class XWPFStyles extends POIXMLDocumentPart {
 
         XmlOptions xmlOptions = new XmlOptions(DEFAULT_XML_OPTIONS);
         xmlOptions.setSaveSyntheticDocumentElement(new QName(CTStyles.type.getName().getNamespaceURI(), "styles"));
-        Map<String, String> map = new HashMap<String, String>();
-        map.put("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "r");
-        map.put("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "w");
-        xmlOptions.setSaveSuggestedPrefixes(map);
         PackagePart part = getPackagePart();
         OutputStream out = part.getOutputStream();
         ctStyles.save(out, xmlOptions);
@@ -133,7 +140,6 @@ public class XWPFStyles extends POIXMLDocumentPart {
      *
      * @param styles
      */
-    @SuppressWarnings("deprecation")
     public void setStyles(CTStyles styles) {
         ctStyles = styles;
 

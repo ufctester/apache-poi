@@ -24,12 +24,15 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collection;
 
 import org.apache.poi.POIDataSamples;
 import org.apache.poi.ss.ITestDataProvider;
 import org.apache.poi.ss.SpreadsheetVersion;
 import org.apache.poi.ss.usermodel.FormulaEvaluator;
+import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.streaming.SXSSFSheet;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFFormulaEvaluator;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -40,25 +43,32 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 public final class SXSSFITestDataProvider implements ITestDataProvider {
     public static final SXSSFITestDataProvider instance = new SXSSFITestDataProvider();
 
-    private ArrayList<SXSSFWorkbook> instances = new ArrayList<SXSSFWorkbook>();
+    // an instance of all SXSSFWorkbooks opened by this TestDataProvider,
+    // so that the temporary files created can be disposed up by cleanup() 
+    private final Collection<SXSSFWorkbook> instances = new ArrayList<SXSSFWorkbook>();
 
     private SXSSFITestDataProvider() {
         // enforce singleton
     }
 
+    @Override
     public Workbook openSampleWorkbook(String sampleFileName) {
-    	XSSFWorkbook xssfWorkbook = XSSFITestDataProvider.instance.openSampleWorkbook(sampleFileName);
+        XSSFWorkbook xssfWorkbook = XSSFITestDataProvider.instance.openSampleWorkbook(sampleFileName);
         SXSSFWorkbook swb = new SXSSFWorkbook(xssfWorkbook);
         instances.add(swb);
-    	return swb;
+        return swb;
     }
 
-    public Workbook writeOutAndReadBack(Workbook wb) {
+    /**
+     * Returns an XSSFWorkbook since SXSSFWorkbook is write-only
+     */
+    @Override
+    public XSSFWorkbook writeOutAndReadBack(Workbook wb) {
         if(!(wb instanceof SXSSFWorkbook)) {
             throw new IllegalArgumentException("Expected an instance of SXSSFWorkbook");
         }
 
-        Workbook result;
+        XSSFWorkbook result;
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream(8192);
             wb.write(baos);
@@ -70,35 +80,53 @@ public final class SXSSFITestDataProvider implements ITestDataProvider {
         return result;
     }
 
-    public SXSSFWorkbook createWorkbook(){
+    @Override
+    public SXSSFWorkbook createWorkbook() {
         SXSSFWorkbook wb = new SXSSFWorkbook();
         instances.add(wb);
         return wb;
     }
     
+    //************ SXSSF-specific methods ***************//
+    @Override
+    public SXSSFWorkbook createWorkbook(int rowAccessWindowSize) {
+        SXSSFWorkbook wb = new SXSSFWorkbook(rowAccessWindowSize);
+        instances.add(wb);
+        return wb;
+    }
+    
+    @Override
+    public void trackAllColumnsForAutosizing(Sheet sheet) {
+        ((SXSSFSheet)sheet).trackAllColumnsForAutoSizing();
+    }
+    //************ End SXSSF-specific methods ***************//
+    
+    @Override
     public FormulaEvaluator createFormulaEvaluator(Workbook wb) {
         return new XSSFFormulaEvaluator(((SXSSFWorkbook) wb).getXSSFWorkbook());
     }
 
+    @Override
     public byte[] getTestDataFileContent(String fileName) {
         return POIDataSamples.getSpreadSheetInstance().readFile(fileName);
     }
 
-    public SpreadsheetVersion getSpreadsheetVersion(){
+    @Override
+    public SpreadsheetVersion getSpreadsheetVersion() {
         return SpreadsheetVersion.EXCEL2007;
     }
 
+    @Override
     public String getStandardFileNameExtension() {
         return "xlsx";
     }
 
-    public synchronized boolean cleanup(){
+    public synchronized boolean cleanup() {
         boolean ok = true;
-        for(int i = 0; i < instances.size(); i++){
-            SXSSFWorkbook wb = instances.get(i);
+        for(final SXSSFWorkbook wb : instances) {
             ok = ok && wb.dispose();
-            instances.remove(i);
         }
+        instances.clear();
         return ok;
     }
 }

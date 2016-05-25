@@ -345,11 +345,15 @@
     for (HSLFSlide slide : ppt.getSlides()) {
         //read hyperlinks from the text runs
         for (List&lt;HSLFTextParagraph&gt; txt : slide.getTextParagraphs()) {
-            String text = HSLFTextParagraph.getText(txt);
-            for (HSLFHyperlink link : HSLFHyperlink.find(txt)) {
-                String title = link.getTitle();
-                String address = link.getAddress();
-                String substring = text.substring(link.getStartIndex(), link.getEndIndex()-1); //in ppt end index is inclusive
+            for (HSLFTextParagraph para : txt) {
+                for (HSLFTextRun run : para) {
+                    HSLFHyperlink link = run.getHyperlink();
+                    if (link != null) {
+                        String title = link.getLabel();
+                        String address = link.getAddress();
+                        String text = run.getRawText();
+                    }
+                }
             }
         }
 
@@ -357,10 +361,12 @@
         //for example to a Line object. The code below demonstrates how to
         //read such hyperlinks
         for (HSLFShape sh : slide.getShapes()) {
-            HSLFHyperlink link = sh.getHyperlink();
-            if(link != null)  {
-                String title = link.getTitle();
-                String address = link.getAddress();
+            if (sh instanceof HSLFSimpleShape) {
+                HSLFHyperlink link = ((HSLFSimpleShape)sh).getHyperlink();
+                if(link != null)  {
+                    String title = link.getLabel();
+                    String address = link.getAddress();
+                }
             }
         }
     }

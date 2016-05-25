@@ -23,6 +23,7 @@ import java.io.OutputStream;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.poi.ss.SpreadsheetVersion;
 import org.apache.poi.ss.formula.udf.UDFFinder;
 import org.apache.poi.ss.usermodel.Row.MissingCellPolicy;
 import org.apache.poi.ss.util.CellRangeAddress;
@@ -344,7 +345,7 @@ public interface Workbook extends Closeable, Iterable<Sheet> {
      *
      * @return count of cell styles
      */
-    short getNumCellStyles();
+    int getNumCellStyles();
 
     /**
      * Get the cell style object at the given index
@@ -352,7 +353,7 @@ public interface Workbook extends Closeable, Iterable<Sheet> {
      * @param idx  index within the set of styles (0-based)
      * @return CellStyle object at the index
      */
-    CellStyle getCellStyleAt(short idx);
+    CellStyle getCellStyleAt(int idx);
 
     /**
      * Write out this workbook to an Outputstream.
@@ -623,5 +624,13 @@ public interface Workbook extends Closeable, Iterable<Sheet> {
      * @since 3.8
      */
     boolean getForceFormulaRecalculation();
+    
+    /**
+     * Returns the spreadsheet version of this workbook
+     * 
+     * @return SpreadsheetVersion enum
+     * @since 3.14 beta 2
+     */
+    public SpreadsheetVersion getSpreadsheetVersion();
 
 }

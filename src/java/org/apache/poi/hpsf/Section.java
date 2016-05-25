@@ -150,6 +150,7 @@ public class Section
      * @exception UnsupportedEncodingException if the section's codepage is not
      * supported.
      */
+    @SuppressWarnings("unchecked")
     public Section(final byte[] src, final int offset)
     throws UnsupportedEncodingException
     {
@@ -318,6 +319,44 @@ public class Section
                 return 1;
         }
 
+        
+        
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + id;
+            result = prime * result + length;
+            result = prime * result + offset;
+            return result;
+        }
+
+
+
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            PropertyListEntry other = (PropertyListEntry) obj;
+            if (id != other.id) {
+                return false;
+            }
+            if (length != other.length) {
+                return false;
+            }
+            if (offset != other.offset) {
+                return false;
+            }
+            return true;
+        }
+
+
+
         public String toString()
         {
             final StringBuffer b = new StringBuffer();
@@ -447,12 +486,12 @@ public class Section
     public String getPIDString(final long pid)
     {
         String s = null;
-        if (dictionary != null)
+        if (dictionary != null) {
             s = dictionary.get(Long.valueOf(pid));
-        if (s == null)
+        }
+        if (s == null) {
             s = SectionIDMap.getPIDString(getFormatID().getBytes(), pid);
-        if (s == null)
-            s = SectionIDMap.UNDEFINED;
+        }
         return s;
     }
 

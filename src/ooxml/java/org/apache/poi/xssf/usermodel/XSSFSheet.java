@@ -17,6 +17,7 @@
 
 package org.apache.poi.xssf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
 import static org.apache.poi.xssf.usermodel.helpers.XSSFPaswordHelper.setPassword;
 import static org.apache.poi.xssf.usermodel.helpers.XSSFPaswordHelper.validatePassword;
 
@@ -25,9 +26,13 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -50,16 +55,19 @@ import org.apache.poi.ss.SpreadsheetVersion;
 import org.apache.poi.ss.formula.FormulaShifter;
 import org.apache.poi.ss.formula.SheetNameFormatter;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellCopyPolicy;
 import org.apache.poi.ss.usermodel.CellRange;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataValidation;
 import org.apache.poi.ss.usermodel.DataValidationHelper;
 import org.apache.poi.ss.usermodel.Footer;
 import org.apache.poi.ss.usermodel.Header;
+import org.apache.poi.ss.usermodel.IgnoredErrorType;
 import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.util.AreaReference;
+import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellRangeAddressList;
 import org.apache.poi.ss.util.CellReference;
@@ -71,51 +79,11 @@ import org.apache.poi.util.POILogFactory;
 import org.apache.poi.util.POILogger;
 import org.apache.poi.xssf.model.CommentsTable;
 import org.apache.poi.xssf.usermodel.helpers.ColumnHelper;
+import org.apache.poi.xssf.usermodel.helpers.XSSFIgnoredErrorHelper;
 import org.apache.poi.xssf.usermodel.helpers.XSSFRowShifter;
 import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlOptions;
-import org.openxmlformats.schemas.officeDocument.x2006.relationships.STRelationshipId;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTAutoFilter;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTBreak;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTCalcPr;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTCell;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTCellFormula;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTCol;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTColor;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTCols;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTComment;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTCommentList;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTDataValidation;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTDataValidations;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTDrawing;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTHeaderFooter;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTHyperlink;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTLegacyDrawing;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTMergeCell;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTMergeCells;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTOutlinePr;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTPageBreak;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTPageMargins;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTPageSetUpPr;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTPane;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTPrintOptions;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTRow;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTSelection;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTSheet;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTSheetCalcPr;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTSheetFormatPr;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTSheetPr;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTSheetProtection;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTSheetView;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTSheetViews;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTTablePart;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTTableParts;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTWorksheet;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.STCalcMode;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.STCellFormulaType;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.STPane;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.STPaneState;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.WorksheetDocument;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.*;
 
 /**
  * High level representation of a SpreadsheetML worksheet.
@@ -159,16 +127,25 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
 
     /**
      * Creates an XSSFSheet representing the given package part and relationship.
-     * Should only be called by XSSFWorkbook when reading in an exisiting file.
+     * Should only be called by XSSFWorkbook when reading in an existing file.
      *
-     * @param part - The package part that holds xml data represenring this sheet.
-     * @param rel - the relationship of the given package part in the underlying OPC package
+     * @param part - The package part that holds xml data representing this sheet.
+     * 
+     * @since POI 3.14-Beta1
      */
-    protected XSSFSheet(PackagePart part, PackageRelationship rel) {
-        super(part, rel);
+    protected XSSFSheet(PackagePart part) {
+        super(part);
         dataValidationHelper = new XSSFDataValidationHelper(this);
     }
 
+    /**
+     * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+     */
+    @Deprecated
+    protected XSSFSheet(PackagePart part, PackageRelationship rel) {
+        this(part);
+    }
+    
     /**
      * Returns the parent XSSFWorkbook
      *
@@ -193,7 +170,7 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
 
     protected void read(InputStream is) throws IOException {
         try {
-            worksheet = WorksheetDocument.Factory.parse(is).getWorksheet();
+            worksheet = WorksheetDocument.Factory.parse(is, DEFAULT_XML_OPTIONS).getWorksheet();
         } catch (XmlException e){
             throw new POIXMLException(e);
         }
@@ -201,12 +178,13 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         initRows(worksheet);
         columnHelper = new ColumnHelper(worksheet);
         // Look for bits we're interested in
-        for(POIXMLDocumentPart p : getRelations()){
+        for(RelationPart rp : getRelationParts()){
+            POIXMLDocumentPart p = rp.getDocumentPart();
             if(p instanceof CommentsTable) {
                sheetComments = (CommentsTable)p;
             }
             if(p instanceof XSSFTable) {
-               tables.put( p.getPackageRelationship().getId(), (XSSFTable)p );
+               tables.put( rp.getRelationship().getId(), (XSSFTable)p );
             }
             if(p instanceof XSSFPivotTable) {
                 getWorkbook().getPivotTables().add((XSSFPivotTable) p);
@@ -228,7 +206,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         hyperlinks = new ArrayList<XSSFHyperlink>();
     }
 
-    @SuppressWarnings("deprecation") //YK: getXYZArray() array accessors are deprecated in xmlbeans with JDK 1.5 support
     private void initRows(CTWorksheet worksheetParam) {
         _rows = new TreeMap<Integer, XSSFRow>();
         tables = new TreeMap<String, XSSFTable>();
@@ -244,7 +221,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
      * Read hyperlink relations, link them with CTHyperlink beans in this worksheet
      * and initialize the internal array of XSSFHyperlink objects
      */
-    @SuppressWarnings("deprecation") //YK: getXYZArray() array accessors are deprecated in xmlbeans with JDK 1.5 support
     private void initHyperlinks() {
         hyperlinks = new ArrayList<XSSFHyperlink>();
 
@@ -321,18 +297,63 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
     }
 
     /**
-     * Adds a merged region of cells (hence those cells form one).
+     * Adds a merged region of cells on a sheet.
      *
-     * @param region (rowfrom/colfrom-rowto/colto) to merge
+     * @param region to merge
      * @return index of this region
+     * @throws IllegalArgumentException if region contains fewer than 2 cells
+     * @throws IllegalStateException if region intersects with a multi-cell array formula
+     * @throws IllegalStateException if region intersects with an existing region on this sheet
      */
     @Override
     public int addMergedRegion(CellRangeAddress region) {
-        region.validate(SpreadsheetVersion.EXCEL2007);
+        return addMergedRegion(region, true);
+    }
 
-        // throw IllegalStateException if the argument CellRangeAddress intersects with
-        // a multi-cell array formula defined in this sheet
-        validateArrayFormulas(region);
+    /**
+     * Adds a merged region of cells (hence those cells form one).
+     * Skips validation. It is possible to create overlapping merged regions
+     * or create a merged region that intersects a multi-cell array formula
+     * with this formula, which may result in a corrupt workbook.
+     *
+     * To check for merged regions overlapping array formulas or other merged regions
+     * after addMergedRegionUnsafe has been called, call {@link #validateMergedRegions()}, which runs in O(n^2) time.
+     *
+     * @param region to merge
+     * @return index of this region
+     * @throws IllegalArgumentException if region contains fewer than 2 cells
+     */
+    public int addMergedRegionUnsafe(CellRangeAddress region) {
+        return addMergedRegion(region, false);
+    }
+
+    /**
+     * Adds a merged region of cells (hence those cells form one).
+     * If validate is true, check to make sure adding the merged region to the sheet doesn't create a corrupt workbook
+     * If validate is false, skips the expensive merged region checks, but may produce a corrupt workbook.
+     *
+     * @param region to merge
+     * @param validate whether to validate merged region
+     * @return index of this region
+     * @throws IllegalArgumentException if region contains fewer than 2 cells (this check is inexpensive and is performed regardless of <tt>validate</tt>)
+     * @throws IllegalStateException if region intersects with a multi-cell array formula
+     * @throws IllegalStateException if region intersects with an existing region on this sheet
+     */
+    private int addMergedRegion(CellRangeAddress region, boolean validate) {
+        if (region.getNumberOfCells() < 2) {
+            throw new IllegalArgumentException("Merged region " + region.formatAsString() + " must contain 2 or more cells");
+        }
+        region.validate(SpreadsheetVersion.EXCEL2007);
+        
+        if (validate) {
+            // throw IllegalStateException if the argument CellRangeAddress intersects with
+            // a multi-cell array formula defined in this sheet
+            validateArrayFormulas(region);
+
+            // Throw IllegalStateException if the argument CellRangeAddress intersects with
+            // a merged region already in this sheet 
+            validateMergedRegions(region);
+        }
 
         CTMergeCells ctMergeCells = worksheet.isSetMergeCells() ? worksheet.getMergeCells() : worksheet.addNewMergeCells();
         CTMergeCell ctMergeCell = ctMergeCells.addNewMergeCell();
@@ -340,11 +361,18 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         return ctMergeCells.sizeOfMergeCellArray();
     }
 
+    /**
+     * Verify that the candidate region does not intersect with an existing multi-cell array formula in this sheet
+     *
+     * @param region
+     * @throws IllegalStateException if candidate region intersects an existing array formula in this sheet
+     */
     private void validateArrayFormulas(CellRangeAddress region){
         int firstRow = region.getFirstRow();
         int firstColumn = region.getFirstColumn();
         int lastRow = region.getLastRow();
         int lastColumn = region.getLastColumn();
+        // for each cell in sheet, if cell belongs to an array formula, check if merged region intersects array formula cells
         for (int rowIn = firstRow; rowIn <= lastRow; rowIn++) {
             for (int colIn = firstColumn; colIn <= lastColumn; colIn++) {
                 XSSFRow row = getRow(rowIn);
@@ -356,6 +384,7 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
                 if(cell.isPartOfArrayFormulaGroup()){
                     CellRangeAddress arrayRange = cell.getArrayFormulaRange();
                     if (arrayRange.getNumberOfCells() > 1 &&
+                            // region.intersects(arrayRange) is more concise and probably correct. Is it equivalent?
                             ( arrayRange.isInRange(region.getFirstRow(), region.getFirstColumn()) ||
                               arrayRange.isInRange(region.getFirstRow(), region.getFirstColumn()))  ){
                         String msg = "The range " + region.formatAsString() + " intersects with a multi-cell array formula. " +
@@ -365,7 +394,67 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
                 }
             }
         }
+    }
 
+    /**
+     * Verify that none of the merged regions intersect a multi-cell array formula in this sheet
+     *
+     * @param region
+     * @throws IllegalStateException if candidate region intersects an existing array formula in this sheet
+     */
+    private void checkForMergedRegionsIntersectingArrayFormulas() {
+        for (CellRangeAddress region : getMergedRegions()) {
+            validateArrayFormulas(region);
+        }
+    }
+
+
+    /**
+     * Verify that candidate region does not intersect with an existing merged region in this sheet
+     *
+     * @param candidateRegion
+     * @throws IllegalStateException if candidate region intersects an existing merged region in this sheet (or candidateRegion is already merged in this sheet)
+     */
+    private void validateMergedRegions(CellRangeAddress candidateRegion) {
+        for (final CellRangeAddress existingRegion : getMergedRegions()) {
+            if (existingRegion.intersects(candidateRegion)) {
+                throw new IllegalStateException("Cannot add merged region " + candidateRegion.formatAsString() +
+                        " to sheet because it overlaps with an existing merged region (" + existingRegion.formatAsString() + ").");
+            }
+        }
+    }
+
+    /**
+     * Verify that no merged regions intersect another merged region in this sheet.
+     *
+     * @throws IllegalStateException if at least one region intersects with another merged region in this sheet
+     */
+    private void checkForIntersectingMergedRegions() {
+        final List<CellRangeAddress> regions = getMergedRegions();
+        final int size = regions.size();
+        for (int i=0; i < size; i++) {
+            final CellRangeAddress region = regions.get(i);
+            for (final CellRangeAddress other : regions.subList(i+1, regions.size())) {
+                if (region.intersects(other)) {
+                    String msg = "The range " + region.formatAsString() +
+                                " intersects with another merged region " +
+                                other.formatAsString() + " in this sheet";
+                    throw new IllegalStateException(msg);
+                }
+            }
+        }
+    }
+
+    /**
+     * Verify that merged regions do not intersect multi-cell array formulas and
+     * no merged regions intersect another merged region in this sheet.
+     *
+     * @throws IllegalStateException if region intersects with a multi-cell array formula
+     * @throws IllegalStateException if at least one region intersects with another merged region in this sheet
+     */
+    public void validateMergedRegions() {
+        checkForMergedRegionsIntersectingArrayFormulas();
+        checkForIntersectingMergedRegions();
     }
 
     /**
@@ -417,14 +506,16 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
      *
      * @return a SpreadsheetML drawing
      */
+    @Override
     public XSSFDrawing getDrawingPatriarch() {
         CTDrawing ctDrawing = getCTDrawing();
         if (ctDrawing != null) {
             // Search the referenced drawing in the list of the sheet's relations
-            for (POIXMLDocumentPart p : getRelations()){
+            for (RelationPart rp : getRelationParts()){
+                POIXMLDocumentPart p = rp.getDocumentPart();
                 if (p instanceof XSSFDrawing) {
                     XSSFDrawing dr = (XSSFDrawing)p;
-                    String drId = dr.getPackageRelationship().getId();
+                    String drId = rp.getRelationship().getId();
                     if (drId.equals(ctDrawing.getId())){
                         return dr;
                     }
@@ -450,8 +541,9 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         
         //drawingNumber = #drawings.size() + 1
         int drawingNumber = getPackagePart().getPackage().getPartsByContentType(XSSFRelation.DRAWINGS.getContentType()).size() + 1;
-        XSSFDrawing drawing = (XSSFDrawing)createRelationship(XSSFRelation.DRAWINGS, XSSFFactory.getInstance(), drawingNumber);
-        String relId = drawing.getPackageRelationship().getId();
+        RelationPart rp = createRelationship(XSSFRelation.DRAWINGS, XSSFFactory.getInstance(), drawingNumber, false);
+        XSSFDrawing drawing = rp.getDocumentPart();
+        String relId = rp.getRelationship().getId();
 
         //add CT_Drawing element which indicates that this sheet contains drawing components built on the drawingML platform.
         //The relationship Id references the part containing the drawingML definitions.
@@ -476,8 +568,9 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
             if(autoCreate) {
                 //drawingNumber = #drawings.size() + 1
                 int drawingNumber = getPackagePart().getPackage().getPartsByContentType(XSSFRelation.VML_DRAWINGS.getContentType()).size() + 1;
-                drawing = (XSSFVMLDrawing)createRelationship(XSSFRelation.VML_DRAWINGS, XSSFFactory.getInstance(), drawingNumber);
-                String relId = drawing.getPackageRelationship().getId();
+                RelationPart rp = createRelationship(XSSFRelation.VML_DRAWINGS, XSSFFactory.getInstance(), drawingNumber, false);
+                drawing = rp.getDocumentPart();
+                String relId = rp.getRelationship().getId();
 
                 //add CTLegacyDrawing element which indicates that this sheet contains drawing components built on the drawingML platform.
                 //The relationship Id references the part containing the drawing definitions.
@@ -486,10 +579,11 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
             }
         } else {
             //search the referenced drawing in the list of the sheet's relations
-            for(POIXMLDocumentPart p : getRelations()){
+            for (RelationPart rp : getRelationParts()){
+                POIXMLDocumentPart p = rp.getDocumentPart();
                 if(p instanceof XSSFVMLDrawing) {
                     XSSFVMLDrawing dr = (XSSFVMLDrawing)p;
-                    String drId = dr.getPackageRelationship().getId();
+                    String drId = rp.getRelationship().getId();
                     if(drId.equals(ctDrawing.getId())){
                         drawing = dr;
                         break;
@@ -578,19 +672,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
     }
 
     /**
-     * Creates a new comment for this sheet. You still
-     *  need to assign it to a cell though
-     *
-     * @deprecated since Nov 2009 this method is not compatible with the common SS interfaces,
-     * use {@link org.apache.poi.xssf.usermodel.XSSFDrawing#createCellComment
-     *  (org.apache.poi.ss.usermodel.ClientAnchor)} instead
-     */
-    @Deprecated
-    public XSSFComment createComment() {
-        return createDrawingPatriarch().createCellComment(new XSSFClientAnchor());
-    }
-
-    /**
      * Create a new row within the sheet and return the high level representation
      *
      * Note: If a row already exists at this position, it is removed/overwritten and
@@ -653,13 +734,34 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         getPane().setActivePane(STPane.Enum.forInt(activePane));
     }
 
+    /**
+     * Return cell comment at row, column, if one exists. Otherwise returns null.
+     * @param row the row where the comment is located
+     * @param column the column where the comment is located
+     * @return the cell comment, if one exists. Otherwise return null.
+     * @deprecated as of 2015-11-23 (circa POI 3.14beta1). Use {@link #getCellComment(CellAddress)} instead.
+     */
     @Override
     public XSSFComment getCellComment(int row, int column) {
+        return getCellComment(new CellAddress(row, column));
+    }
+    
+    /**
+     * Return cell comment at row, column, if one exists. Otherwise returns null.
+     *
+     * @param address the location of the cell comment
+     * @return the cell comment, if one exists. Otherwise return null.
+     */
+    @Override
+    public XSSFComment getCellComment(CellAddress address) {
         if (sheetComments == null) {
             return null;
         }
 
-        String ref = new CellReference(row, column).formatAsString();
+        final int row = address.getRow();
+        final int column = address.getColumn();
+
+        CellAddress ref = new CellAddress(row, column);
         CTComment ctComment = sheetComments.getCTComment(ref);
         if(ctComment == null) return null;
 
@@ -668,6 +770,24 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
                 vml == null ? null : vml.findCommentShape(row, column));
     }
 
+    /**
+     * Returns all cell comments on this sheet.
+     * @return A map of each Comment in the sheet, keyed on the cell address where
+     * the comment is located.
+     */
+    @Override
+    public Map<CellAddress, XSSFComment> getCellComments() {
+        return sheetComments.getCellComments();
+    }
+
+    /**
+     * Get a Hyperlink in this sheet anchored at row, column
+     *
+     * @param row
+     * @param column
+     * @return hyperlink if there is a hyperlink anchored at row, column; otherwise returns null
+     */
+    @Override
     public XSSFHyperlink getHyperlink(int row, int column) {
         String ref = new CellReference(row, column).formatAsString();
         for(XSSFHyperlink hyperlink : hyperlinks) {
@@ -677,8 +797,17 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         }
         return null;
     }
+    
+    /**
+     * Get a list of Hyperlinks in this sheet
+     *
+     * @return Hyperlinks for the sheet
+     */
+    @Override
+    public List<XSSFHyperlink> getHyperlinkList() {
+        return Collections.unmodifiableList(hyperlinks);
+    }
 
-    @SuppressWarnings("deprecation")
     private int[] getBreaks(CTPageBreak ctPageBreak) {
         CTBreak[] brkArray = ctPageBreak.getBrkArray();
         int[] breaks = new int[brkArray.length];
@@ -688,7 +817,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         return breaks;
     }
 
-    @SuppressWarnings("deprecation")
     private void removeBreak(int index, CTPageBreak ctPageBreak) {
         int index1 = index + 1;
         CTBreak[] brkArray = ctPageBreak.getBrkArray();
@@ -1090,7 +1218,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
      * this each time.
      *
      * @return the merged region at the specified index
-     * @throws IllegalStateException if this worksheet does not contain merged regions
      */
     @Override
     public CellRangeAddress getMergedRegion(int index) {
@@ -1107,15 +1234,13 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
      * faster than calling {@link #getMergedRegion(int)} each time.
      *
      * @return the list of merged regions
-     * @throws IllegalStateException if this worksheet does not contain merged regions
      */
-    @SuppressWarnings("deprecation")
     @Override
     public List<CellRangeAddress> getMergedRegions() {
-        CTMergeCells ctMergeCells = worksheet.getMergeCells();
-        if(ctMergeCells == null) throw new IllegalStateException("This worksheet does not contain merged regions");
-
         List<CellRangeAddress> addresses = new ArrayList<CellRangeAddress>();
+        CTMergeCells ctMergeCells = worksheet.getMergeCells();
+        if(ctMergeCells == null) return addresses;
+
         for(CTMergeCell ctMergeCell : ctMergeCells.getMergeCellArray()) {
             String ref = ctMergeCell.getRef();
             addresses.add(CellRangeAddress.valueOf(ref));
@@ -1237,6 +1362,37 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
     @Override
     public XSSFRow getRow(int rownum) {
         return _rows.get(rownum);
+    }
+    
+    /**
+     * returns all rows between startRow and endRow, inclusive.
+     * Rows between startRow and endRow that haven't been created are not included
+     * in result unless createRowIfMissing is true
+     *
+     * @param startRow the first row number in this sheet to return
+     * @param endRow the last row number in this sheet to return
+     * @param createRowIfMissing
+     * @return All rows between startRow and endRow, inclusive
+     * @throws IllegalArgumentException if startRowNum and endRowNum are not in ascending order
+     */
+    private List<XSSFRow> getRows(int startRowNum, int endRowNum, boolean createRowIfMissing) {
+        if (startRowNum > endRowNum) {
+            throw new IllegalArgumentException("getRows: startRowNum must be less than or equal to endRowNum");
+        }
+        final List<XSSFRow> rows = new ArrayList<XSSFRow>();
+        if (createRowIfMissing) {
+            for (int i = startRowNum; i <= endRowNum; i++) {
+                XSSFRow row = getRow(i);
+                if (row == null) {
+                    row = createRow(i);
+                }
+                rows.add(row);
+            }
+        }
+        else {
+            rows.addAll(_rows.subMap(startRowNum, endRowNum+1).values());
+        }
+        return rows;
     }
 
     /**
@@ -1417,7 +1573,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
     /**
      * Do not leave the width attribute undefined (see #52186).
      */
-    @SuppressWarnings("deprecation")
     private void setColWidthAttribute(CTCols ctCols) {
         for (CTCol col : ctCols.getColArray()) {
             if (!col.isSetWidth()) {
@@ -1455,8 +1610,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         return (short) outlineLevel;
     }
 
-
-    @SuppressWarnings("deprecation")
     private short getMaxOutlineLevelCols() {
         CTCols ctCols = worksheet.getColsArray(0);
         int outlineLevel = 0;
@@ -1666,8 +1819,7 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
      *
      * @param indices A set of the regions to unmerge
      */
-    @SuppressWarnings("deprecation")
-    public void removeMergedRegions(Set<Integer> indices) {
+    public void removeMergedRegions(Collection<Integer> indices) {
         if (!worksheet.isSetMergeCells()) return;
         
         CTMergeCells ctMergeCells = worksheet.getMergeCells();
@@ -1864,7 +2016,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
 
     }
 
-    @SuppressWarnings("deprecation")
     private void setColumn(int targetColumnIx, Integer style,
                            Integer level, Boolean hidden, Boolean collapsed) {
         CTCols cols = worksheet.getColsArray(0);
@@ -1960,7 +2111,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
      *                the col info index of the start of the outline group
      * @return the column index of the last column in the outline group
      */
-    @SuppressWarnings("deprecation")
     private int setGroupHidden(int pIdx, int level, boolean hidden) {
         CTCols cols = worksheet.getColsArray(0);
         int idx = pIdx;
@@ -1989,7 +2139,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         return col.getMax() == other_col.getMin() - 1;
     }
 
-    @SuppressWarnings("deprecation")
     private int findStartOfColumnOutlineGroup(int pIdx) {
         // Find the start of the group.
         CTCols cols = worksheet.getColsArray(0);
@@ -2011,7 +2160,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         return idx;
     }
 
-    @SuppressWarnings("deprecation")
     private int findEndOfColumnOutlineGroup(int colInfoIndex) {
         CTCols cols = worksheet.getColsArray(0);
         // Find the end of the group.
@@ -2034,7 +2182,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         return idx;
     }
 
-    @SuppressWarnings("deprecation")
     private void expandColumn(int columnIndex) {
         CTCols cols = worksheet.getColsArray(0);
         CTCol col = columnHelper.getColumn(columnIndex, false);
@@ -2089,7 +2236,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
                 Boolean.FALSE, Boolean.FALSE);
     }
 
-    @SuppressWarnings("deprecation")
     private boolean isColumnGroupHiddenByParent(int idx) {
         CTCols cols = worksheet.getColsArray(0);
         // Look out outline details of end
@@ -2123,7 +2269,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         return startHidden;
     }
 
-    @SuppressWarnings("deprecation")
     private int findColInfoIdx(int columnValue, int fromColInfoIdx) {
         CTCols cols = worksheet.getColsArray(0);
 
@@ -2163,7 +2308,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
      * @param idx
      * @return a boolean represented if the column is collapsed
      */
-    @SuppressWarnings("deprecation")
     private boolean isColumnGroupCollapsed(int idx) {
         CTCols cols = worksheet.getColsArray(0);
         CTCol[] colArray = cols.getColArray();
@@ -2520,13 +2664,13 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
     }
 
     /**
-     * Sets the zoom magnication for the sheet.  The zoom is expressed as a
+     * Sets the zoom magnification for the sheet.  The zoom is expressed as a
      * fraction.  For example to express a zoom of 75% use 3 for the numerator
      * and 4 for the denominator.
      *
      * @param numerator     The numerator for the zoom magnification.
      * @param denominator   The denominator for the zoom magnification.
-     * @see #setZoom(int)
+     * @deprecated 2015-11-23 (circa POI 3.14beta1). Use {@link #setZoom(int)} instead.
      */
     @Override
     public void setZoom(int numerator, int denominator) {
@@ -2553,11 +2697,123 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
      * @param scale window zoom magnification
      * @throws IllegalArgumentException if scale is invalid
      */
+    @Override
     public void setZoom(int scale) {
         if(scale < 10 || scale > 400) throw new IllegalArgumentException("Valid scale values range from 10 to 400");
         getSheetTypeSheetView().setZoomScale(scale);
     }
 
+
+    /**
+     * copyRows rows from srcRows to this sheet starting at destStartRow
+     *
+     * Additionally copies merged regions that are completely defined in these
+     * rows (ie. merged 2 cells on a row to be shifted).
+     * @param srcRows the rows to copy. Formulas will be offset by the difference
+     * in the row number of the first row in srcRows and destStartRow (even if srcRows
+     * are from a different sheet).
+     * @param destStartRow the row in this sheet to paste the first row of srcRows
+     * the remainder of srcRows will be pasted below destStartRow per the cell copy policy
+     * @param policy is the cell copy policy, which can be used to merge the source and destination
+     * when the source is blank, copy styles only, paste as value, etc
+     */
+    @Beta
+    public void copyRows(List<? extends Row> srcRows, int destStartRow, CellCopyPolicy policy) {
+        if (srcRows == null || srcRows.size() == 0) {
+            throw new IllegalArgumentException("No rows to copy");
+        }
+        final Row srcStartRow = srcRows.get(0);
+        final Row srcEndRow = srcRows.get(srcRows.size() - 1);
+        
+        if (srcStartRow == null) {
+            throw new IllegalArgumentException("copyRows: First row cannot be null");
+        }
+        
+        final int srcStartRowNum = srcStartRow.getRowNum();
+        final int srcEndRowNum = srcEndRow.getRowNum();
+        
+        // check row numbers to make sure they are continuous and increasing (monotonic)
+        // and srcRows does not contain null rows
+        for (int index=1; index < srcRows.size(); index++) {
+            final Row curRow = srcRows.get(index);
+            if (curRow == null) {
+                throw new IllegalArgumentException("srcRows may not contain null rows. Found null row at index " + index + ".");
+            //} else if (curRow.getRowNum() != prevRow.getRowNum() + 1) {
+            //    throw new IllegalArgumentException("srcRows must contain continuously increasing row numbers. " +
+            //            "Got srcRows[" + (index-1) + "]=Row " + prevRow.getRowNum() + ", srcRows[" + index + "]=Row " + curRow.getRowNum() + ".");
+            // FIXME: assumes row objects belong to non-null sheets and sheets belong to non-null workbooks.
+            } else if (srcStartRow.getSheet().getWorkbook() != curRow.getSheet().getWorkbook()) {
+                throw new IllegalArgumentException("All rows in srcRows must belong to the same sheet in the same workbook." +
+                        "Expected all rows from same workbook (" + srcStartRow.getSheet().getWorkbook() + "). " +
+                        "Got srcRows[" + index + "] from different workbook (" + curRow.getSheet().getWorkbook() + ").");
+            } else if (srcStartRow.getSheet() != curRow.getSheet()) {
+                throw new IllegalArgumentException("All rows in srcRows must belong to the same sheet. " +
+                        "Expected all rows from " + srcStartRow.getSheet().getSheetName() + ". " +
+                        "Got srcRows[" + index + "] from " + curRow.getSheet().getSheetName());
+            }
+        }
+        
+        // FIXME: is special behavior needed if srcRows and destRows belong to the same sheets and the regions overlap?
+        
+        final CellCopyPolicy options = new CellCopyPolicy(policy);
+        // avoid O(N^2) performance scanning through all regions for each row
+        // merged regions will be copied after all the rows have been copied
+        options.setCopyMergedRegions(false);
+        
+        // FIXME: if srcRows contains gaps or null values, clear out those rows that will be overwritten
+        // how will this work with merging (copy just values, leave cell styles in place?)
+        
+        int r = destStartRow;
+        for (Row srcRow : srcRows) {
+            int destRowNum;
+            if (policy.isCondenseRows()) {
+                destRowNum = r++;
+            } else {
+                final int shift = (srcRow.getRowNum() - srcStartRowNum);
+                destRowNum = destStartRow + shift;
+            }
+            //removeRow(destRowNum); //this probably clears all external formula references to destRow, causing unwanted #REF! errors
+            final XSSFRow destRow = createRow(destRowNum);
+            destRow.copyRowFrom(srcRow, options);
+        }
+        
+        // ======================
+        // Only do additional copy operations here that cannot be done with Row.copyFromRow(Row, options)
+        // reasons: operation needs to interact with multiple rows or sheets
+        
+        // Copy merged regions that are contained within the copy region
+        if (policy.isCopyMergedRegions()) {
+            // FIXME: is this something that rowShifter could be doing?
+            final int shift = destStartRow - srcStartRowNum;
+            for (CellRangeAddress srcRegion : srcStartRow.getSheet().getMergedRegions()) {
+                if (srcStartRowNum <= srcRegion.getFirstRow() && srcRegion.getLastRow() <= srcEndRowNum) {
+                    // srcRegion is fully inside the copied rows
+                    final CellRangeAddress destRegion = srcRegion.copy();
+                    destRegion.setFirstRow(destRegion.getFirstRow() + shift);
+                    destRegion.setLastRow(destRegion.getLastRow() + shift);
+                    addMergedRegion(destRegion);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Copies rows between srcStartRow and srcEndRow to the same sheet, starting at destStartRow
+     * Convenience function for {@link #copyRows(List, int, CellCopyPolicy)}
+     * 
+     * Equivalent to copyRows(getRows(srcStartRow, srcEndRow, false), destStartRow, cellCopyPolicy)
+     * 
+     * @param srcStartRow the index of the first row to copy the cells from in this sheet
+     * @param srcEndRow the index of the last row to copy the cells from in this sheet
+     * @param destStartRow the index of the first row to copy the cells to in this sheet
+     * @param cellCopyPolicy the policy to use to determine how cells are copied
+     */
+    @Beta
+    public void copyRows(int srcStartRow, int srcEndRow, int destStartRow, CellCopyPolicy cellCopyPolicy) {
+        final List<XSSFRow> srcRows = getRows(srcStartRow, srcEndRow, false); //FIXME: should be false, no need to create rows where src is only to copy them to dest
+        copyRows(srcRows, destStartRow, cellCopyPolicy);
+    }
+    
     /**
      * Shifts rows between startRow and endRow n number of rows.
      * If you use a negative number, it will shift rows up.
@@ -2593,11 +2849,10 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
      * @param resetOriginalRowHeight whether to set the original row's height to the default
      */
     @Override
-    @SuppressWarnings("deprecation") //YK: getXYZArray() array accessors are deprecated in xmlbeans with JDK 1.5 support
     public void shiftRows(int startRow, int endRow, final int n, boolean copyRowHeight, boolean resetOriginalRowHeight) {
-    	XSSFVMLDrawing vml = getVMLDrawing(false);
+        XSSFVMLDrawing vml = getVMLDrawing(false);
 
-    	// first remove all rows which will be overwritten
+        // first remove all rows which will be overwritten
         for (Iterator<Row> it = rowIterator() ; it.hasNext() ; ) {
             XSSFRow row = (XSSFRow)it.next();
             int rownum = row.getRowNum();
@@ -2611,18 +2866,29 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
                 // remove row from _rows
                 it.remove();
 
+                // FIXME: (performance optimization) this should be moved outside the for-loop so that comments only needs to be iterated over once.
                 // also remove any comments associated with this row
                 if(sheetComments != null){
                     CTCommentList lst = sheetComments.getCTComments().getCommentList();
                     for (CTComment comment : lst.getCommentArray()) {
-                    	String strRef = comment.getRef();
-                    	CellReference ref = new CellReference(strRef);
+                        String strRef = comment.getRef();
+                        CellAddress ref = new CellAddress(strRef);
 
-                    	// is this comment part of the current row?
-                    	if(ref.getRow() == rownum) {
-                            sheetComments.removeComment(strRef);
-                            vml.removeCommentShape(ref.getRow(), ref.getCol());
-                    	}
+                        // is this comment part of the current row?
+                        if(ref.getRow() == rownum) {
+                            sheetComments.removeComment(ref);
+                            vml.removeCommentShape(ref.getRow(), ref.getColumn());
+                        }
+                    }
+                }
+                // FIXME: (performance optimization) this should be moved outside the for-loop so that hyperlinks only needs to be iterated over once.
+                // also remove any hyperlinks associated with this row
+                if (hyperlinks != null) {
+                    for (XSSFHyperlink link : new ArrayList<XSSFHyperlink>(hyperlinks)) {
+                        CellReference ref = new CellReference(link.getCellRef());
+                        if (ref.getRow() == rownum) {
+                            hyperlinks.remove(link);
+                        }
                     }
                 }
             }
@@ -2632,25 +2898,25 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         // we need to sort it in a way so the shifting does not mess up the structures, 
         // i.e. when shifting down, start from down and go up, when shifting up, vice-versa
         SortedMap<XSSFComment, Integer> commentsToShift = new TreeMap<XSSFComment, Integer>(new Comparator<XSSFComment>() {
-			public int compare(XSSFComment o1, XSSFComment o2) {
-				int row1 = o1.getRow();
-				int row2 = o2.getRow();
-				
-				if(row1 == row2) {
-					// ordering is not important when row is equal, but don't return zero to still 
-					// get multiple comments per row into the map
-					return o1.hashCode() - o2.hashCode();
-				}
+            public int compare(XSSFComment o1, XSSFComment o2) {
+                int row1 = o1.getRow();
+                int row2 = o2.getRow();
+                
+                if(row1 == row2) {
+                    // ordering is not important when row is equal, but don't return zero to still 
+                    // get multiple comments per row into the map
+                    return o1.hashCode() - o2.hashCode();
+                }
 
-				// when shifting down, sort higher row-values first
-				if(n > 0) {
-					return row1 < row2 ? 1 : -1;
-				} else {
-					// sort lower-row values first when shifting up
-					return row1 > row2 ? 1 : -1;
-				}
-			}
-		});
+                // when shifting down, sort higher row-values first
+                if(n > 0) {
+                    return row1 < row2 ? 1 : -1;
+                } else {
+                    // sort lower-row values first when shifting up
+                    return row1 > row2 ? 1 : -1;
+                }
+            }
+        });
 
         
         for (Iterator<Row> it = rowIterator() ; it.hasNext() ; ) {
@@ -2658,26 +2924,26 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
             int rownum = row.getRowNum();
 
             if(sheetComments != null){
-            	// calculate the new rownum
-            	int newrownum = shiftedRowNum(startRow, endRow, n, rownum);
-            	
-            	// is there a change necessary for the current row?
-            	if(newrownum != rownum) {
+                // calculate the new rownum
+                int newrownum = shiftedRowNum(startRow, endRow, n, rownum);
+                
+                // is there a change necessary for the current row?
+                if(newrownum != rownum) {
                     CTCommentList lst = sheetComments.getCTComments().getCommentList();
                     for (CTComment comment : lst.getCommentArray()) {
-                    	String oldRef = comment.getRef();
-                    	CellReference ref = new CellReference(oldRef);
-                    	
-                    	// is this comment part of the current row?
-                    	if(ref.getRow() == rownum) {
-                        	XSSFComment xssfComment = new XSSFComment(sheetComments, comment,
+                        String oldRef = comment.getRef();
+                        CellReference ref = new CellReference(oldRef);
+                        
+                        // is this comment part of the current row?
+                        if(ref.getRow() == rownum) {
+                            XSSFComment xssfComment = new XSSFComment(sheetComments, comment,
                                     vml == null ? null : vml.findCommentShape(rownum, ref.getCol()));
-                        	
-                        	// we should not perform the shifting right here as we would then find
-                        	// already shifted comments and would shift them again...
-                        	commentsToShift.put(xssfComment, newrownum);
+                            
+                            // we should not perform the shifting right here as we would then find
+                            // already shifted comments and would shift them again...
+                            commentsToShift.put(xssfComment, newrownum);
                         }
-                	}
+                    }
                 }
             }
 
@@ -2694,7 +2960,7 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         // the Map is sorted and thus provides them in the order that we need here, 
         // i.e. from down to up if shifting down, vice-versa otherwise
         for(Map.Entry<XSSFComment, Integer> entry : commentsToShift.entrySet()) {
-        	entry.getKey().setRow(entry.getValue());
+            entry.getKey().setRow(entry.getValue());
         }
         
         XSSFRowShifter rowShifter = new XSSFRowShifter(this);
@@ -2702,12 +2968,13 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         int sheetIndex = getWorkbook().getSheetIndex(this);
         String sheetName = getWorkbook().getSheetName(sheetIndex);
         FormulaShifter shifter = FormulaShifter.createForRowShift(
-                                   sheetIndex, sheetName, startRow, endRow, n);
+                                   sheetIndex, sheetName, startRow, endRow, n, SpreadsheetVersion.EXCEL2007);
 
         rowShifter.updateNamedRanges(shifter);
         rowShifter.updateFormulas(shifter);
         rowShifter.shiftMerged(startRow, endRow, n);
         rowShifter.updateConditionalFormatting(shifter);
+        rowShifter.updateHyperlinks(shifter);
 
         //rebuild the _rows map
         SortedMap<Integer, XSSFRow> map = new TreeMap<Integer, XSSFRow>();
@@ -2718,31 +2985,31 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
     }
 
     private int shiftedRowNum(int startRow, int endRow, int n, int rownum) {
-		// no change if before any affected row
-    	if(rownum < startRow && (n > 0 || (startRow - rownum) > n)) {
-			return rownum;
-		}
-		
-    	// no change if after any affected row
-    	if(rownum > endRow && (n < 0 || (rownum - endRow) > n)) {
-    		return rownum;
-    	}
-    	
-    	// row before and things are moved up
-    	if(rownum < startRow) {
-    		// row is moved down by the shifting
-    		return rownum + (endRow - startRow);
-    	}
-    	
-    	// row is after and things are moved down
-    	if(rownum > endRow) {
-    		// row is moved up by the shifting
-    		return rownum - (endRow - startRow);
-    	}
-    	
-    	// row is part of the shifted block
-		return rownum + n;
-	}
+        // no change if before any affected row
+        if(rownum < startRow && (n > 0 || (startRow - rownum) > n)) {
+            return rownum;
+        }
+        
+        // no change if after any affected row
+        if(rownum > endRow && (n < 0 || (rownum - endRow) > n)) {
+            return rownum;
+        }
+        
+        // row before and things are moved up
+        if(rownum < startRow) {
+            // row is moved down by the shifting
+            return rownum + (endRow - startRow);
+        }
+        
+        // row is after and things are moved down
+        if(rownum > endRow) {
+            // row is moved up by the shifting
+            return rownum - (endRow - startRow);
+        }
+        
+        // row is part of the shifted block
+        return rownum + n;
+    }
 
     /**
      * Location of the top left visible cell Location of the top left visible cell in the bottom right
@@ -2756,21 +3023,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         CellReference cellReference = new CellReference(toprow, leftcol);
         String cellRef = cellReference.formatAsString();
         getPane().setTopLeftCell(cellRef);
-    }
-
-    /**
-     * Location of the top left visible cell Location of the top left visible cell in the bottom right
-     * pane (when in Left-to-Right mode).
-     *
-     * @param toprow the top row to show in desktop window pane
-     * @param leftcol the left column to show in desktop window pane
-     *
-     * @deprecated Use {@link #showInPane(int, int)} as there can be more than 32767 rows.
-     */
-    @Override
-    @Deprecated
-    public void showInPane(short toprow, short leftcol) {
-        showInPane((int)toprow, (int)leftcol);
     }
 
     @Override
@@ -2862,27 +3114,11 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
      * @param value <code>true</code> if this sheet is selected
      */
     @Override
-    @SuppressWarnings("deprecation") //YK: getXYZArray() array accessors are deprecated in xmlbeans with JDK 1.5 support
     public void setSelected(boolean value) {
         CTSheetViews views = getSheetTypeSheetViews();
         for (CTSheetView view : views.getSheetViewArray()) {
             view.setTabSelected(value);
         }
-    }
-
-    /**
-     * Assign a cell comment to a cell region in this worksheet
-     *
-     * @param cellRef cell region
-     * @param comment the comment to assign
-     * @deprecated since Nov 2009 use {@link XSSFCell#setCellComment(org.apache.poi.ss.usermodel.Comment)} instead
-     */
-    @Deprecated
-    public static void setCellComment(String cellRef, XSSFComment comment) {
-        CellReference cellReference = new CellReference(cellRef);
-
-        comment.setRow(cellReference.getRow());
-        comment.setColumn(cellReference.getCol());
     }
 
     /**
@@ -2903,6 +3139,9 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
      */
     @Internal
     public void removeHyperlink(int row, int column) {
+        // CTHyperlinks is regenerated from scratch when writing out the spreadsheet
+        // so don't worry about maintaining hyperlinks and CTHyperlinks in parallel.
+        // only maintain hyperlinks
         String ref = new CellReference(row, column).formatAsString();
         for (Iterator<XSSFHyperlink> it = hyperlinks.iterator(); it.hasNext();) {
             XSSFHyperlink hyperlink = it.next();
@@ -2918,19 +3157,36 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
      *
      * @return the location of the active cell.
      */
-    public String getActiveCell() {
-        return getSheetTypeSelection().getActiveCell();
+    @Override
+    public CellAddress getActiveCell() {
+        String address = getSheetTypeSelection().getActiveCell();
+        if (address == null) {
+            return null;
+        }
+        return new CellAddress(address);
     }
 
     /**
      * Sets location of the active cell
      *
      * @param cellRef the location of the active cell, e.g. <code>A1</code>..
+     * @deprecated 3.14beta2 (circa 2015-12-05). Use {@link #setActiveCell(CellAddress)} instead.
      */
     public void setActiveCell(String cellRef) {
         CTSelection ctsel = getSheetTypeSelection();
         ctsel.setActiveCell(cellRef);
         ctsel.setSqref(Arrays.asList(cellRef));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setActiveCell(CellAddress address) {
+        String ref = address.formatAsString();
+        CTSelection ctsel = getSheetTypeSelection();
+        ctsel.setActiveCell(ref);
+        ctsel.setSqref(Arrays.asList(ref));
     }
 
     /**
@@ -2999,7 +3255,7 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         return sheetPr.isSetPageSetUpPr() ? sheetPr.getPageSetUpPr() : sheetPr.addNewPageSetUpPr();
     }
 
-    private boolean shouldRemoveRow(int startRow, int endRow, int n, int rownum) {
+    private static final boolean shouldRemoveRow(int startRow, int endRow, int n, int rownum) {
         // is this row in the target-window where the moved rows will land?
         if (rownum >= (startRow + n) && rownum <= (endRow + n)) {
             // only remove it if the current row is not part of the data that is copied
@@ -3103,9 +3359,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
 
         XmlOptions xmlOptions = new XmlOptions(DEFAULT_XML_OPTIONS);
         xmlOptions.setSaveSyntheticDocumentElement(new QName(CTWorksheet.type.getName().getNamespaceURI(), "worksheet"));
-        Map<String, String> map = new HashMap<String, String>();
-        map.put(STRelationshipId.type.getName().getNamespaceURI(), "r");
-        xmlOptions.setSaveSuggestedPrefixes(map);
 
         worksheet.save(out, xmlOptions);
 
@@ -3242,28 +3495,12 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
     }
 
     /**
-     * Enable Autofilters locking.
-     * @deprecated use {@link #lockAutoFilter(boolean)}
-     */
-    public void lockAutoFilter() {
-        lockAutoFilter(true);
-    }
-
-    /**
      * Enable or disable Autofilters locking.
      * This does not modify sheet protection status.
      * To enforce this un-/locking, call {@link #disableLocking()} or {@link #enableLocking()}
      */
     public void lockAutoFilter(boolean enabled) {
         safeGetProtectionField().setAutoFilter(enabled);
-    }
-
-    /**
-     * Enable Deleting columns locking.
-     * @deprecated use {@link #lockDeleteColumns(boolean)}
-     */
-    public void lockDeleteColumns() {
-        lockDeleteColumns(true);
     }
 
     /**
@@ -3276,28 +3513,12 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
     }
 
     /**
-     * Enable Deleting rows locking.
-     * @deprecated use {@link #lockDeleteRows(boolean)}
-     */
-    public void lockDeleteRows() {
-        lockDeleteRows(true);
-    }
-
-    /**
      * Enable or disable Deleting rows locking.
      * This does not modify sheet protection status.
      * To enforce this un-/locking, call {@link #disableLocking()} or {@link #enableLocking()}
      */
     public void lockDeleteRows(boolean enabled) {
         safeGetProtectionField().setDeleteRows(enabled);
-    }
-
-    /**
-     * Enable Formatting cells locking.
-     * @deprecated use {@link #lockFormatCells(boolean)}
-     */
-    public void lockFormatCells() {
-        lockFormatCells(true);
     }
 
     /**
@@ -3310,28 +3531,12 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
     }
 
     /**
-     * Enable Formatting columns locking.
-     * @deprecated use {@link #lockFormatColumns(boolean)}
-     */
-    public void lockFormatColumns() {
-        lockFormatColumns(true);
-    }
-
-    /**
      * Enable or disable Formatting columns locking.
      * This does not modify sheet protection status.
      * To enforce this un-/locking, call {@link #disableLocking()} or {@link #enableLocking()}
      */
     public void lockFormatColumns(boolean enabled) {
         safeGetProtectionField().setFormatColumns(enabled);
-    }
-
-    /**
-     * Enable Formatting rows locking.
-     * @deprecated use {@link #lockFormatRows(boolean)}
-     */
-    public void lockFormatRows() {
-        lockFormatRows(true);
     }
 
     /**
@@ -3344,28 +3549,12 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
     }
 
     /**
-     * Enable Inserting columns locking.
-     * @deprecated use {@link #lockInsertColumns(boolean)}
-     */
-    public void lockInsertColumns() {
-        lockInsertColumns(true);
-    }
-
-    /**
      * Enable or disable Inserting columns locking.
      * This does not modify sheet protection status.
      * To enforce this un-/locking, call {@link #disableLocking()} or {@link #enableLocking()}
      */
     public void lockInsertColumns(boolean enabled) {
         safeGetProtectionField().setInsertColumns(enabled);
-    }
-
-    /**
-     * Enable Inserting hyperlinks locking.
-     * @deprecated use {@link #lockInsertHyperlinks(boolean)}
-     */
-    public void lockInsertHyperlinks() {
-        lockInsertHyperlinks(true);
     }
 
     /**
@@ -3378,28 +3567,12 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
     }
 
     /**
-     * Enable Inserting rows locking.
-     * @deprecated use {@link #lockInsertRows(boolean)}
-     */
-    public void lockInsertRows() {
-        lockInsertRows(true);
-    }
-
-    /**
      * Enable or disable Inserting rows locking.
      * This does not modify sheet protection status.
      * To enforce this un-/locking, call {@link #disableLocking()} or {@link #enableLocking()}
      */
     public void lockInsertRows(boolean enabled) {
         safeGetProtectionField().setInsertRows(enabled);
-    }
-
-    /**
-     * Enable Pivot Tables locking.
-     * @deprecated use {@link #lockPivotTables(boolean)}
-     */
-    public void lockPivotTables() {
-        lockPivotTables(true);
     }
 
     /**
@@ -3412,28 +3585,12 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
     }
 
     /**
-     * Enable Sort locking.
-     * @deprecated use {@link #lockSort(boolean)}
-     */
-    public void lockSort() {
-        lockSort(true);
-    }
-
-    /**
      * Enable or disable Sort locking.
      * This does not modify sheet protection status.
      * To enforce this un-/locking, call {@link #disableLocking()} or {@link #enableLocking()}
      */
     public void lockSort(boolean enabled) {
         safeGetProtectionField().setSort(enabled);
-    }
-
-    /**
-     * Enable Objects locking.
-     * @deprecated use {@link #lockObjects(boolean)}
-     */
-    public void lockObjects() {
-        lockObjects(true);
     }
 
     /**
@@ -3446,14 +3603,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
     }
 
     /**
-     * Enable Scenarios locking.
-     * @deprecated use {@link #lockScenarios(boolean)}
-     */
-    public void lockScenarios() {
-        lockScenarios(true);
-    }
-
-    /**
      * Enable or disable Scenarios locking.
      * This does not modify sheet protection status.
      * To enforce this un-/locking, call {@link #disableLocking()} or {@link #enableLocking()}
@@ -3463,28 +3612,12 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
     }
 
     /**
-     * Enable Selection of locked cells locking.
-     * @deprecated use {@link #lockSelectLockedCells(boolean)}
-     */
-    public void lockSelectLockedCells() {
-        lockSelectLockedCells(true);
-    }
-
-    /**
      * Enable or disable Selection of locked cells locking.
      * This does not modify sheet protection status.
      * To enforce this un-/locking, call {@link #disableLocking()} or {@link #enableLocking()}
      */
     public void lockSelectLockedCells(boolean enabled) {
         safeGetProtectionField().setSelectLockedCells(enabled);
-    }
-
-    /**
-     * Enable Selection of unlocked cells locking.
-     * @deprecated use {@link #lockSelectUnlockedCells(boolean)}
-     */
-    public void lockSelectUnlockedCells() {
-        lockSelectUnlockedCells(true);
     }
 
     /**
@@ -3588,7 +3721,6 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
         return dataValidationHelper;
     }
 
-    @SuppressWarnings("deprecation") //YK: getXYZArray() array accessors are deprecated in xmlbeans with JDK 1.5 support
     public List<XSSFDataValidation> getDataValidations() {
         List<XSSFDataValidation> xssfValidations = new ArrayList<XSSFDataValidation>();
         CTDataValidations dataValidations = this.worksheet.getDataValidations();
@@ -3629,6 +3761,7 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
 
     }
 
+    @SuppressWarnings("resource")
     @Override
     public XSSFAutoFilter setAutoFilter(CellRangeAddress range) {
         CTAutoFilter af = worksheet.getAutoFilter();
@@ -3669,8 +3802,9 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
        // Table numbers need to be unique in the file, not just
        //  unique within the sheet. Find the next one
        int tableNumber = getPackagePart().getPackage().getPartsByContentType(XSSFRelation.TABLE.getContentType()).size() + 1;
-       XSSFTable table = (XSSFTable)createRelationship(XSSFRelation.TABLE, XSSFFactory.getInstance(), tableNumber);
-       tbl.setId(table.getPackageRelationship().getId());
+       RelationPart rp = createRelationship(XSSFRelation.TABLE, XSSFFactory.getInstance(), tableNumber, false);
+       XSSFTable table = rp.getDocumentPart();
+       tbl.setId(rp.getRelationship().getId());
 
        tables.put(tbl.getId(), table);
 
@@ -3867,6 +4001,7 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
      * including: pivotCacheDefinition, pivotCacheRecords
      * @return returns a pivotTable
      */
+    @SuppressWarnings("resource")
     @Beta
     private XSSFPivotTable createPivotTable() {
         XSSFWorkbook wb = getWorkbook();
@@ -3967,5 +4102,56 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet {
             return 0;
         }
         return col.getOutlineLevel();
+    }
+    
+    /**
+     * Add ignored errors (usually to suppress them in the UI of a consuming
+     * application).
+     *
+     * @param cell Cell.
+     * @param ignoredErrorTypes Types of error to ignore there.
+     */
+    public void addIgnoredErrors(CellReference cell, IgnoredErrorType... ignoredErrorTypes) {
+        addIgnoredErrors(cell.formatAsString(), ignoredErrorTypes);
+    }
+    
+    /**
+     * Ignore errors across a range of cells.
+     * 
+     * @param region Range of cells.
+     * @param ignoredErrorTypes Types of error to ignore there.
+     */
+    public void addIgnoredErrors(CellRangeAddress region, IgnoredErrorType... ignoredErrorTypes) {
+        region.validate(SpreadsheetVersion.EXCEL2007);
+        addIgnoredErrors(region.formatAsString(), ignoredErrorTypes);
+    }
+    
+    /**
+     * Returns the errors currently being ignored and the ranges
+     * where they are ignored.
+     *
+     * @return Map of error type to the range(s) where they are ignored.
+     */
+    public Map<IgnoredErrorType, Set<CellRangeAddress>> getIgnoredErrors() {
+        Map<IgnoredErrorType, Set<CellRangeAddress>> result = new LinkedHashMap<IgnoredErrorType, Set<CellRangeAddress>>();
+        if (worksheet.isSetIgnoredErrors()) {
+            for (CTIgnoredError err : worksheet.getIgnoredErrors().getIgnoredErrorList()) {
+                for (IgnoredErrorType errType : XSSFIgnoredErrorHelper.getErrorTypes(err)) {
+                    if (!result.containsKey(errType)) {
+                        result.put(errType, new LinkedHashSet<CellRangeAddress>());
+                    }
+                    for (Object ref : err.getSqref()) {
+                        result.get(errType).add(CellRangeAddress.valueOf(ref.toString()));
+                    }
+                }
+            }
+        }
+        return result;
+    }
+    
+    private void addIgnoredErrors(String ref, IgnoredErrorType... ignoredErrorTypes) {
+        CTIgnoredErrors ctIgnoredErrors = worksheet.isSetIgnoredErrors() ? worksheet.getIgnoredErrors() : worksheet.addNewIgnoredErrors();
+        CTIgnoredError ctIgnoredError = ctIgnoredErrors.addNewIgnoredError();
+        XSSFIgnoredErrorHelper.addIgnoredErrors(ctIgnoredError, ref, ignoredErrorTypes);
     }
 }

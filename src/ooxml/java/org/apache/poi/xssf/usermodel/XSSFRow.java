@@ -17,17 +17,24 @@
 
 package org.apache.poi.xssf.usermodel;
 
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.TreeMap;
 
+import org.apache.poi.ss.formula.FormulaShifter;
 import org.apache.poi.ss.SpreadsheetVersion;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellCopyPolicy;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellReference;
+import org.apache.poi.util.Beta;
 import org.apache.poi.util.Internal;
 import org.apache.poi.xssf.model.CalculationChain;
 import org.apache.poi.xssf.model.StylesTable;
+import org.apache.poi.xssf.usermodel.helpers.XSSFRowShifter;
 import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTCell;
 import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTRow;
 
@@ -59,7 +66,6 @@ public class XSSFRow implements Row, Comparable<XSSFRow> {
      * @param row the xml bean containing all cell definitions for this row.
      * @param sheet the parent sheet.
      */
-    @SuppressWarnings("deprecation") //YK: getXYZArray() array accessors are deprecated in xmlbeans with JDK 1.5 support
     protected XSSFRow(CTRow row, XSSFSheet sheet) {
         _row = row;
         _sheet = sheet;
@@ -114,21 +120,50 @@ public class XSSFRow implements Row, Comparable<XSSFRow> {
      * Compares two <code>XSSFRow</code> objects.  Two rows are equal if they belong to the same worksheet and
      * their row indexes are equal.
      *
-     * @param   row   the <code>XSSFRow</code> to be compared.
-     * @return	the value <code>0</code> if the row number of this <code>XSSFRow</code> is
-     * 		equal to the row number of the argument <code>XSSFRow</code>; a value less than
-     * 		<code>0</code> if the row number of this this <code>XSSFRow</code> is numerically less
-     * 		than the row number of the argument <code>XSSFRow</code>; and a value greater
-     * 		than <code>0</code> if the row number of this this <code>XSSFRow</code> is numerically
-     * 		 greater than the row number of the argument <code>XSSFRow</code>.
+     * @param   other   the <code>XSSFRow</code> to be compared.
+     * @return  <ul>
+     *      <li>
+     *      the value <code>0</code> if the row number of this <code>XSSFRow</code> is
+     *      equal to the row number of the argument <code>XSSFRow</code>
+     *      </li>
+     *      <li>
+     *      a value less than <code>0</code> if the row number of this this <code>XSSFRow</code> is
+     *      numerically less than the row number of the argument <code>XSSFRow</code>
+     *      </li>
+     *      <li>
+     *      a value greater than <code>0</code> if the row number of this this <code>XSSFRow</code> is
+     *      numerically greater than the row number of the argument <code>XSSFRow</code>
+     *      </li>
+     *      </ul>
      * @throws IllegalArgumentException if the argument row belongs to a different worksheet
      */
-    public int compareTo(XSSFRow row) {
-        int thisVal = this.getRowNum();
-        if(row.getSheet() != getSheet()) throw new IllegalArgumentException("The compared rows must belong to the same XSSFSheet");
+    @Override
+    public int compareTo(XSSFRow other) {
+        if (this.getSheet() != other.getSheet()) {
+            throw new IllegalArgumentException("The compared rows must belong to the same sheet");
+        }
 
-        int anotherVal = row.getRowNum();
-        return (thisVal < anotherVal ? -1 : (thisVal == anotherVal ? 0 : 1));
+        Integer thisRow = this.getRowNum();
+        Integer otherRow = other.getRowNum();
+        return thisRow.compareTo(otherRow);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (!(obj instanceof XSSFRow))
+        {
+            return false;
+        }
+        XSSFRow other = (XSSFRow) obj;
+
+        return (this.getRowNum() == other.getRowNum()) &&
+               (this.getSheet() == other.getSheet());
+    }
+
+    @Override
+    public int hashCode() {
+        return _row.hashCode();
     }
 
     /**
@@ -438,7 +473,6 @@ public class XSSFRow implements Row, Comparable<XSSFRow> {
      *
      * @see org.apache.poi.xssf.usermodel.XSSFSheet#write(java.io.OutputStream) ()
      */
-    @SuppressWarnings("deprecation")
     protected void onDocumentWrite(){
         // check if cells in the CTRow are ordered
         boolean isOrdered = true;
@@ -512,6 +546,80 @@ public class XSSFRow implements Row, Comparable<XSSFRow> {
             ctCell.setR(r);
         }
         setRowNum(rownum);
+    }
+    
+    /**
+     * Copy the cells from srcRow to this row
+     * If this row is not a blank row, this will merge the two rows, overwriting
+     * the cells in this row with the cells in srcRow
+     * If srcRow is null, overwrite cells in destination row with blank values, styles, etc per cell copy policy
+     * srcRow may be from a different sheet in the same workbook
+     * @param srcRow the rows to copy from
+     * @param policy the policy to determine what gets copied
+     */
+    @Beta
+    public void copyRowFrom(Row srcRow, CellCopyPolicy policy) {
+        if (srcRow == null) {
+            // srcRow is blank. Overwrite cells with blank values, blank styles, etc per cell copy policy
+            for (Cell destCell : this) {
+                final XSSFCell srcCell = null;
+                // FIXME: remove type casting when copyCellFrom(Cell, CellCopyPolicy) is added to Cell interface
+                ((XSSFCell)destCell).copyCellFrom(srcCell, policy);
+            }
+
+            if (policy.isCopyMergedRegions()) {
+                // Remove MergedRegions in dest row
+                final int destRowNum = getRowNum();
+                int index = 0;
+                final Set<Integer> indices = new HashSet<Integer>();
+                for (CellRangeAddress destRegion : getSheet().getMergedRegions()) {
+                    if (destRowNum == destRegion.getFirstRow() && destRowNum == destRegion.getLastRow()) {
+                        indices.add(index);
+                    }
+                    index++;
+                }
+                getSheet().removeMergedRegions(indices);
+            }
+
+            if (policy.isCopyRowHeight()) {
+                // clear row height
+                setHeight((short)-1);
+            }
+
+        }
+        else {
+            for (final Cell c : srcRow){
+                final XSSFCell srcCell = (XSSFCell)c;
+                final XSSFCell destCell = createCell(srcCell.getColumnIndex(), srcCell.getCellType());
+                destCell.copyCellFrom(srcCell, policy);
+            }
+
+            final XSSFRowShifter rowShifter = new XSSFRowShifter(_sheet);
+            final int sheetIndex = _sheet.getWorkbook().getSheetIndex(_sheet);
+            final String sheetName = _sheet.getWorkbook().getSheetName(sheetIndex);
+            final int srcRowNum = srcRow.getRowNum();
+            final int destRowNum = getRowNum();
+            final int rowDifference = destRowNum - srcRowNum;
+            final FormulaShifter shifter = FormulaShifter.createForRowCopy(sheetIndex, sheetName, srcRowNum, srcRowNum, rowDifference, SpreadsheetVersion.EXCEL2007);
+            rowShifter.updateRowFormulas(this, shifter);
+
+            // Copy merged regions that are fully contained on the row
+            // FIXME: is this something that rowShifter could be doing?
+            if (policy.isCopyMergedRegions()) {
+                for (CellRangeAddress srcRegion : srcRow.getSheet().getMergedRegions()) {
+                    if (srcRowNum == srcRegion.getFirstRow() && srcRowNum == srcRegion.getLastRow()) {
+                        CellRangeAddress destRegion = srcRegion.copy();
+                        destRegion.setFirstRow(destRowNum);
+                        destRegion.setLastRow(destRowNum);
+                        getSheet().addMergedRegion(destRegion);
+                    }
+                }
+            }
+
+            if (policy.isCopyRowHeight()) {
+                setHeight(srcRow.getHeight());
+            }
+        }
     }
 
     public int getOutlineLevel() {

@@ -19,8 +19,10 @@ package org.apache.poi.ss.usermodel;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.poi.hssf.util.PaneInformation;
+import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.ss.util.CellRangeAddress;
 
 /**
@@ -579,8 +581,28 @@ public interface Sheet extends Iterable<Row> {
      *
      * @param numerator     The numerator for the zoom magnification.
      * @param denominator   The denominator for the zoom magnification.
+     * @deprecated 2015-11-23 (circa POI 3.14beta1). Use {@link #setZoom(int)} instead.
      */
     void setZoom(int numerator, int denominator);
+    
+    /**
+     * Window zoom magnification for current view representing percent values.
+     * Valid values range from 10 to 400. Horizontal & Vertical scale together.
+     *
+     * For example:
+     * <pre>
+     * 10 - 10%
+     * 20 - 20%
+     * ...
+     * 100 - 100%
+     * ...
+     * 400 - 400%
+     * </pre>
+     *
+     * @param scale window zoom magnification
+     * @throws IllegalArgumentException if scale is invalid
+     */
+    public void setZoom(int scale);
 
     /**
      * The top row in the visible view when the sheet is
@@ -606,17 +628,6 @@ public interface Sheet extends Iterable<Row> {
      * @param leftcol the left column to show in desktop window pane
      */
     void showInPane(int toprow, int leftcol);
-
-    /**
-     * Sets desktop window pane display area, when the
-     * file is first opened in a viewer.
-     *
-     * @param toprow the top row to show in desktop window pane
-     * @param leftcol the left column to show in desktop window pane
-     * @deprecated Use {@link #showInPane(int, int)} as there can be more than 32767 rows.
-     */
-    @Deprecated
-	void showInPane(short toprow, short leftcol);
 
     /**
      * Shifts rows between startRow and endRow n number of rows.
@@ -817,7 +828,7 @@ public interface Sheet extends Iterable<Row> {
     void groupColumn(int fromColumn, int toColumn);
 
     /**
-     * Ungroup a range of columns that were previously groupped
+     * Ungroup a range of columns that were previously grouped
      *
      * @param fromColumn   start column (0-based)
      * @param toColumn     end column (0-based)
@@ -833,7 +844,7 @@ public interface Sheet extends Iterable<Row> {
     void groupRow(int fromRow, int toRow);
 
     /**
-     * Ungroup a range of rows that were previously groupped
+     * Ungroup a range of rows that were previously grouped
      *
      * @param fromRow   start row (0-based)
      * @param toRow     end row (0-based)
@@ -841,9 +852,9 @@ public interface Sheet extends Iterable<Row> {
     void ungroupRow(int fromRow, int toRow);
 
     /**
-     * Set view state of a groupped range of rows
+     * Set view state of a grouped range of rows
      *
-     * @param row   start row of a groupped range of rows (0-based)
+     * @param row   start row of a grouped range of rows (0-based)
      * @param collapse whether to expand/collapse the detail rows
      */
     void setRowGroupCollapsed(int row, boolean collapse);
@@ -890,9 +901,33 @@ public interface Sheet extends Iterable<Row> {
      * Returns cell comment for the specified row and column
      *
      * @return cell comment or <code>null</code> if not found
+     * @deprecated as of 2015-11-23 (circa POI 3.14beta1). Use {@link #getCellComment(CellAddress)} instead.
      */
     Comment getCellComment(int row, int column);
+    
+    /**
+     * Returns cell comment for the specified location
+     *
+     * @return cell comment or <code>null</code> if not found
+     */
+    Comment getCellComment(CellAddress ref);
 
+    /**
+     * Returns all cell comments on this sheet.
+     * @return A map of each Comment in the sheet, keyed on the cell address where
+     * the comment is located.
+     */
+    Map<CellAddress, ? extends Comment> getCellComments();
+
+    /**
+     * Return the sheet's existing drawing, or null if there isn't yet one.
+     * 
+     * Use {@link #createDrawingPatriarch()} to get or create
+     *
+     * @return a SpreadsheetML drawing
+     */
+    Drawing getDrawingPatriarch();
+    
     /**
      * Creates the top-level drawing patriarch. 
      * <p>This may then be used to add graphics or charts.</p>
@@ -944,17 +979,17 @@ public interface Sheet extends Iterable<Row> {
     
     public DataValidationHelper getDataValidationHelper();
 
-	/**
+    /**
      * Returns the list of DataValidation in the sheet.
      * @return list of DataValidation in the sheet
      */
     public List<? extends DataValidation> getDataValidations();
 
-	/**
-	 * Creates a data validation object
-	 * @param dataValidation The Data validation object settings
-	 */
-	public void addValidationData(DataValidation dataValidation);
+    /**
+     * Creates a data validation object
+     * @param dataValidation The Data validation object settings
+     */
+    public void addValidationData(DataValidation dataValidation);
 
     /**
      * Enable filtering for a range of cells
@@ -1067,4 +1102,36 @@ public interface Sheet extends Iterable<Row> {
      *  you take it out of them.
      */
     int getColumnOutlineLevel(int columnIndex);
+    
+    /**
+     * Get a Hyperlink in this sheet anchored at row, column
+     *
+     * @param row
+     * @param column
+     * @return hyperlink if there is a hyperlink anchored at row, column; otherwise returns null
+     */
+    public Hyperlink getHyperlink(int row, int column);
+    
+    /**
+     * Get a list of Hyperlinks in this sheet
+     *
+     * @return Hyperlinks for the sheet
+     */
+    public List<? extends Hyperlink> getHyperlinkList();
+
+    /**
+     * Return location of the active cell, e.g. <code>A1</code>.
+     *
+     * @return the location of the active cell.
+     * @since 3.14beta1
+     */
+    public CellAddress getActiveCell();
+
+    /**
+      * Sets location of the active cell
+      *
+      * @param address the location of the active cell, e.g. <code>A1</code>.
+      * @since 3.14beta1
+      */
+    public void setActiveCell(CellAddress address);
 }

@@ -16,14 +16,14 @@
 ==================================================================== */
 package org.apache.poi.xwpf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import javax.xml.namespace.QName;
 
@@ -50,12 +50,22 @@ public class XWPFNumbering extends POIXMLDocumentPart {
 
     /**
      * create a new styles object with an existing document
+     * 
+     * @since POI 3.14-Beta1
      */
-    public XWPFNumbering(PackagePart part, PackageRelationship rel) throws IOException, OpenXML4JException {
-        super(part, rel);
+    public XWPFNumbering(PackagePart part) throws IOException, OpenXML4JException {
+        super(part);
         isNew = true;
     }
 
+    /**
+     * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+     */
+    @Deprecated
+    public XWPFNumbering(PackagePart part, PackageRelationship rel) throws IOException, OpenXML4JException {
+        this(part);
+    }
+    
     /**
      * create a new XWPFNumbering object for use in a new document
      */
@@ -69,13 +79,12 @@ public class XWPFNumbering extends POIXMLDocumentPart {
      * read numbering form an existing package
      */
     @Override
-    @SuppressWarnings("deprecation")
     protected void onDocumentRead() throws IOException {
         NumberingDocument numberingDoc = null;
         InputStream is;
         is = getPackagePart().getInputStream();
         try {
-            numberingDoc = NumberingDocument.Factory.parse(is);
+            numberingDoc = NumberingDocument.Factory.parse(is, DEFAULT_XML_OPTIONS);
             ctNumbering = numberingDoc.getNumbering();
             //get any Nums
             for (CTNum ctNum : ctNumbering.getNumArray()) {
@@ -87,6 +96,8 @@ public class XWPFNumbering extends POIXMLDocumentPart {
             isNew = false;
         } catch (XmlException e) {
             throw new POIXMLException();
+        } finally {
+            is.close();
         }
     }
 
@@ -97,17 +108,6 @@ public class XWPFNumbering extends POIXMLDocumentPart {
     protected void commit() throws IOException {
         XmlOptions xmlOptions = new XmlOptions(DEFAULT_XML_OPTIONS);
         xmlOptions.setSaveSyntheticDocumentElement(new QName(CTNumbering.type.getName().getNamespaceURI(), "numbering"));
-        Map<String, String> map = new HashMap<String, String>();
-        map.put("http://schemas.openxmlformats.org/markup-compatibility/2006", "ve");
-        map.put("urn:schemas-microsoft-com:office:office", "o");
-        map.put("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "r");
-        map.put("http://schemas.openxmlformats.org/officeDocument/2006/math", "m");
-        map.put("urn:schemas-microsoft-com:vml", "v");
-        map.put("http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing", "wp");
-        map.put("urn:schemas-microsoft-com:office:word", "w10");
-        map.put("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "w");
-        map.put("http://schemas.microsoft.com/office/word/2006/wordml", "wne");
-        xmlOptions.setSaveSuggestedPrefixes(map);
         PackagePart part = getPackagePart();
         OutputStream out = part.getOutputStream();
         ctNumbering.save(out, xmlOptions);

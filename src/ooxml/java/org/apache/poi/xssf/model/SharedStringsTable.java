@@ -17,6 +17,9 @@
 
 package org.apache.poi.xssf.model;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+import static org.apache.poi.xssf.usermodel.XSSFRelation.NS_SPREADSHEETML;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -34,7 +37,6 @@ import org.apache.xmlbeans.XmlOptions;
 import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTRst;
 import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTSst;
 import org.openxmlformats.schemas.spreadsheetml.x2006.main.SstDocument;
-
 
 /**
  * Table of strings shared across all sheets in a workbook.
@@ -56,9 +58,6 @@ import org.openxmlformats.schemas.spreadsheetml.x2006.main.SstDocument;
  * The shared string table contains all the necessary information for displaying the string: the text, formatting
  * properties, and phonetic properties (for East Asian languages).
  * </p>
- *
- * @author Nick Birch
- * @author Yegor Kozlov
  */
 public class SharedStringsTable extends POIXMLDocumentPart {
 
@@ -92,7 +91,7 @@ public class SharedStringsTable extends POIXMLDocumentPart {
         options.put( XmlOptions.SAVE_INNER );
      	options.put( XmlOptions.SAVE_AGGRESSIVE_NAMESPACES );
      	options.put( XmlOptions.SAVE_USE_DEFAULT_NAMESPACE );
-        options.setSaveImplicitNamespaces(Collections.singletonMap("", "http://schemas.openxmlformats.org/spreadsheetml/2006/main"));
+        options.setSaveImplicitNamespaces(Collections.singletonMap("", NS_SPREADSHEETML));
     }
 
     public SharedStringsTable() {
@@ -101,9 +100,19 @@ public class SharedStringsTable extends POIXMLDocumentPart {
         _sstDoc.addNewSst();
     }
 
-    public SharedStringsTable(PackagePart part, PackageRelationship rel) throws IOException {
-        super(part, rel);
+    /**
+     * @since POI 3.14-Beta1
+     */
+    public SharedStringsTable(PackagePart part) throws IOException {
+        super(part);
         readFrom(part.getInputStream());
+    }    
+    
+    /**
+     * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+     */
+    public SharedStringsTable(PackagePart part, PackageRelationship rel) throws IOException {
+        this(part);
     }
 
     /**
@@ -112,11 +121,10 @@ public class SharedStringsTable extends POIXMLDocumentPart {
      * @param is The input stream containing the XML document.
      * @throws IOException if an error occurs while reading.
      */
-    @SuppressWarnings("deprecation") //YK: getXYZArray() array accessors are deprecated in xmlbeans with JDK 1.5 support
     public void readFrom(InputStream is) throws IOException {
         try {
             int cnt = 0;
-            _sstDoc = SstDocument.Factory.parse(is);
+            _sstDoc = SstDocument.Factory.parse(is, DEFAULT_XML_OPTIONS);
             CTSst sst = _sstDoc.getSst();
             count = (int)sst.getCount();
             uniqueCount = (int)sst.getUniqueCount();
@@ -126,7 +134,7 @@ public class SharedStringsTable extends POIXMLDocumentPart {
                 cnt++;
             }
         } catch (XmlException e) {
-            throw new IOException(e.getLocalizedMessage());
+            throw new IOException(e);
         }
     }
 

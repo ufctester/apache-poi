@@ -18,17 +18,26 @@
 package org.apache.poi.xssf.usermodel;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.poi.hssf.HSSFITestDataProvider;
 import org.apache.poi.ss.SpreadsheetVersion;
 import org.apache.poi.ss.usermodel.BaseTestXCell;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellCopyPolicy;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.CreationHelper;
 import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.Hyperlink;
+import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.RichTextString;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -493,5 +502,165 @@ public final class TestXSSFCell extends BaseTestXCell {
         	xwb.close();
         	wb.close();
         }
+    }
+
+    private XSSFCell srcCell, destCell; //used for testCopyCellFrom_CellCopyPolicy
+    
+    @Test
+    public final void testCopyCellFrom_CellCopyPolicy_default() {
+        setUp_testCopyCellFrom_CellCopyPolicy();
+        
+        // default copy policy
+        final CellCopyPolicy policy = new CellCopyPolicy();
+        destCell.copyCellFrom(srcCell, policy);
+        
+        assertEquals(Cell.CELL_TYPE_FORMULA, destCell.getCellType());
+        assertEquals("2+3", destCell.getCellFormula());
+        assertEquals(srcCell.getCellStyle(), destCell.getCellStyle());
+    }
+    
+    @Test
+    public final void testCopyCellFrom_CellCopyPolicy_value() {
+        setUp_testCopyCellFrom_CellCopyPolicy();
+        
+        // Paste values only
+        final CellCopyPolicy policy = new CellCopyPolicy.Builder().cellFormula(false).build();
+        destCell.copyCellFrom(srcCell, policy);
+        assertEquals(Cell.CELL_TYPE_NUMERIC, destCell.getCellType());
+    }
+    
+    @Test
+    public final void testCopyCellFrom_CellCopyPolicy_formulaWithUnregisteredUDF() {
+        setUp_testCopyCellFrom_CellCopyPolicy();
+        
+        srcCell.setCellFormula("MYFUNC2(123, $A5, Sheet1!$B7)");
+        
+        // Copy formula verbatim (no shifting). This is okay because copyCellFrom is Internal.
+        // Users should use higher-level copying functions to row- or column-shift formulas.
+        final CellCopyPolicy policy = new CellCopyPolicy.Builder().cellFormula(true).build();
+        destCell.copyCellFrom(srcCell, policy);
+        assertEquals("MYFUNC2(123, $A5, Sheet1!$B7)", destCell.getCellFormula());
+    }
+    
+    @Test
+    public final void testCopyCellFrom_CellCopyPolicy_style() {
+        setUp_testCopyCellFrom_CellCopyPolicy();
+        srcCell.setCellValue((String) null);
+        
+        // Paste styles only
+        final CellCopyPolicy policy = new CellCopyPolicy.Builder().cellValue(false).build();
+        destCell.copyCellFrom(srcCell, policy);
+        assertEquals(srcCell.getCellStyle(), destCell.getCellStyle());
+        
+        // Old cell value should not have been overwritten
+        assertNotEquals(Cell.CELL_TYPE_BLANK, destCell.getCellType());
+        assertEquals(Cell.CELL_TYPE_BOOLEAN, destCell.getCellType());
+        assertEquals(true, destCell.getBooleanCellValue());
+    }
+    
+    @Test
+    public final void testCopyCellFrom_CellCopyPolicy_copyHyperlink() throws IOException {
+        setUp_testCopyCellFrom_CellCopyPolicy();
+        final Workbook wb = srcCell.getSheet().getWorkbook();
+        final CreationHelper createHelper = wb.getCreationHelper();
+
+        srcCell.setCellValue("URL LINK");
+        Hyperlink link = createHelper.createHyperlink(Hyperlink.LINK_URL);
+        link.setAddress("http://poi.apache.org/");
+        srcCell.setHyperlink(link);
+
+        // Set link cell style (optional)
+        CellStyle hlinkStyle = wb.createCellStyle();
+        Font hlinkFont = wb.createFont();
+        hlinkFont.setUnderline(Font.U_SINGLE);
+        hlinkFont.setColor(IndexedColors.BLUE.getIndex());
+        hlinkStyle.setFont(hlinkFont);
+        srcCell.setCellStyle(hlinkStyle);
+
+        // Copy hyperlink
+        final CellCopyPolicy policy = new CellCopyPolicy.Builder().copyHyperlink(true).mergeHyperlink(false).build();
+        destCell.copyCellFrom(srcCell, policy);
+        assertNotNull(destCell.getHyperlink());
+
+        assertSame("unit test assumes srcCell and destCell are on the same sheet",
+                srcCell.getSheet(), destCell.getSheet());
+
+        final List<XSSFHyperlink> links = srcCell.getSheet().getHyperlinkList();
+        assertEquals("number of hyperlinks on sheet", 2, links.size());
+        assertEquals("source hyperlink",
+                new CellReference(srcCell).formatAsString(), links.get(0).getCellRef());
+        assertEquals("destination hyperlink",
+                new CellReference(destCell).formatAsString(), links.get(1).getCellRef());
+        
+        wb.close();
+    }
+    
+    @Test
+    public final void testCopyCellFrom_CellCopyPolicy_mergeHyperlink() throws IOException {
+        setUp_testCopyCellFrom_CellCopyPolicy();
+        final Workbook wb = srcCell.getSheet().getWorkbook();
+        final CreationHelper createHelper = wb.getCreationHelper();
+
+        srcCell.setCellValue("URL LINK");
+        Hyperlink link = createHelper.createHyperlink(Hyperlink.LINK_URL);
+        link.setAddress("http://poi.apache.org/");
+        destCell.setHyperlink(link);
+
+        // Set link cell style (optional)
+        CellStyle hlinkStyle = wb.createCellStyle();
+        Font hlinkFont = wb.createFont();
+        hlinkFont.setUnderline(Font.U_SINGLE);
+        hlinkFont.setColor(IndexedColors.BLUE.getIndex());
+        hlinkStyle.setFont(hlinkFont);
+        destCell.setCellStyle(hlinkStyle);
+        
+        // Pre-condition assumptions. This test is broken if either of these fail.
+        assertSame("unit test assumes srcCell and destCell are on the same sheet",
+                srcCell.getSheet(), destCell.getSheet());
+        assertNull(srcCell.getHyperlink());
+
+        // Merge hyperlink - since srcCell doesn't have a hyperlink, destCell's hyperlink is not overwritten (cleared).
+        final CellCopyPolicy policy = new CellCopyPolicy.Builder().mergeHyperlink(true).copyHyperlink(false).build();
+        destCell.copyCellFrom(srcCell, policy);
+        assertNull(srcCell.getHyperlink());
+        assertNotNull(destCell.getHyperlink());
+        assertSame(link, destCell.getHyperlink());
+
+        List<XSSFHyperlink> links;
+        links = srcCell.getSheet().getHyperlinkList();
+        assertEquals("number of hyperlinks on sheet", 1, links.size());
+        assertEquals("source hyperlink",
+                new CellReference(destCell).formatAsString(), links.get(0).getCellRef());
+        
+        // Merge destCell's hyperlink to srcCell. Since destCell does have a hyperlink, this should copy destCell's hyperlink to srcCell.
+        srcCell.copyCellFrom(destCell, policy);
+        assertNotNull(srcCell.getHyperlink());
+        assertNotNull(destCell.getHyperlink());
+        
+        links = srcCell.getSheet().getHyperlinkList();
+        assertEquals("number of hyperlinks on sheet", 2, links.size());
+        assertEquals("dest hyperlink",
+                new CellReference(destCell).formatAsString(), links.get(0).getCellRef());
+        assertEquals("source hyperlink",
+                new CellReference(srcCell).formatAsString(), links.get(1).getCellRef());
+        
+        wb.close();
+    }
+    
+    private final void setUp_testCopyCellFrom_CellCopyPolicy() {
+        @SuppressWarnings("resource")
+        final XSSFWorkbook wb = new XSSFWorkbook();
+        final XSSFRow row = wb.createSheet("Sheet1").createRow(0);
+        srcCell = row.createCell(0);
+        destCell = row.createCell(1);
+        
+        srcCell.setCellFormula("2+3");
+        
+        final CellStyle style = wb.createCellStyle();
+        style.setBorderTop(CellStyle.BORDER_THICK);
+        style.setFillBackgroundColor((short) 5);
+        srcCell.setCellStyle(style);
+        
+        destCell.setCellValue(true);
     }
 }

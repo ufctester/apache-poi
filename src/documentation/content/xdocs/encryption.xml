@@ -25,6 +25,7 @@
     <title>Apache POI - Encryption support</title>
     <authors>
       <person id="maxcom" name="Maxim Valyanskiy" email="maxcom@apache.org"/>
+      <person id="AB" name="Andreas Beeker" email="kiwiwings@apache.org"/>
     </authors>
   </header>
 
@@ -241,9 +242,9 @@ fos.close();
      <p>The classes have been tested against the following libraries, which need to be included additionally to the
      <link href="overview.html#components">default dependencies</link>:</p>
      <ul>
-     <li>BouncyCastle bcpkix and bcprov (tested against 1.51)</li>
-     <li>Apache Santuario "xmlsec" (tested against 2.0.1)</li>
-     <li>and slf4j-api (tested against 1.7.7)</li>     
+     <li>BouncyCastle bcpkix and bcprov (tested against 1.53)</li>
+     <li>Apache Santuario "xmlsec" (tested against 2.0.6)</li>
+     <li>and slf4j-api (tested against 1.7.12)</li>     
      </ul>
      <p>Depending on the <link href="http://poi.apache.org/apidocs/org/apache/poi/poifs/crypt/dsig/SignatureConfig.html">configuration</link>
      and the activated <link href="http://poi.apache.org/apidocs/org/apache/poi/poifs/crypt/dsig/facets/package-summary.html">facets</link>
@@ -315,7 +316,3 @@ pkg.close();
     </legal>
   </footer>
 </document>
-
-
-
-

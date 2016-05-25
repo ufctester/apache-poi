@@ -28,6 +28,7 @@
         <person id="DS" name="Dominik Stadler" email="centic@apache.org" />
         <person id="GJS" name="Glen Stampoultzis" email="user@poi.apache.org" />
         <person id="JM" name="Josh Micich" email="josh@apache.org" />
+        <person id="JO" name="Javen O'Neal" email="onealj@apache.org" />
         <person id="MJ" name="Marc Johnson" email="mjohnson@apache.org" />
         <person id="NKB" name="Nicola Ken Barozzi" email="barozzi@nicolaken.com" />
         <person id="NB" name="Nick Burch" email="nick@torchbox.com" />
@@ -38,20 +39,125 @@
         <person id="YK" name="Yegor Kozlov" email="yegor@apache.org" />
     </devs>
 
-    <!-- release version="3.14-beta1" date="2015-11-??">
+    <!-- release version="3.14-beta1" date="2016-07-??">
     </release -->
 
+    <release version="3.14" date="2016-03-07">
+        <action dev="PD" type="add" fixes-bug="59056">Render individual slideshow shapes</action>
+        <action dev="PD" type="fix" fixes-bug="59074">ExtractorFactory should give a more helpful exception on old Excel files too old for ExcelExtractor</action>
+        <action dev="PD" type="add" fixes-bug="57989">XSSFChart support for setting chart titles</action>
+        <action dev="PD" type="fix" fixes-bug="59030">Prevent NPE in XWPFTableCell's getVerticalAlignment() from Prasad Babu</action>
+        <action dev="PD" type="fix" fixes-bug="59021">XSSFSheetXMLHandler fails to extract content if namespace is included in qName</action>
+        <action dev="PD" type="fix" fixes-bug="56345">Reject single-cell merged regions</action>
+        <action dev="PD" type="fix" fixes-bug="58339">Make OFFSET() allow missing optional height and width parameters</action>
+        <action dev="PD" type="add" fixes-bug="github-27">Handle documents with a picture-only header</action>
+        <action dev="PD" type="fix" fixes-bug="58996">Regression caused by fixing bug 56295: Don't try to unset fill color if it is not set to avoid invalid access inside the Xml structures</action>
+        <action dev="PD" type="fix" fixes-bug="57034">Cell.setCellValue((String)null) should be treated as an empty cell on SXSSF as well, to avoid a NPE when autosizing columns</action>
+        <action dev="PD" type="fix">XSLF - fixed NPE when adding pictures with existing non-picture media files (e.g. movies)</action>
+        <action dev="PD" type="fix" fixes-bug="58885">Fixed preformance regression after fixing bug 58443 when adding a merged region to an XSSFSheet.</action>
+        <action dev="PD" type="add">Raised xmlsec version to 2.0.6</action>
+        <action dev="PD" type="add" fixes-bug="47291">Cannot open link correctly which insert in ppt</action>
+        <action dev="PD" type="add" fixes-bug="41047">Support hyperlinks in HSLF shapes and textruns</action>
+        <action dev="PD" type="add" fixes-bug="58879">Return SpreadsheetVersion from Workbook</action>
+        <action dev="PD" type="fix">Fix NPE when calling HSLFTextRun.setHorizontalCentered()</action>
+        <action dev="PD" type="add" fixes-bug="58633">Set multiple cell style properties at once</action>
+        <action dev="PD" type="add" fixes-bug="56004">Support for WMF rendering</action>
+        <action dev="PD" type="add" fixes-bug="56892">Add API for inserting ignored warnings into XSSF sheets. This can be used e.g. to suppress 'number stored as text' warnings.</action>
+        <action dev="PD" type="add" fixes-bug="58847">Getters/setters/removers for the additional well-known document summary information properties from Office 12</action>
+        <action dev="PD" type="add" fixes-bug="57796">Support hyperlink extraction when rendering slides</action>
+        <action dev="PD" type="fix" fixes-bug="54916">POI does not always read all the slides in pptx files</action>
+        <action dev="PD" type="fix" fixes-bug="58043">Provide some compatibility between HSSF and XSSF in regards to values for CellStyle.setRotation()</action>
+        <action dev="PD" type="fix" fixes-bug="58067">XWPF: don't return deleted text when document is in review-mode</action>
+        <action dev="PD" type="fix" fixes-bug="58618">XWPFParagraph insertNewRun and removeRun work incorrectly for runs after hyperlink/field runs</action>
+        <action dev="PD" type="fix" fixes-bug="58760">Non-standard namespace-key breaks parsing XLSX files</action>
+        <action dev="PD" type="fix" fixes-bug="58746">Fix missing adjustment of formulas when sheet-ordering is changed.</action>
+        <action dev="PD" type="fix" fixes-bug="58616">Try to initialize with empty password if not done before</action>
+        <action dev="PD" type="fix">Fix some cases where file-handles were left open, mostly when failing to parse documents</action>
+        <action dev="PD" type="fix" fixes-bug="55030">RichTextRun getFontName can not get chinese font name</action>
+        <action dev="PD" type="fix" fixes-bug="56570">RecordType has repeat by code type 3009</action>
+        <action dev="PD" type="fix" fixes-bug="58159">getHeaderText() and getFooterText() duplicate text in sheet.getTextRuns()</action>
+        <action dev="PD" type="fix" fixes-bug="58775">Set maximum number of data formats to avoid corrupted workbook</action>
+        <action dev="PD" type="add" fixes-bug="58778">Override built-in number formats in XSSFWorkbooks</action>
+        <action dev="PD" type="fix" fixes-bug="58733">New AIOOBE in getCell while iterating through a table in PPT</action>
+        <action dev="PD" type="fix" fixes-bug="58718">Master styles not initialized when running multithreaded</action>
+    </release>
+
+    <release version="3.14-beta1" date="2015-12-24">
+        <action dev="PD" type="fix" fixes-bug="58084">Corrupted .xlsx file created when styles with borders are cloned from other workbooks</action>
+        <action dev="PD" type="add" fixes-bug="58570">Promote setting and getting the active cell in a worksheet to Common SS</action>
+        <action dev="PD" type="add" fixes-bug="47904">Update text styles in HSLF MasterSlide</action>
+        <action dev="PD" type="add" fixes-bug="58670">Change underlying data structure in SXSSFRow to use a TreeMap instead of an array to store SXSSFCells</action>
+        <action dev="PD" type="add" fixes-bug="58671">Replace MissingCellPolicy class with enum</action>
+        <action dev="PD" type="add" fixes-bug="57450">Autosize columns on SXSSFSheets considering both active window and flushed rows</action>
+        <action dev="PD" type="add" fixes-bug="58557,52903">Add support for shifting hyperlinks when shifting rows on a sheet</action>
+        <action dev="PD" type="add" fixes-bug="58667">Implement Comparable interface in HSSFRow, XSSFRow, and SXSSFRow classes</action>
+        <action dev="PD" type="fix" fixes-bug="46210">Title placeholder not recognized by Powerpoint 2003</action>
+        <action dev="PD" type="fix" fixes-bug="58663">Pictures cannot be removed from a slide</action>
+        <action dev="PD" type="add" fixes-bug="58636">Replace ClientAnchor anchor type constants with AnchorType enum</action>
+        <action dev="PD" type="add" fixes-bug="58644">Replace Sheet.setZoom(num, den) with Sheet.setZoom(scale)</action>
+        <action dev="PD" type="add" fixes-bug="58642">Remove deprecated functions</action>
+        <action dev="PD" type="add" fixes-bug="58365">Get all cell comments on a sheet with Sheet.getCellComments()</action>
+        <action dev="PD" type="add" fixes-bug="58637">Add CellAddress class, to be used instead of CellReference when the concept of an absolute/relative reference is not applicable.</action>
+        <action dev="PD" type="add" fixes-bug="58617">Add custom safe XmlBeans type loader / rename vendor specific schema packages</action>
+        <action dev="PD" type="fix" fixes-bug="58630">Signing failed after deletion of first sheet</action>
+        <action dev="PD" type="fix" fixes-bug="55955">Filling an existing ppt table stopped working with 3.9</action>
+        <action dev="PD" type="fix" fixes-bug="54210">When saving PPT to PNG, some text is rendered backwards</action>
+        <action dev="PD" type="fix" fixes-bug="53189">Shapes drawn wrongly when ppt file converted to image</action>
+        <action dev="PD" type="add">Removed most reflection calls on private methods/fields from production code; others are wrapped by AccessController.doPrivileged().</action>
+        <action dev="PD" type="fix" fixes-bug="58597">XWPFDocument causes SecurityException under SecurityManager</action>
+        <action dev="PD" type="fix" fixes-bug="53192">Images in ppt file have wrong width when convering ppt to png</action>
+        <action dev="PD" type="add">Add support for HSLF metro blobs</action>
+        <action dev="PD" type="fix" fixes-bug="52297">Bullets are not aligned properly while converting ppt slide to image</action>
+        <action dev="PD" type="fix" fixes-bug="55265">DataFormatter correct support for alternate number grouping characters, eg 1234 + #'##0 = 1'234 not 1,234</action>
+        <action dev="PD" type="fix" fixes-bug="51622">autoSizeColumn incorrectly sizes columns containing leading whitespace</action>
+        <action dev="PD" type="fix" fixes-bug="58576">Rename misspelled SheetUtil.canComputeColumnWidth</action>
+        <action dev="PD" type="add" fixes-bug="58572">Add getHyperlink and getHyperlinkList to Sheet interface</action>
+        <action dev="PD" type="add" fixes-bug="58348">Add support for copying rows in XSSFWorkbooks</action>
+        <action dev="PD" type="fix" fixes-bug="45908">RichTextRun.setBullet(false) doesn't work, bullets still here</action>
+        <action dev="PD" type="fix" fixes-bug="45088">POI-HSLF changeTextInRichTextRun corrupts presentation</action>
+        <action dev="PD" type="fix" fixes-bug="45124">inserting text or images wipes out boldness and makes everything italic</action>
+        <action dev="PD" type="add" fixes-bug="58452">Set cell formulas containing unregistered function names</action>
+        <action dev="PD" type="add" fixes-bug="58442">Add method to reorganize AreaPtg as top-left and bottom-right references</action>
+        <action dev="PD" type="fix" fixes-bug="58443">Prohibit adding merged regions that would overlap with existing merged regions</action>
+        <action dev="PD" type="add">Add a limit of the max number of characters that can be extracted to avoid sending applications out of memory with very large documents. Limit can be adjusted via ZipSecureFile.setMaxTextSize() if necessary</action>
+        <action dev="PD" type="fix" fixes-bug="58516">Rare new aioobe in 3.13 on initialization of a handful of ppts</action>
+        <action dev="PD" type="fix" fixes-bug="56957">Avoid error if Workbook with empty SharedStringTable is written</action>
+        <action dev="PD" type="fix">Common sl unification - copy first paragraph / textrun properties on XSLFTextShape.setText()</action>
+        <action dev="PD" type="fix">Common sl unification - converted ApacheconEU08 example to common sl - added missing functionality</action>
+        <action dev="PD" type="fix">Common sl unification - return null instead of default values for missing borders X/HSLFTable</action>
+        <action dev="PD" type="fix">Common sl unification - use points in HSLFTable.setColumnWidth()</action>
+        <action dev="PD" type="fix">Fix appending text to empty HSLFTextParagraph</action>
+        <action dev="PD" type="fix" fixes-bug="58558">SXSSFCell.setCellValue((RichTextString)null) fixed to work like XSSF and HSSF</action>
+        <action dev="PD" type="fix" fixes-bug="58536">DataFormatter and CellFormat non-localised support for localised currency formats like [$$-408]</action>
+        <action dev="PD" type="fix" fixes-bug="58532">DataFormatter cell formatting for things like [>999999]#,,"M";[>999]#,"K";#</action>
+        <action dev="PD" type="fix" fixes-bug="58085">Fix removing sheet so not to break other existing sheet references</action>
+        <action dev="PD" type="fix" fixes-bug="58480">Work around problem where on Windows systems a Mapped Buffer can still lock a file even if the Channel was closed properly</action>
+        <action dev="PD" type="add">Update commons-logging to 1.2 and commons-codec to 1.10</action>
+        <action dev="PD" type="fix">Removed deprecated mixed case getter/setter in XSSFColor</action>
+        <action dev="PD" type="fix" fixes-bug="55032">Fix handling missing option values in financial functions PV, FV, NPER and PMT</action>
+        <action dev="PD" type="fix" fixes-bug="50319">Make row groups which include row 0 work</action>
+        <action dev="PD" type="fix">Removed deprecated HDF API</action>
+        <action dev="PD" type="fix" fixes-bug="58466">Improve column manipulation in XSSF to avoid changes overwriting each other</action>
+        <action dev="PD" type="fix" fixes-bug="58471">Improve number formatting to more closely match Excel's behaviour</action>
+        <action dev="PD" type="fix" fixes-bug="58549">Fix row limits for HSSFClientAnchor to allow the full range supported by Excel</action>
+        <action dev="PD" type="fix" fixes-bug="58579">Add CTTableStyleInfo to poi-ooxml-schemas JAR</action>
+    </release>
+
     <release version="3.13" date="2015-09-25">
+        <action dev="DN" type="fix" fixes-bug="58350">Make XSSF and HSSF consistent on Sheet.getMergedRegions: return empty list if there are none</action>
         <action dev="PD" type="add" fixes-bug="58216">provide picture-shape resize that maintains the aspect ratio</action>
         <action dev="PD" type="add" fixes-bug="57925">Add a simple fix to avoid an NPE when Workbooks have invalid external references</action>
         <action dev="PD" type="add" fixes-bug="57915">Fix Dev2Hex for numbers larger than Integer.MAX_VALUE and less than Integer.MIN_VALUE</action>
         <action dev="PD" type="add" fixes-bug="57890">Add support for different datatypes in XSSFImportFromXML</action>
         <action dev="PD" type="add" fixes-bug="58207">Provide user access to the original image dimensions</action>
+        <action dev="PD" type="fix" fixes-bug="55476">Fix adding pictures to XWPFRun instances</action>
+        <action dev="PD" type="fix" fixes-bug="58341">Handle edge-cases in D* function</action>
         <action dev="PD" type="add" fixes-bug="58245">Workbook support for iterating over Sheets</action>
         <action dev="PD" type="fix" fixes-bug="58353">Return correct value in Match-Function with match-type == -1</action>
         <action dev="PD" type="fix" fixes-bug="58315">Avoid NPE for RichTextString without font-details</action>
         <action dev="PD" type="fix" fixes-bug="53275">XSSFFont: reset indexed color flag when setting a non-indexed color</action>
         <action dev="DN" type="fix" fixes-bug="58039">Make DGet and DMin function implementations thread-safe</action>
+        <action dev="PD" type="fix">Adjust Locale/Timezone handling to pass forbidden-api-checks and provide LocaleUtil to dynamically adjust the locale and timezone that POI operates on</action>
     	<action dev="PD" type="fix">Fix DAYS360 handling for US/EU method</action>
         <action dev="PD" type="fix" fixes-bug="58254">CellFormatResult.text should check for nulls as per the javadoc</action>
         <action dev="PD" type="fix" fixes-bug="58260">Fix checks for limit on number of styles in XSSF/SXSSF, fix more than 32k styles in SXSSF workbooks</action>
@@ -151,7 +257,7 @@
         <action dev="PD" type="fix" fixes-bug="46192">Add methods to query outline level for HSSF and XSSF</action>
         <action dev="PD" type="fix" fixes-bug="56240">Handle PP97_DUALSTORAGE streams</action>
         <action dev="PD" type="fix" fixes-bug="47261">SlideShow.removeSlide makes PPT corrupted</action>
-        <action dev="PD" type="add" fixes-bug="49541">Mapping of symbol characters to unicode equivalent</action> 
+        <action dev="PD" type="add" fixes-bug="49541">Mapping of symbol characters to unicode equivalent</action>
         <action dev="PD" type="add" fixes-bug="54541">Add support for cropped images in Slide.draw()</action>
 		<action dev="PD" type="add" fixes-bug="57007">Add initial implementations of DMIN and DGET functions</action>
         <action dev="PD" type="add">Support for Office Binary Document RC4 CryptoAPI Encryption for HSLF</action>
@@ -305,7 +411,7 @@
         <action dev="PD" type="add">Expose the StyleIndex of HWPF CharacterRuns</action>
         <action dev="PD" type="fix" fixes-bug="51891">Fix StringIndexOutOfBoundsException : Ole10Native.&lt;init&gt; (parsing word file)</action>
     </release>
-    
+
     <release version="3.10-FINAL" date="2014-02-08">
         <action dev="PD" type="fix" fixes-bug="51585">WorkbookFactory.create() hangs when creating a workbook</action>
         <action dev="PD" type="add" fixes-bug="55873">Support for COUNTIFS function</action>
@@ -346,7 +452,7 @@
         <action dev="PD" type="add" fixes-bug="54722">Extract text from HSLF tables</action>
         <action dev="PD" type="add" fixes-bug="55544">Support for SHA-512 hashes on OOXML protected documents, as used by Office 2013</action>
     </release>
-    
+
     <release version="3.10-beta2" date="2013-09-19">
         <action dev="PD" type="fix" fixes-bug="53798">Add fix for XmlValueDisconnectException during shifting rows</action>
         <action dev="PD" type="fix" fixes-bug="54524">Fix handling of special case in FormulaShifter</action>
@@ -366,7 +472,7 @@
         <action dev="PD" type="fix" fixes-bug="54233">Some HPSF documents require UnicodeStrings to be 4-byte aligned, spot these from the otherwise invalid length</action>
         <action dev="PD" type="add">Upgrade version of JUnit to 4.11 to avoid problems when executing unit tests using Apache Ant >= 1.7</action>
     </release>
-    
+
     <release version="3.10-beta1" date="2013-06-28">
         <action dev="PD" type="fix" fixes-bug="54925">Avoid issues if the length of a StyleTextPropAtom prop is longer than the parent text</action>
         <action dev="PD" type="fix" fixes-bug="54564">Fix error message text for a workbook with no sheets when a sheet operation is performed</action>
@@ -406,7 +512,7 @@
         <action dev="PD" type="fix">Synchronize table headers with parent sheet in XSSF</action>
         <action dev="PD" type="fix" fixes-bug="54210">Fixed rendering text in flipped shapes in PPT2PNG and PPTX2PNG</action>
     </release>
-    
+
     <release version="3.9" date="2012-12-03">
         <action dev="PD" type="fix" fixes-bug="54188">Avoid NPE in PPT2PNG</action>
         <action dev="PD" type="fix" fixes-bug="52628">Replace System.err info messages with a POILogger</action>
@@ -492,7 +598,7 @@
         <action dev="PD" type="fix" fixes-bug="53101">fixed evaluation of SUM over cell range &gt; 255</action>
         <action dev="PD" type="fix" fixes-bug="49529">avoid exception when cloning sheets with no drawing records and initialized drawing patriarch</action>
     </release>
-    
+
     <release version="3.8-FINAL" date="2012-03-26">
         <action dev="PD" type="add" fixes-bug="52928">DateFormatConverter: an utility to convert instances of java.text.DateFormat to Excel format patterns</action>
         <action dev="PD" type="fix" fixes-bug="52895">show SSTIndex instead of XFIndex in LabelSSTRecord.toString()</action>
@@ -556,7 +662,7 @@
         <action dev="PD" type="fix" fixes-bug="52219">fixed XSSFSimpleShape to set rich text attributes from XSSFRichtextString</action>
         <action dev="PD" type="fix" fixes-bug="52314">enhanced SheetUtil.getColumnWidth</action>
     </release>
-    
+
     <release version="3.8-beta5" date="2011-12-17">
         <action dev="PD" type="fix" fixes-bug="52204">Deprecated XSSFWorkbook(String path) constructor because it does not close underlying .zip file</action>
         <action dev="PD" type="fix" fixes-bug="46288">fixed refcount of Fill pictures in HSLF </action>
@@ -607,7 +713,7 @@
         <action dev="PD" type="add">XSLF initial UserModel support for Notes and Comments for Slides</action>
         <action dev="PD" type="add">HSLF: support for uncompressed OLE embeddings</action>
     </release>
-    
+
     <release version="3.8-beta4" date="2011-08-26">
         <action dev="PD" type="fix" fixes-bug="51678">Extracting text from Bug51524.zip is slow</action>
         <action dev="PD" type="fix" fixes-bug="51671">HWPFDocument.write based on NPOIFSFileSystem throws a NullPointerException</action>
@@ -690,7 +796,7 @@
         <action dev="PD" type="add" fixes-bug="51265">Enhanced Handling of Picture Parts in XWPF</action>
         <action dev="PD" type="add" fixes-bug="51292">Additional HWPF Table Cell Descriptor values</action>
     </release>
-    
+
     <release version="3.8-beta3" date="2011-06-06">
         <action dev="PD" type="fix" fixes-bug="51098">Correctly calculate image width/height, if image fits into one cell</action>
         <action dev="PD" type="fix" fixes-bug="47147">Correct extra paragraphs from XWPF Table Cells</action>
@@ -728,7 +834,7 @@
         <action dev="PD" type="add">Improve HSMF encoding guessing for 7 bit fields in MAPIMessage</action>
         <action dev="PD" type="add">Allow HSMF access to the HTML body contents in MAPIMessage</action>
     </release>
-    
+
     <release version="3.8-beta2" date="2011-04-08">
         <action dev="PD" type="add">Implement the load method on MemoryPackagePart</action>
         <action dev="PD" type="add" fixes-bug="50967">Support for continued ExtSSTRecords</action>
@@ -753,7 +859,7 @@
         <action dev="PD" type="fix" fixes-bug="50786">Speed up calls to HSSFColor.getIndexHash() by returning a cached, unmodifiable Map. HSSFColor.getModifiableIndexHash() provides access to the old (slow but modifiable) functionality</action>
         <action dev="PD" type="fix" fixes-bug="47100">Change related formulas and named ranges when XSSFWorkbook.setSheetName is called</action>
     </release>
-    
+
     <release version="3.8-beta1" date="2011-03-07">
         <action dev="PD" type="add" fixes-bug="50610">Ant tasks for running POI against a workbook</action>
         <action dev="PD" type="add" fixes-bug="32903">Correct XBAT chaining explanation in /poifs/fileformat.html</action>
@@ -795,7 +901,7 @@
         <action dev="PD" type="fix" fixes-bug="50118">OLE2 does allow a directory with an empty name, so support this in POIFS</action>
         <action dev="PD" type="fix" fixes-bug="50119">avoid NPE when XSSFReader comes across chart sheets</action>
     </release>
-    
+
     <release version="3.7" date="2010-10-29">
         <action dev="PD" type="fix" fixes-bug="50075">avoid NPE in ListLevel.getNumberText() when numberText is null </action>
         <action dev="PD" type="fix" fixes-bug="50067">marked commons-logging and log4j as optional dependencies in POI poms</action>
@@ -807,7 +913,7 @@
         <action dev="PD" type="fix" fixes-bug="50033">Improved rounding in MOD</action>
         <action dev="PD" type="add">Generate SHA1 hashes of distribution files, alongside existing MD5 ones</action>
     </release>
-    
+
     <release version="3.7-beta3" date="2010-09-24">
         <action dev="PD" type="fix" fixes-bug="48325">If a HSSF header or footer lacks left/right/centre information, assume it is a centre one</action>
         <action dev="PD" type="fix" fixes-bug="49966">Correctly remove calcChain entries for XSSF cells that stop holding formulas</action>
@@ -849,7 +955,7 @@
         <action dev="PD" type="fix" fixes-bug="49723">fixed OperandResolver to correctly handle inputs with leading decimal place</action>
         <action dev="PD" type="add">initial support for Excel autofilter</action>
     </release>
-    
+
     <release version="3.7-beta2" date="2010-08-09">
         <action dev="PD" type="add" fixes-bug="47990">Support for .msg attachments within a MAPIMessage .msg</action>
         <action dev="PD" type="fix">Improve handling and warnings when closing OPCPackage objects</action>
@@ -878,7 +984,7 @@
         <action dev="PD" type="fix" fixes-bug="49446">don't consider 17.16.23 field codes as properly part of the paragraph's text</action>
         <action dev="PD" type="fix">xslfslideshow shouldn't break on .thmx (theme) files. support for them is still very limited though</action>
     </release>
-    
+
     <release version="3.7-beta1" date="2010-06-20">
         <action dev="PD" type="fix" fixes-bug="49432">lazy caching of xssfcomment ctcomment objects by reference, to make repeated comment searching faster</action>
         <action dev="PD" type="fix">better handling of outlook messages in hsmf when there's no recipient email address</action>

@@ -17,13 +17,11 @@
 
 package org.apache.poi.sl.usermodel;
 
-import java.awt.Insets;
-
 /**
  * This is a replacement for {@link java.awt.Insets} which works on doubles
  * instead of ints
  */
-public class Insets2D {
+public final class Insets2D implements Cloneable {
 
     /**
      * The inset from the top.
@@ -94,8 +92,8 @@ public class Insets2D {
      * @since       JDK1.1
      */
     public boolean equals(Object obj) {
-    if (obj instanceof Insets) {
-        Insets insets = (Insets)obj;
+    if (obj instanceof Insets2D) {
+        Insets2D insets = (Insets2D)obj;
         return ((top == insets.top) && (left == insets.left) &&
             (bottom == insets.bottom) && (right == insets.right));
     }
@@ -133,13 +131,9 @@ public class Insets2D {
      * Create a copy of this object.
      * @return     a copy of this <code>Insets2D</code> object.
      */
-    public Object clone() { 
-        try { 
-            return super.clone();
-        } catch (CloneNotSupportedException e) { 
-            // this shouldn't happen, since we are Cloneable
-            throw new InternalError();
-        }
+    @Override
+    public Insets2D clone() {
+        return new Insets2D(top, left, bottom, right);
     }
     
 

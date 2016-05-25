@@ -17,6 +17,8 @@
 
 package org.apache.poi.xssf.model;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -53,15 +55,25 @@ public class SingleXmlCells extends POIXMLDocumentPart {
 
 	}
 
-	public SingleXmlCells(PackagePart part, PackageRelationship rel)
-			throws IOException {
-		super(part, rel);
+	/**
+	 * @since POI 3.14-Beta1
+	 */
+	public SingleXmlCells(PackagePart part) throws IOException {
+		super(part);
 		readFrom(part.getInputStream());
+	}
+
+	/**
+	 * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+	 */
+	@Deprecated
+	public SingleXmlCells(PackagePart part, PackageRelationship rel) throws IOException {
+	    this(part);
 	}
 
 	public void readFrom(InputStream is) throws IOException {
 		try {
-			SingleXmlCellsDocument doc = SingleXmlCellsDocument.Factory.parse(is);
+			SingleXmlCellsDocument doc = SingleXmlCellsDocument.Factory.parse(is, DEFAULT_XML_OPTIONS);
 			singleXMLCells = doc.getSingleXmlCells();
 		} catch (XmlException e) {
 			throw new IOException(e.getLocalizedMessage());
@@ -94,7 +106,6 @@ public class SingleXmlCells extends POIXMLDocumentPart {
 	 * 
 	 * @return all the SimpleXmlCell contained in this SingleXmlCells element
 	 */
-    @SuppressWarnings("deprecation")
 	public List<XSSFSingleXmlCell> getAllSimpleXmlCell(){
 		List<XSSFSingleXmlCell> list = new Vector<XSSFSingleXmlCell>();
 		

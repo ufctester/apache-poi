@@ -23,7 +23,8 @@ import java.io.IOException;
 import java.util.List;
 
 import org.apache.poi.ss.usermodel.BaseTestPicture;
-import org.apache.poi.ss.usermodel.ClientAnchor;
+import org.apache.poi.ss.usermodel.ClientAnchor.AnchorType;
+import org.apache.poi.util.LocaleUtil;
 import org.apache.poi.xssf.XSSFITestDataProvider;
 import org.apache.poi.xssf.XSSFTestDataSamples;
 import org.junit.Test;
@@ -58,7 +59,7 @@ public final class TestXSSFPicture extends BaseTestPicture {
         XSSFSheet sheet = wb.createSheet();
         XSSFDrawing drawing = sheet.createDrawingPatriarch();
 
-        byte[] jpegData = "test jpeg data".getBytes();
+        byte[] jpegData = "test jpeg data".getBytes(LocaleUtil.CHARSET_1252);
 
         List<XSSFPictureData> pictures = wb.getAllPictures();
         assertEquals(0, pictures.size());
@@ -69,9 +70,9 @@ public final class TestXSSFPicture extends BaseTestPicture {
         assertArrayEquals(jpegData, pictures.get(jpegIdx).getData());
 
         XSSFClientAnchor anchor = new XSSFClientAnchor(0, 0, 0, 0, 1, 1, 10, 30);
-        assertEquals(ClientAnchor.MOVE_AND_RESIZE, anchor.getAnchorType());
-        anchor.setAnchorType(ClientAnchor.DONT_MOVE_AND_RESIZE);
-        assertEquals(ClientAnchor.DONT_MOVE_AND_RESIZE, anchor.getAnchorType());
+        assertEquals(AnchorType.MOVE_AND_RESIZE, anchor.getAnchorType());
+        anchor.setAnchorType(AnchorType.DONT_MOVE_AND_RESIZE);
+        assertEquals(AnchorType.DONT_MOVE_AND_RESIZE, anchor.getAnchorType());
 
         XSSFPicture shape = drawing.createPicture(anchor, jpegIdx);
         assertTrue(anchor.equals(shape.getAnchor()));
@@ -97,13 +98,13 @@ public final class TestXSSFPicture extends BaseTestPicture {
         XSSFDrawing drawing = sheet.createDrawingPatriarch();
 
         XSSFClientAnchor anchor = new XSSFClientAnchor(0, 0, 0, 0, 1, 1, 10, 30);
-        byte[] jpegData = "picture1".getBytes();
+        byte[] jpegData = "picture1".getBytes(LocaleUtil.CHARSET_1252);
         int jpegIdx = wb.addPicture(jpegData, XSSFWorkbook.PICTURE_TYPE_JPEG);
 
         XSSFPicture shape1 = drawing.createPicture(anchor, jpegIdx);
         assertEquals(1, shape1.getCTPicture().getNvPicPr().getCNvPr().getId());
 
-        jpegData = "picture2".getBytes();
+        jpegData = "picture2".getBytes(LocaleUtil.CHARSET_1252);
         jpegIdx = wb.addPicture(jpegData, XSSFWorkbook.PICTURE_TYPE_JPEG);
         XSSFPicture shape2 = drawing.createPicture(anchor, jpegIdx);
         assertEquals(2, shape2.getCTPicture().getNvPicPr().getCNvPr().getId());
@@ -118,8 +119,8 @@ public final class TestXSSFPicture extends BaseTestPicture {
     public void multiRelationShips() throws IOException {
         XSSFWorkbook wb = new XSSFWorkbook();
 
-        byte[] pic1Data = "test jpeg data".getBytes();
-        byte[] pic2Data = "test png data".getBytes();
+        byte[] pic1Data = "test jpeg data".getBytes(LocaleUtil.CHARSET_1252);
+        byte[] pic2Data = "test png data".getBytes(LocaleUtil.CHARSET_1252);
 
         List<XSSFPictureData> pictures = wb.getAllPictures();
         assertEquals(0, pictures.size());

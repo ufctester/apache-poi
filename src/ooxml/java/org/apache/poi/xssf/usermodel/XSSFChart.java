@@ -17,12 +17,12 @@
 
 package org.apache.poi.xssf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import javax.xml.namespace.QName;
 
@@ -51,17 +51,18 @@ import org.openxmlformats.schemas.drawingml.x2006.chart.CTPageMargins;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTPlotArea;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTPrintSettings;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTTitle;
+import org.openxmlformats.schemas.drawingml.x2006.chart.CTTx;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTValAx;
 import org.openxmlformats.schemas.drawingml.x2006.chart.ChartSpaceDocument;
-import org.openxmlformats.schemas.officeDocument.x2006.relationships.STRelationshipId;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTRegularTextRun;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextBody;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextField;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextParagraph;
 import org.w3c.dom.NodeList;
 import org.w3c.dom.Text;
 
 /**
  * Represents a SpreadsheetML Chart
- * @author Nick Burch
- * @author Roman Kashitsyn
- * @author Martin Andersson
  */
 public final class XSSFChart extends POIXMLDocumentPart implements Chart, ChartAxisFactory {
 
@@ -94,16 +95,25 @@ public final class XSSFChart extends POIXMLDocumentPart implements Chart, ChartA
 	 *
 	 * @param part the package part holding the chart data,
 	 * the content type must be <code>application/vnd.openxmlformats-officedocument.drawingml.chart+xml</code>
-	 * @param rel  the package relationship holding this chart,
-	 * the relationship type must be http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart
+	 * 
+	 * @since POI 3.14-Beta1
 	 */
-	protected XSSFChart(PackagePart part, PackageRelationship rel) throws IOException, XmlException {
-		super(part, rel);
+	protected XSSFChart(PackagePart part) throws IOException, XmlException {
+		super(part);
 
-		chartSpace = ChartSpaceDocument.Factory.parse(part.getInputStream()).getChartSpace(); 
+		chartSpace = ChartSpaceDocument.Factory.parse(part.getInputStream(), DEFAULT_XML_OPTIONS).getChartSpace(); 
 		chart = chartSpace.getChart();
 	}
 
+	/**
+	 * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+	 */
+	@Deprecated
+	protected XSSFChart(PackagePart part, PackageRelationship rel) throws IOException, XmlException {
+	    this(part);
+	}
+
+	
 	/**
 	 * Construct a new CTChartSpace bean.
 	 * By default, it's just an empty placeholder for chart objects.
@@ -163,11 +173,6 @@ public final class XSSFChart extends POIXMLDocumentPart implements Chart, ChartA
 		      xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
 		 */
 		xmlOptions.setSaveSyntheticDocumentElement(new QName(CTChartSpace.type.getName().getNamespaceURI(), "chartSpace", "c"));
-		Map<String, String> map = new HashMap<String, String>();
-		map.put(XSSFDrawing.NAMESPACE_A, "a");
-		map.put(XSSFDrawing.NAMESPACE_C, "c");
-		map.put(STRelationshipId.type.getName().getNamespaceURI(), "r");
-		xmlOptions.setSaveSuggestedPrefixes(map);
 
 		PackagePart part = getPackagePart();
 		OutputStream out = part.getOutputStream();
@@ -198,8 +203,8 @@ public final class XSSFChart extends POIXMLDocumentPart implements Chart, ChartA
 		return this;
 	}
 
-	public void plot(ChartData data, ChartAxis... axis) {
-		data.fillChart(this, axis);
+	public void plot(ChartData data, ChartAxis... chartAxis) {
+		data.fillChart(this, chartAxis);
 	}
 
 	public XSSFValueAxis createValueAxis(AxisPosition pos) {
@@ -279,6 +284,55 @@ public final class XSSFChart extends POIXMLDocumentPart implements Chart, ChartA
 		return new XSSFRichTextString(text.toString());
 	}
 
+	/**
+	 * Sets the title text.
+	 */
+	public void setTitle(String newTitle) {
+		CTTitle ctTitle;
+		if (chart.isSetTitle()) {
+			ctTitle = chart.getTitle();
+		} else {
+			ctTitle = chart.addNewTitle();
+		}
+
+		CTTx tx;
+		if (ctTitle.isSetTx()) {
+			tx = ctTitle.getTx();
+		} else {
+			tx = ctTitle.addNewTx();
+		}
+
+		if (tx.isSetStrRef()) {
+			tx.unsetStrRef();
+		}
+
+		CTTextBody rich;
+		if (tx.isSetRich()) {
+			rich = tx.getRich();
+		} else {
+			rich = tx.addNewRich();
+			rich.addNewBodyPr();  // body properties must exist (but can be empty)
+		}
+
+		CTTextParagraph para;
+		if (rich.sizeOfPArray() > 0) {
+			para = rich.getPArray(0);
+		} else {
+			para = rich.addNewP();
+		}
+
+		if (para.sizeOfRArray() > 0) {
+			CTRegularTextRun run = para.getRArray(0);
+			run.setT(newTitle);
+		} else if (para.sizeOfFldArray() > 0) {
+			CTTextField fld = para.getFldArray(0);
+			fld.setT(newTitle);
+		} else {
+			CTRegularTextRun run = para.addNewR();
+			run.setT(newTitle);
+		}
+	}
+
 	public XSSFChartLegend getOrCreateLegend() {
 		return new XSSFChartLegend(this);
 	}
@@ -305,14 +359,12 @@ public final class XSSFChart extends POIXMLDocumentPart implements Chart, ChartA
 		parseValueAxis();
 	}
 
-    @SuppressWarnings("deprecation")
 	private void parseCategoryAxis() {
 		for (CTCatAx catAx : chart.getPlotArea().getCatAxArray()) {
 			axis.add(new XSSFCategoryAxis(this, catAx));
 		}
 	}
 
-    @SuppressWarnings("deprecation")
 	private void parseValueAxis() {
 		for (CTValAx valAx : chart.getPlotArea().getValAxArray()) {
 			axis.add(new XSSFValueAxis(this, valAx));

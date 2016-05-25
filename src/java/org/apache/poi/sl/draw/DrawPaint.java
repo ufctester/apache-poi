@@ -27,6 +27,7 @@ import java.awt.RadialGradientPaint;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -48,8 +49,10 @@ import org.apache.poi.util.POILogger;
 public class DrawPaint {
     // HSL code is public domain - see https://tips4java.wordpress.com/contact-us/
     
-    private final static POILogger LOG = POILogFactory.getLogger(DrawPaint.class);
+    private static final POILogger LOG = POILogFactory.getLogger(DrawPaint.class);
 
+    private static final Color TRANSPARENT = new Color(1f,1f,1f,0f);
+    
     protected PlaceableShape<?,?> shape;
     
     public DrawPaint(PlaceableShape<?,?> shape) {
@@ -64,8 +67,10 @@ public class DrawPaint {
                 throw new NullPointerException("Color needs to be specified");
             }
             this.solidColor = new ColorStyle(){
-                    public Color getColor() { return color; }
-                    public int getAlpha() { return -1; }
+                    public Color getColor() {
+                        return new Color(color.getRed(), color.getGreen(), color.getBlue());
+                    }
+                    public int getAlpha() { return (int)Math.round(color.getAlpha()*100000./255.); }
                     public int getHueOff() { return -1; }
                     public int getHueMod() { return -1; }
                     public int getSatOff() { return -1; }
@@ -130,12 +135,14 @@ public class DrawPaint {
         if (is == null) return null;
         assert(graphics != null);
         
-        ImageRenderer renderer = (ImageRenderer)graphics.getRenderingHint(Drawable.IMAGE_RENDERER);
-        if (renderer == null) renderer = new ImageRenderer();
+        ImageRenderer renderer = DrawPictureShape.getImageRenderer(graphics, fill.getContentType());
 
         try {
-            renderer.loadImage(is, fill.getContentType());
-            is.close();
+            try {
+                renderer.loadImage(is, fill.getContentType());
+            } finally {
+                is.close();
+            }
         } catch (IOException e) {
             LOG.log(POILogger.ERROR, "Can't load image data - using transparent color", e);
             return null;
@@ -146,8 +153,13 @@ public class DrawPaint {
             renderer.setAlpha(alpha/100000.f);
         }
         
+        BufferedImage image = renderer.getImage();
+        if(image == null) {
+            LOG.log(POILogger.ERROR, "Can't load image data");
+            return null;
+        }
         Rectangle2D textAnchor = shape.getAnchor();
-        Paint paint = new java.awt.TexturePaint(renderer.getImage(), textAnchor);
+        Paint paint = new java.awt.TexturePaint(image, textAnchor);
 
         return paint;
     }
@@ -162,9 +174,11 @@ public class DrawPaint {
     public static Color applyColorTransform(ColorStyle color){
         // TODO: The colors don't match 100% the results of Powerpoint, maybe because we still
         // operate in sRGB and not scRGB ... work in progress ...
-
+        if (color == null || color.getColor() == null) {
+            return TRANSPARENT;
+        }
+        
         Color result = color.getColor();
-        if (result == null) return null;
 
         double alpha = getAlpha(result, color);
         double hsl[] = RGB2HSL(result); // values are in the range [0..100] (usually ...)
@@ -269,16 +283,22 @@ public class DrawPaint {
 
         Point2D p2 = new Point2D.Double(anchor.getX() + anchor.getWidth(), anchor.getY() + anchor.getHeight() / 2);
         p2 = at.transform(p2, null);
-
+        
         snapToAnchor(p1, anchor);
         snapToAnchor(p2, anchor);
+
+        if (p1.equals(p2)) {
+            // gradient paint on the same point throws an exception ... and doesn't make sense
+            return null;
+        }
 
         float[] fractions = fill.getGradientFractions();
         Color[] colors = new Color[fractions.length];
         
         int i = 0;
         for (ColorStyle fc : fill.getGradientColors()) {
-            colors[i++] = applyColorTransform(fc);
+            // if fc is null, use transparent color to get color of background
+            colors[i++] = (fc == null) ? TRANSPARENT : applyColorTransform(fc);
         }
 
         AffineTransform grAt  = new AffineTransform();

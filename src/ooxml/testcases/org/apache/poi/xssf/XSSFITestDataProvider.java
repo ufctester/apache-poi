@@ -21,6 +21,7 @@ import org.apache.poi.POIDataSamples;
 import org.apache.poi.ss.ITestDataProvider;
 import org.apache.poi.ss.SpreadsheetVersion;
 import org.apache.poi.ss.usermodel.FormulaEvaluator;
+import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFFormulaEvaluator;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -35,10 +36,12 @@ public final class XSSFITestDataProvider implements ITestDataProvider {
         // enforce singleton
     }
 
+    @Override
     public XSSFWorkbook openSampleWorkbook(String sampleFileName) {
         return XSSFTestDataSamples.openSampleWorkbook(sampleFileName);
     }
 
+    @Override
     public XSSFWorkbook writeOutAndReadBack(Workbook original) {
         if(!(original instanceof XSSFWorkbook)) {
             throw new IllegalArgumentException("Expected an instance of XSSFWorkbook, but had " + original.getClass());
@@ -46,22 +49,37 @@ public final class XSSFITestDataProvider implements ITestDataProvider {
         return XSSFTestDataSamples.writeOutAndReadBack((XSSFWorkbook)original);
     }
 
-    public XSSFWorkbook createWorkbook(){
+    @Override
+    public XSSFWorkbook createWorkbook() {
         return new XSSFWorkbook();
     }
     
+    //************ SXSSF-specific methods ***************//
+    @Override
+    public XSSFWorkbook createWorkbook(int rowAccessWindowSize) {
+        return createWorkbook();
+    }
+    
+    @Override
+    public void trackAllColumnsForAutosizing(Sheet sheet) {}
+    //************ End SXSSF-specific methods ***************//
+   
+    @Override
     public FormulaEvaluator createFormulaEvaluator(Workbook wb) {
         return new XSSFFormulaEvaluator((XSSFWorkbook) wb);
     }
 
+    @Override
     public byte[] getTestDataFileContent(String fileName) {
         return POIDataSamples.getSpreadSheetInstance().readFile(fileName);
     }
 
+    @Override
     public SpreadsheetVersion getSpreadsheetVersion(){
         return SpreadsheetVersion.EXCEL2007;
     }
 
+    @Override
     public String getStandardFileNameExtension() {
         return "xlsx";
     }

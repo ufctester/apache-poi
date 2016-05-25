@@ -74,6 +74,7 @@
                     <li><link href="#Autofilter">Autofilters</link></li>
                     <li><link href="#ConditionalFormatting">Conditional Formatting</link></li>
                     <li><link href="#Hiding">Hiding and Un-Hiding Rows</link></li>
+                    <li><link href="#CellProperties">Setting Cell Properties</link></li>
                 </ul>
             </section>
             <section><title>Features</title>
@@ -853,7 +854,7 @@ Examples:
                     <source>
     Workbook wb = new HSSFWorkbook();
     Sheet sheet1 = wb.createSheet("new sheet");
-    sheet1.setZoom(3,4);   // 75 percent magnification
+    sheet1.setZoom(75);   // 75 percent magnification
                     </source>
                 </section>
 
@@ -1459,6 +1460,19 @@ Examples:
     //  alternatively you can retrieve cell comments by (row, column)
     comment = sheet.getCellComment(3, 1);
   </source>
+
+  <p>To get all the comments on a sheet:</p>
+  <source>
+    Map&lt;CellAddress, Comment&gt; comments = sheet.getCellComments();
+    Comment commentA1 = comments.get(new CellAddress(0, 0));
+    Comment commentB1 = comments.get(new CellAddress(0, 1));
+    for (Entry&lt;CellAddress, ? extends Comment&gt; e : comments.entrySet()) {
+      CellAddress loc = e.getKey();
+      Comment comment = e.getValue();
+      System.out.println("Comment at " + loc + ": " +
+          "[" + comment.getAuthor() + "] " + comment.getString().getString());
+    }
+  </source>
      </section>
 
      <anchor id="Autofit"/>
@@ -1468,6 +1482,36 @@ Examples:
     sheet.autoSizeColumn(0); //adjust width of the first column
     sheet.autoSizeColumn(1); //adjust width of the second column
         </source>
+    <p>
+      For SXSSFWorkbooks only, because the random access window is likely to exclude most of the rows
+      in the worksheet, which are needed for computing the best-fit width of a column, the columns must
+      be tracked for auto-sizing prior to flushing any rows.
+    </p>
+    <source>
+    SXSSFWorkbook worbook = new SXSSFWorkbook();
+    SXSSFSheet sheet = workbook.createSheet();
+    sheet.trackColumnForAutoSizing(0);
+    sheet.trackColumnForAutoSizing(1);
+    // If you have a Collection of column indices, see SXSSFSheet#trackColumnForAutoSizing(Collection&lt;Integer&gt;)
+    // or roll your own for-loop.
+    // Alternatively, use SXSSFSheet#trackAllColumnsForAutoSizing() if the columns that will be auto-sized aren't
+    // known in advance or you are upgrading existing code and are trying to minimize changes. Keep in mind
+    // that tracking all columns will require more memory and CPU cycles, as the best-fit width is calculated
+    // on all tracked columns on every row that is flushed.
+
+    // create some cells
+    for (int r=0; r &lt; 10; r++) {
+        Row row = sheet.createRow(r);
+        for (int c; c &lt; 10; c++) {
+            Cell cell = row.createCell(c);
+            cell.setCellValue("Cell " + c.getAddress().formatAsString());
+        }
+    }
+
+    // Auto-size the columns.
+    sheet.autoSizeColumn(0);
+    sheet.autoSizeColumn(1);
+    </source> 
     <p>
       Note, that Sheet#autoSizeColumn() does not evaluate formula cells, 
       the width of formula cells is calculated based on the cached formula result.
@@ -2068,7 +2112,7 @@ the data to populate another drop down list.
      <section><title>Hiding and Un-Hiding Rows</title>
      <p>
      Using Excel, it is possible to hide a row on a worksheet by selecting that row (or rows), 
-     right clicking once on the right hand mouse button and selecting 'Hide' from the pop=up menu that appears.
+     right clicking once on the right hand mouse button and selecting 'Hide' from the pop-up menu that appears.
      </p>
      <p>
      To emulate this using POI, simply call the setZeroHeight() method on an instance of either 
@@ -2110,6 +2154,54 @@ the data to populate another drop down list.
       method and passing the boolean value 'false'. Secondly, it ilustrates how to test whther a row is hidden or not. 
       Simply call the getZeroHeight() method and it will return 'true' if the row is hidden, 'false' otherwise.
        </p>
-     </section>  
+     </section>
+      <anchor id="CellProperties"/>
+      <section><title>Setting Cell Properties</title>
+        <p>
+        Sometimes it is easier or more efficient to create a spreadsheet with basic styles and then apply special styles to certain cells
+        such as drawing borders around a range of cells or setting fills for a region. CellUtil.setCellProperties lets you do that without creating
+        a bunch of unnecessary intermediate styles in your spreadsheet.
+        </p>
+        <p>
+        Properties are created as a Map and applied to a cell in the following manner.
+        </p>
+        <source>
+  Workbook workbook = new XSSFWorkbook();  // OR new HSSFWorkbook()
+  Sheet sheet = workbook.createSheet("Sheet1");
+  Map&lt;String, Object&gt; properties = new HashMap&lt;String, Object&gt;();
+		  
+  // border around a cell
+  properties.put(CellUtil.BORDER_TOP, CellStyle.BORDER_MEDIUM);
+  properties.put(CellUtil.BORDER_BOTTOM, CellStyle.BORDER_MEDIUM);
+  properties.put(CellUtil.BORDER_LEFT, CellStyle.BORDER_MEDIUM);
+  properties.put(CellUtil.BORDER_RIGHT, CellStyle.BORDER_MEDIUM);
+  
+  // Give it a color (RED)
+  properties.put(CellUtil.TOP_BORDER_COLOR, IndexedColors.RED.getIndex());
+  properties.put(CellUtil.BOTTOM_BORDER_COLOR, IndexedColors.RED.getIndex());
+  properties.put(CellUtil.LEFT_BORDER_COLOR, IndexedColors.RED.getIndex());
+  properties.put(CellUtil.RIGHT_BORDER_COLOR, IndexedColors.RED.getIndex());
+		  
+  // Apply the borders to the cell at B2
+  Row row = sheet.createRow(1);
+  Cell cell = row.createCell(1);
+  CellUtil.setCellStyleProperties(cell, properties);
+   		  
+  // Apply the borders to a 3x3 region starting at D4
+  for (int ix=3; ix &lt;= 5; ix++) {
+    row = sheet.createRow(ix);
+    for (int iy = 3; iy &lt;= 5; iy++) {
+      cell = row.createCell(iy);
+      CellUtil.setCellStyleProperties(cell, properties);
+    }
+  }
+        </source>
+
+        <p>
+        NOTE: This does not replace the properties of the cell, it merges the properties you have put into the Map with the
+        cell's existing style properties. If a property already exists, it is replaced with the new property. If a property does not
+        exist, it is added. This method will not remove CellStyle properties.
+        </p>
+      </section>  
     </body>
 </document>

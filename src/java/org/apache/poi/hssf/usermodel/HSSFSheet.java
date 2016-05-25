@@ -21,6 +21,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeMap;
 
 import org.apache.poi.ddf.EscherRecord;
@@ -35,8 +36,10 @@ import org.apache.poi.hssf.record.DimensionsRecord;
 import org.apache.poi.hssf.record.DrawingRecord;
 import org.apache.poi.hssf.record.EscherAggregate;
 import org.apache.poi.hssf.record.ExtendedFormatRecord;
+import org.apache.poi.hssf.record.HyperlinkRecord;
 import org.apache.poi.hssf.record.NameRecord;
 import org.apache.poi.hssf.record.Record;
+import org.apache.poi.hssf.record.RecordBase;
 import org.apache.poi.hssf.record.RowRecord;
 import org.apache.poi.hssf.record.SCLRecord;
 import org.apache.poi.hssf.record.WSBoolRecord;
@@ -59,6 +62,7 @@ import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataValidation;
 import org.apache.poi.ss.usermodel.DataValidationHelper;
 import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellRangeAddressList;
 import org.apache.poi.ss.util.CellReference;
@@ -146,7 +150,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
         }
         if (getDrawingPatriarch() != null) {
             HSSFPatriarch patr = HSSFPatriarch.createPatriarch(this.getDrawingPatriarch(), sheet);
-            sheet._sheet.getRecords().add(pos, patr._getBoundAggregate());
+            sheet._sheet.getRecords().add(pos, patr.getBoundAggregate());
             sheet._patriarch = patr;
         }
         return sheet;
@@ -166,6 +170,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return the parent workbook
      */
+    @Override
     public HSSFWorkbook getWorkbook() {
         return _workbook;
     }
@@ -204,12 +209,14 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
                 hrow = getRow(cval.getRow());
                 lastrow = hrow;
                 if (hrow == null) {
+                    /* we removed this check, see bug 47245 for the discussion around this
                     // Some tools (like Perl module Spreadsheet::WriteExcel - bug 41187) skip the RowRecords
                     // Excel, OpenOffice.org and GoogleDocs are all OK with this, so POI should be too.
                     if (rowRecordsAlreadyPresent) {
                         // if at least one row record is present, all should be present.
                         throw new RuntimeException("Unexpected missing row when some rows already present");
-                    }
+                    }*/
+
                     // create the row record on the fly now.
                     RowRecord rowRec = new RowRecord(cval.getRow());
                     sheet.addRow(rowRec);
@@ -217,17 +224,17 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
                 }
             }
             if (log.check( POILogger.DEBUG )) {
-            	if (cval instanceof Record) {
+                if (cval instanceof Record) {
                 log.log( DEBUG, "record id = " + Integer.toHexString( ( (Record) cval ).getSid() ) );
-				} else {
-					log.log( DEBUG, "record = " + cval );
-				}
+                } else {
+                    log.log( DEBUG, "record = " + cval );
+                }
             }
             hrow.createCellFromRecord( cval );
             if (log.check( POILogger.DEBUG )) {
                 log.log( DEBUG, "record took ",
                     Long.valueOf( System.currentTimeMillis() - cellstart ) );
-			}
+            }
 
         }
         if (log.check( POILogger.DEBUG )) {
@@ -244,6 +251,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @see org.apache.poi.hssf.usermodel.HSSFRow
      * @see #removeRow(org.apache.poi.ss.usermodel.Row)
      */
+    @Override
     public HSSFRow createRow(int rownum) {
         HSSFRow row = new HSSFRow(_workbook, this, rownum);
         // new rows inherit default height from the sheet
@@ -274,6 +282,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param row representing a row to remove.
      */
+    @Override
     public void removeRow(Row row) {
         HSSFRow hrow = (HSSFRow) row;
         if (row.getSheet() != this) {
@@ -368,6 +377,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param rowIndex row to get
      * @return HSSFRow representing the row number or null if its not defined on the sheet
      */
+    @Override
     public HSSFRow getRow(int rowIndex) {
         return _rows.get(Integer.valueOf(rowIndex));
     }
@@ -375,6 +385,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
     /**
      * Returns the number of physically defined rows (NOT the number of rows in the sheet)
      */
+    @Override
     public int getPhysicalNumberOfRows() {
         return _rows.size();
     }
@@ -384,6 +395,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return the number of the first logical row on the sheet, zero based
      */
+    @Override
     public int getFirstRowNum() {
         return _firstrow;
     }
@@ -401,10 +413,12 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return the number of the last row contained in this sheet, zero based.
      */
+    @Override
     public int getLastRowNum() {
         return _lastrow;
     }
 
+    @Override
     public List<HSSFDataValidation> getDataValidations() {
         DataValidityTable dvt = _sheet.getOrCreateDataValidityTable();
         final List<HSSFDataValidation> hssfValidations = new ArrayList<HSSFDataValidation>();
@@ -439,6 +453,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param dataValidation The Data validation object settings
      */
+    @Override
     public void addValidationData(DataValidation dataValidation) {
         if (dataValidation == null) {
             throw new IllegalArgumentException("objValidation must not be null");
@@ -450,48 +465,13 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
         dvt.addDataValidation(dvRecord);
     }
 
-
-    /**
-     * @deprecated (Sep 2008) use {@link #setColumnHidden(int, boolean)}
-     */
-    public void setColumnHidden(short columnIndex, boolean hidden) {
-        setColumnHidden(columnIndex & 0xFFFF, hidden);
-    }
-
-    /**
-     * @deprecated (Sep 2008) use {@link #isColumnHidden(int)}
-     */
-    public boolean isColumnHidden(short columnIndex) {
-        return isColumnHidden(columnIndex & 0xFFFF);
-    }
-
-    /**
-     * @deprecated (Sep 2008) use {@link #setColumnWidth(int, int)}
-     */
-    public void setColumnWidth(short columnIndex, short width) {
-        setColumnWidth(columnIndex & 0xFFFF, width & 0xFFFF);
-    }
-
-    /**
-     * @deprecated (Sep 2008) use {@link #getColumnWidth(int)}
-     */
-    public short getColumnWidth(short columnIndex) {
-        return (short) getColumnWidth(columnIndex & 0xFFFF);
-    }
-
-    /**
-     * @deprecated (Sep 2008) use {@link #setDefaultColumnWidth(int)}
-     */
-    public void setDefaultColumnWidth(short width) {
-        setDefaultColumnWidth(width & 0xFFFF);
-    }
-
     /**
      * Get the visibility state for a given column.
      *
      * @param columnIndex - the column to get (0-based)
      * @param hidden      - the visiblity state of the column
      */
+    @Override
     public void setColumnHidden(int columnIndex, boolean hidden) {
         _sheet.setColumnHidden(columnIndex, hidden);
     }
@@ -502,6 +482,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param columnIndex - the column to set (0-based)
      * @return hidden - <code>false</code> if the column is visible
      */
+    @Override
     public boolean isColumnHidden(int columnIndex) {
         return _sheet.isColumnHidden(columnIndex);
     }
@@ -550,6 +531,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param width       - the width in units of 1/256th of a character width
      * @throws IllegalArgumentException if width > 255*256 (the maximum column width in Excel is 255 characters)
      */
+    @Override
     public void setColumnWidth(int columnIndex, int width) {
         _sheet.setColumnWidth(columnIndex, width);
     }
@@ -560,10 +542,12 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param columnIndex - the column to set (0-based)
      * @return width - the width in units of 1/256th of a character width
      */
+    @Override
     public int getColumnWidth(int columnIndex) {
         return _sheet.getColumnWidth(columnIndex);
     }
 
+    @Override
     public float getColumnWidthInPixels(int column){
         int cw = getColumnWidth(column);
         int def = getDefaultColumnWidth()*256;
@@ -578,6 +562,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return default column width
      */
+    @Override
     public int getDefaultColumnWidth() {
         return _sheet.getDefaultColumnWidth();
     }
@@ -588,6 +573,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param width default column width
      */
+    @Override
     public void setDefaultColumnWidth(int width) {
         _sheet.setDefaultColumnWidth(width);
     }
@@ -599,6 +585,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return default row height
      */
+    @Override
     public short getDefaultRowHeight() {
         return _sheet.getDefaultRowHeight();
     }
@@ -609,7 +596,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return default row height in points
      */
-
+    @Override
     public float getDefaultRowHeightInPoints() {
         return ((float) _sheet.getDefaultRowHeight() / 20);
     }
@@ -620,7 +607,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param height default row height
      */
-
+    @Override
     public void setDefaultRowHeight(short height) {
         _sheet.setDefaultRowHeight(height);
     }
@@ -631,7 +618,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param height default row height
      */
-
+    @Override
     public void setDefaultRowHeightInPoints(float height) {
         _sheet.setDefaultRowHeight((short) (height * 20));
     }
@@ -641,6 +628,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * (0 based) column, or null if no style has been
      * set for that column
      */
+    @Override
     public HSSFCellStyle getColumnStyle(int column) {
         short styleIndex = _sheet.getXFIndexForColAt((short) column);
 
@@ -658,7 +646,6 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return true if printed
      */
-
     public boolean isGridsPrinted() {
         return _sheet.isGridsPrinted();
     }
@@ -668,20 +655,8 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param value false if not printed.
      */
-
     public void setGridsPrinted(boolean value) {
         _sheet.setGridsPrinted(value);
-    }
-
-    /**
-     * @deprecated (Aug-2008) use <tt>CellRangeAddress</tt> instead of <tt>Region</tt>
-     */
-    public int addMergedRegion(org.apache.poi.ss.util.Region region) {
-        return _sheet.addMergedRegion(region.getRowFrom(),
-                region.getColumnFrom(),
-                //(short) region.getRowTo(),
-                region.getRowTo(),
-                region.getColumnTo());
     }
 
     /**
@@ -689,13 +664,24 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param region (rowfrom/colfrom-rowto/colto) to merge
      * @return index of this region
+     * @throws IllegalArgumentException if region contains fewer than 2 cells
+     * @throws IllegalStateException if region intersects with an existing merged region
+     * or multi-cell array formula on this sheet
      */
+    @Override
     public int addMergedRegion(CellRangeAddress region) {
+        if (region.getNumberOfCells() < 2) {
+            throw new IllegalArgumentException("Merged region " + region.formatAsString() + " must contain 2 or more cells");
+        }
         region.validate(SpreadsheetVersion.EXCEL97);
 
         // throw IllegalStateException if the argument CellRangeAddress intersects with
         // a multi-cell array formula defined in this sheet
         validateArrayFormulas(region);
+        
+        // Throw IllegalStateException if the argument CellRangeAddress intersects with
+        // a merged region already in this sheet
+        validateMergedRegions(region);
 
         return _sheet.addMergedRegion(region.getFirstRow(),
                 region.getFirstColumn(),
@@ -730,6 +716,15 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
         }
 
     }
+    
+    private void validateMergedRegions(CellRangeAddress candidateRegion) {
+        for (final CellRangeAddress existingRegion : getMergedRegions()) {
+            if (existingRegion.intersects(candidateRegion)) {
+                throw new IllegalStateException("Cannot add merged region " + candidateRegion.formatAsString() +
+                        " to sheet because it overlaps with an existing merged region (" + existingRegion.formatAsString() + ").");
+            }
+        }
+    }
 
     /**
      * Control if Excel should be asked to recalculate all formulas on this sheet
@@ -751,6 +746,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *              this worksheet values when the workbook is opened
      * @see org.apache.poi.ss.usermodel.Workbook#setForceFormulaRecalculation(boolean)
      */
+    @Override
     public void setForceFormulaRecalculation(boolean value) {
         _sheet.setUncalced(value);
     }
@@ -761,6 +757,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return true if an uncalced record must be inserted or not at generation
      */
+    @Override
     public boolean getForceFormulaRecalculation() {
         return _sheet.getUncalced();
     }
@@ -771,23 +768,15 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param value true to vertically center, false otherwise.
      */
-
+    @Override
     public void setVerticallyCenter(boolean value) {
         _sheet.getPageSettings().getVCenter().setVCenter(value);
     }
 
     /**
-     * TODO: Boolean not needed, remove after next release
-     *
-     * @deprecated (Mar-2008) use getVerticallyCenter() instead
-     */
-    public boolean getVerticallyCenter(boolean value) {
-        return getVerticallyCenter();
-    }
-
-    /**
      * Determine whether printed output for this sheet will be vertically centered.
      */
+    @Override
     public boolean getVerticallyCenter() {
         return _sheet.getPageSettings().getVCenter().getVCenter();
     }
@@ -797,7 +786,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param value true to horizontally center, false otherwise.
      */
-
+    @Override
     public void setHorizontallyCenter(boolean value) {
         _sheet.getPageSettings().getHCenter().setHCenter(value);
     }
@@ -805,9 +794,8 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
     /**
      * Determine whether printed output for this sheet will be horizontally centered.
      */
-
+    @Override
     public boolean getHorizontallyCenter() {
-
         return _sheet.getPageSettings().getHCenter().getHCenter();
     }
 
@@ -816,6 +804,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param value true for right to left, false otherwise.
      */
+    @Override
     public void setRightToLeft(boolean value) {
         _sheet.getWindowTwo().setArabic(value);
     }
@@ -825,6 +814,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return whether the text is displayed in right-to-left mode in the window
      */
+    @Override
     public boolean isRightToLeft() {
         return _sheet.getWindowTwo().getArabic();
     }
@@ -835,6 +825,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param index of the region to unmerge
      */
 
+    @Override
     public void removeMergedRegion(int index) {
         _sheet.removeMergedRegion(index);
     }
@@ -844,24 +835,15 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return number of merged regions
      */
-
+    @Override
     public int getNumMergedRegions() {
         return _sheet.getNumMergedRegions();
     }
 
     /**
-     * @deprecated (Aug-2008) use {@link HSSFSheet#getMergedRegion(int)}
-     */
-    public org.apache.poi.hssf.util.Region getMergedRegionAt(int index) {
-        CellRangeAddress cra = getMergedRegion(index);
-
-        return new org.apache.poi.hssf.util.Region(cra.getFirstRow(), (short) cra.getFirstColumn(),
-                cra.getLastRow(), (short) cra.getLastColumn());
-    }
-
-    /**
      * @return the merged region at the specified index
      */
+    @Override
     public CellRangeAddress getMergedRegion(int index) {
         return _sheet.getMergedRegionAt(index);
     }
@@ -869,6 +851,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
     /**
      * @return the list of merged regions
      */
+    @Override
     public List<CellRangeAddress> getMergedRegions() {
         List<CellRangeAddress> addresses = new ArrayList<CellRangeAddress>();
         for (int i=0; i < _sheet.getNumMergedRegions(); i++) {
@@ -882,6 +865,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *         be the third row if say for instance the second row is undefined.
      *         Call getRowNum() on each row if you care which one it is.
      */
+    @Override
     public Iterator<Row> rowIterator() {
         @SuppressWarnings("unchecked") // can this clumsy generic syntax be improved?
                 Iterator<Row> result = (Iterator<Row>) (Iterator<? extends Row>) _rows.values().iterator();
@@ -892,6 +876,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * Alias for {@link #rowIterator()} to allow
      * foreach loops
      */
+    @Override
     public Iterator<Row> iterator() {
         return rowIterator();
     }
@@ -903,7 +888,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return Sheet - low level representation of this HSSFSheet.
      */
-    InternalSheet getSheet() {
+    /*package*/ InternalSheet getSheet() {
         return _sheet;
     }
 
@@ -936,6 +921,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param b whether to show auto page breaks
      */
+    @Override
     public void setAutobreaks(boolean b) {
         WSBoolRecord record =
                 (WSBoolRecord) _sheet.findFirstRecordBySid(WSBoolRecord.sid);
@@ -960,6 +946,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param b guts or no guts (or glory)
      */
+    @Override
     public void setDisplayGuts(boolean b) {
         WSBoolRecord record =
                 (WSBoolRecord) _sheet.findFirstRecordBySid(WSBoolRecord.sid);
@@ -972,6 +959,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param b fit or not
      */
+    @Override
     public void setFitToPage(boolean b) {
         WSBoolRecord record =
                 (WSBoolRecord) _sheet.findFirstRecordBySid(WSBoolRecord.sid);
@@ -984,6 +972,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param b below or not
      */
+    @Override
     public void setRowSumsBelow(boolean b) {
         WSBoolRecord record =
                 (WSBoolRecord) _sheet.findFirstRecordBySid(WSBoolRecord.sid);
@@ -998,6 +987,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param b right or not
      */
+    @Override
     public void setRowSumsRight(boolean b) {
         WSBoolRecord record =
                 (WSBoolRecord) _sheet.findFirstRecordBySid(WSBoolRecord.sid);
@@ -1030,6 +1020,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return whether to show auto page breaks
      */
+    @Override
     public boolean getAutobreaks() {
         return ((WSBoolRecord) _sheet.findFirstRecordBySid(WSBoolRecord.sid))
                 .getAutobreaks();
@@ -1050,6 +1041,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return guts or no guts (or glory)
      */
+    @Override
     public boolean getDisplayGuts() {
         return ((WSBoolRecord) _sheet.findFirstRecordBySid(WSBoolRecord.sid))
                 .getDisplayGuts();
@@ -1065,6 +1057,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return whether all zero values on the worksheet are displayed
      */
+    @Override
     public boolean isDisplayZeros() {
         return _sheet.getWindowTwo().getDisplayZeros();
     }
@@ -1078,6 +1071,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param value whether to display or hide all zero values on the worksheet
      */
+    @Override
     public void setDisplayZeros(boolean value) {
         _sheet.getWindowTwo().setDisplayZeros(value);
     }
@@ -1087,6 +1081,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return fit or not
      */
+    @Override
     public boolean getFitToPage() {
         return ((WSBoolRecord) _sheet.findFirstRecordBySid(WSBoolRecord.sid))
                 .getFitToPage();
@@ -1097,6 +1092,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return below or not
      */
+    @Override
     public boolean getRowSumsBelow() {
         return ((WSBoolRecord) _sheet.findFirstRecordBySid(WSBoolRecord.sid))
                 .getRowSumsBelow();
@@ -1107,6 +1103,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return right or not
      */
+    @Override
     public boolean getRowSumsRight() {
         return ((WSBoolRecord) _sheet.findFirstRecordBySid(WSBoolRecord.sid))
                 .getRowSumsRight();
@@ -1117,6 +1114,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return Gridlines are printed
      */
+    @Override
     public boolean isPrintGridlines() {
         return getSheet().getPrintGridlines().getPrintGridlines();
     }
@@ -1127,6 +1125,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param newPrintGridlines boolean to turn on or off the printing of
      *                          gridlines
      */
+    @Override
     public void setPrintGridlines(boolean newPrintGridlines) {
         getSheet().getPrintGridlines().setPrintGridlines(newPrintGridlines);
     }
@@ -1136,14 +1135,17 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return The user model for the print setup object.
      */
+    @Override
     public HSSFPrintSetup getPrintSetup() {
         return new HSSFPrintSetup(_sheet.getPageSettings().getPrintSetup());
     }
 
+    @Override
     public HSSFHeader getHeader() {
         return new HSSFHeader(_sheet.getPageSettings());
     }
 
+    @Override
     public HSSFFooter getFooter() {
         return new HSSFFooter(_sheet.getPageSettings());
     }
@@ -1153,6 +1155,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return <code>true</code> if this sheet is currently selected
      */
+    @Override
     public boolean isSelected() {
         return getSheet().getWindowTwo().getSelected();
     }
@@ -1162,6 +1165,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param sel Whether to select the sheet or deselect the sheet.
      */
+    @Override
     public void setSelected(boolean sel) {
         getSheet().getWindowTwo().setSelected(sel);
     }
@@ -1188,6 +1192,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param margin which margin to get
      * @return the size of the margin
      */
+    @Override
     public double getMargin(short margin) {
         switch (margin) {
             case FooterMargin:
@@ -1205,6 +1210,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param margin which margin to get
      * @param size   the size of the margin
      */
+    @Override
     public void setMargin(short margin, double size) {
         switch (margin) {
             case FooterMargin:
@@ -1227,6 +1233,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return true => protection enabled; false => protection disabled
      */
+    @Override
     public boolean getProtect() {
         return getProtectionBlock().isSheetProtected();
     }
@@ -1252,6 +1259,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return true => protection enabled; false => protection disabled
      */
+    @Override
     public boolean getScenarioProtect() {
         return getProtectionBlock().isScenarioProtected();
     }
@@ -1261,6 +1269,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param password to set for protection. Pass <code>null</code> to remove protection
      */
+    @Override
     public void protectSheet(String password) {
         getProtectionBlock().protectSheet(password, true, true); //protect objs&scenarios(normal)
     }
@@ -1272,7 +1281,9 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param numerator   The numerator for the zoom magnification.
      * @param denominator The denominator for the zoom magnification.
+     * @deprecated 2015-11-23 (circa POI 3.14beta1). Use {@link #setZoom(int)} instead.
      */
+    @Override
     public void setZoom(int numerator, int denominator) {
         if (numerator < 1 || numerator > 65535)
             throw new IllegalArgumentException("Numerator must be greater than 0 and less than 65536");
@@ -1284,6 +1295,28 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
         sclRecord.setDenominator((short) denominator);
         getSheet().setSCLRecord(sclRecord);
     }
+    
+    /**
+     * Window zoom magnification for current view representing percent values.
+     * Valid values range from 10 to 400. Horizontal & Vertical scale together.
+     *
+     * For example:
+     * <pre>
+     * 10 - 10%
+     * 20 - 20%
+     * ...
+     * 100 - 100%
+     * ...
+     * 400 - 400%
+     * </pre>
+     *
+     * @param scale window zoom magnification
+     * @throws IllegalArgumentException if scale is invalid
+     */
+    @Override
+    public void setZoom(int scale) {
+        setZoom(scale, 100);
+    }
 
     /**
      * The top row in the visible view when the sheet is
@@ -1291,6 +1324,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return short indicating the rownum (0 based) of the top row
      */
+    @Override
     public short getTopRow() {
         return _sheet.getTopRow();
     }
@@ -1301,6 +1335,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return short indicating the rownum (0 based) of the top row
      */
+    @Override
     public short getLeftCol() {
         return _sheet.getLeftCol();
     }
@@ -1312,6 +1347,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param toprow  the top row to show in desktop window pane
      * @param leftcol the left column to show in desktop window pane
      */
+    @Override
     public void showInPane(int toprow, int leftcol) {
         int maxrow = SpreadsheetVersion.EXCEL97.getLastRowIndex();
         if (toprow > maxrow) throw new IllegalArgumentException("Maximum row number is " + maxrow);
@@ -1325,7 +1361,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param toprow  the top row to show in desktop window pane
      * @param leftcol the left column to show in desktop window pane
      */
-    public void showInPane(short toprow, short leftcol) {
+    private void showInPane(short toprow, short leftcol) {
         _sheet.setTopRow(toprow);
         _sheet.setLeftCol(leftcol);
     }
@@ -1390,6 +1426,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param endRow   the row to end shifting
      * @param n        the number of rows to shift
      */
+    @Override
     public void shiftRows(int startRow, int endRow, int n) {
         shiftRows(startRow, endRow, n, false, false);
     }
@@ -1411,6 +1448,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param copyRowHeight          whether to copy the row height during the shift
      * @param resetOriginalRowHeight whether to set the original row's height to the default
      */
+    @Override
     public void shiftRows(int startRow, int endRow, int n, boolean copyRowHeight, boolean resetOriginalRowHeight) {
         shiftRows(startRow, endRow, n, copyRowHeight, resetOriginalRowHeight, true);
     }
@@ -1436,6 +1474,9 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
     public void shiftRows(int startRow, int endRow, int n,
                           boolean copyRowHeight, boolean resetOriginalRowHeight, boolean moveComments) {
         int s, inc;
+        if (endRow < startRow) {
+            throw new IllegalArgumentException("startRow must be less than or equal to endRow. To shift rows up, use n<0.");
+        }
         if (n < 0) {
             s = startRow;
             inc = 1;
@@ -1447,12 +1488,29 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
             return;
         }
 
+        // Shift comments
         if (moveComments) {
             _sheet.getNoteRecords();
         }
 
+        // Shift Merged Regions
         shiftMerged(startRow, endRow, n, true);
+        
+        // Shift Row Breaks
         _sheet.getPageSettings().shiftRowBreaks(startRow, endRow, n);
+        
+        // Delete overwritten hyperlinks
+        final int firstOverwrittenRow = startRow + n;
+        final int lastOverwrittenRow = endRow + n;
+        for (HSSFHyperlink link : getHyperlinkList()) {
+            // If hyperlink is fully contained in the rows that will be overwritten, delete the hyperlink
+            if (firstOverwrittenRow <= link.getFirstRow() &&
+                    link.getFirstRow() <= lastOverwrittenRow &&
+                    lastOverwrittenRow <= link.getLastRow() &&
+                    link.getLastRow() <= lastOverwrittenRow) {
+                removeHyperlink(link);
+            }
+        }
 
         for (int rowNum = s; rowNum >= startRow && rowNum <= endRow && rowNum >= 0 && rowNum < 65536; rowNum += inc) {
             HSSFRow row = getRow(rowNum);
@@ -1467,7 +1525,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
 
 
             // Remove all the old cells from the row we'll
-            //  be writing too, before we start overwriting
+            //  be writing to, before we start overwriting
             //  any cells. This avoids issues with cells
             //  changing type, and records not being correctly
             //  overwritten
@@ -1489,13 +1547,13 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
             //  the destination row
             for (Iterator<Cell> cells = row.cellIterator(); cells.hasNext(); ) {
                 HSSFCell cell = (HSSFCell) cells.next();
+                HSSFHyperlink link = cell.getHyperlink();
                 row.removeCell(cell);
                 CellValueRecordInterface cellRecord = cell.getCellValueRecord();
                 cellRecord.setRow(rowNum + n);
                 row2Replace.createCellFromRecord(cellRecord);
                 _sheet.addValueRecord(rowNum + n, cellRecord);
 
-                HSSFHyperlink link = cell.getHyperlink();
                 if (link != null) {
                     link.setFirstRow(link.getFirstRow() + n);
                     link.setLastRow(link.getLastRow() + n);
@@ -1563,7 +1621,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
         String sheetName = _workbook.getSheetName(sheetIndex);
         short externSheetIndex = _book.checkExternSheet(sheetIndex);
         FormulaShifter shifter = FormulaShifter.createForRowShift(
-                         externSheetIndex, sheetName, startRow, endRow, n);
+                         externSheetIndex, sheetName, startRow, endRow, n, SpreadsheetVersion.EXCEL97);
         _sheet.updateFormulasAfterCellShift(shifter, externSheetIndex);
 
         int nSheets = _workbook.getNumberOfSheets();
@@ -1606,6 +1664,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param leftmostColumn Left column visible in right pane.
      * @param topRow         Top row visible in bottom pane
      */
+    @Override
     public void createFreezePane(int colSplit, int rowSplit, int leftmostColumn, int topRow) {
         validateColumn(colSplit);
         validateRow(rowSplit);
@@ -1626,6 +1685,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param colSplit Horizonatal position of split.
      * @param rowSplit Vertical position of split.
      */
+    @Override
     public void createFreezePane(int colSplit, int rowSplit) {
         createFreezePane(colSplit, rowSplit, colSplit, rowSplit);
     }
@@ -1644,6 +1704,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @see #PANE_UPPER_LEFT
      * @see #PANE_UPPER_RIGHT
      */
+    @Override
     public void createSplitPane(int xSplitPos, int ySplitPos, int leftmostColumn, int topRow, int activePane) {
         getSheet().createSplitPane(xSplitPos, ySplitPos, topRow, leftmostColumn, activePane);
     }
@@ -1653,6 +1714,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return null if no pane configured, or the pane information.
      */
+    @Override
     public PaneInformation getPaneInformation() {
         return getSheet().getPaneInformation();
     }
@@ -1662,6 +1724,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param show whether to show gridlines or not
      */
+    @Override
     public void setDisplayGridlines(boolean show) {
         _sheet.setDisplayGridlines(show);
     }
@@ -1671,6 +1734,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return whether gridlines are displayed
      */
+    @Override
     public boolean isDisplayGridlines() {
         return _sheet.isDisplayGridlines();
     }
@@ -1680,6 +1744,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param show whether to show formulas or not
      */
+    @Override
     public void setDisplayFormulas(boolean show) {
         _sheet.setDisplayFormulas(show);
     }
@@ -1689,6 +1754,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return whether formulas are displayed
      */
+    @Override
     public boolean isDisplayFormulas() {
         return _sheet.isDisplayFormulas();
     }
@@ -1698,6 +1764,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param show whether to show RowColHeadings or not
      */
+    @Override
     public void setDisplayRowColHeadings(boolean show) {
         _sheet.setDisplayRowColHeadings(show);
     }
@@ -1707,6 +1774,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return whether RowColHeadings are displayed
      */
+    @Override
     public boolean isDisplayRowColHeadings() {
         return _sheet.isDisplayRowColHeadings();
     }
@@ -1722,6 +1790,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param row the row to break, inclusive
      */
+    @Override
     public void setRowBreak(int row) {
         validateRow(row);
         _sheet.getPageSettings().setRowBreak(row, (short) 0, (short) 255);
@@ -1730,6 +1799,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
     /**
      * @return <code>true</code> if there is a page break at the indicated row
      */
+    @Override
     public boolean isRowBroken(int row) {
         return _sheet.getPageSettings().isRowBroken(row);
     }
@@ -1737,6 +1807,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
     /**
      * Removes the page break at the indicated row
      */
+    @Override
     public void removeRowBreak(int row) {
         _sheet.getPageSettings().removeRowBreak(row);
     }
@@ -1744,6 +1815,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
     /**
      * @return row indexes of all the horizontal page breaks, never <code>null</code>
      */
+    @Override
     public int[] getRowBreaks() {
         //we can probably cache this information, but this should be a sparsely used function
         return _sheet.getPageSettings().getRowBreaks();
@@ -1752,6 +1824,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
     /**
      * @return column indexes of all the vertical page breaks, never <code>null</code>
      */
+    @Override
     public int[] getColumnBreaks() {
         //we can probably cache this information, but this should be a sparsely used function
         return _sheet.getPageSettings().getColumnBreaks();
@@ -1769,6 +1842,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param column the column to break, inclusive
      */
+    @Override
     public void setColumnBreak(int column) {
         validateColumn((short) column);
         _sheet.getPageSettings().setColumnBreak((short) column, (short) 0, (short) SpreadsheetVersion.EXCEL97.getLastRowIndex());
@@ -1780,6 +1854,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param column FIXME: Document this!
      * @return FIXME: Document this!
      */
+    @Override
     public boolean isColumnBroken(int column) {
         return _sheet.getPageSettings().isColumnBroken(column);
     }
@@ -1789,6 +1864,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param column
      */
+    @Override
     public void removeColumnBreak(int column) {
         _sheet.getPageSettings().removeColumnBreak(column);
     }
@@ -1866,6 +1942,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return the top-level drawing patriarch, if there is one, else returns null
      */
+    @Override
     public HSSFPatriarch getDrawingPatriarch() {
         _patriarch = getPatriarch(false);
         return _patriarch;
@@ -1879,6 +1956,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return The new patriarch.
      */
+    @Override
     public HSSFPatriarch createDrawingPatriarch() {
         _patriarch = getPatriarch(true);
         return _patriarch;
@@ -1918,32 +1996,12 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
     }
 
     /**
-     * @deprecated (Sep 2008) use {@link #setColumnGroupCollapsed(int, boolean)}
-     */
-    public void setColumnGroupCollapsed(short columnNumber, boolean collapsed) {
-        setColumnGroupCollapsed(columnNumber & 0xFFFF, collapsed);
-    }
-
-    /**
-     * @deprecated (Sep 2008) use {@link #groupColumn(int, int)}
-     */
-    public void groupColumn(short fromColumn, short toColumn) {
-        groupColumn(fromColumn & 0xFFFF, toColumn & 0xFFFF);
-    }
-
-    /**
-     * @deprecated (Sep 2008) use {@link #ungroupColumn(int, int)}
-     */
-    public void ungroupColumn(short fromColumn, short toColumn) {
-        ungroupColumn(fromColumn & 0xFFFF, toColumn & 0xFFFF);
-    }
-
-    /**
      * Expands or collapses a column group.
      *
      * @param columnNumber One of the columns in the group.
      * @param collapsed    true = collapse group, false = expand group.
      */
+    @Override
     public void setColumnGroupCollapsed(int columnNumber, boolean collapsed) {
         _sheet.setColumnGroupCollapsed(columnNumber, collapsed);
     }
@@ -1954,10 +2012,12 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param fromColumn beginning of the column range.
      * @param toColumn   end of the column range.
      */
+    @Override
     public void groupColumn(int fromColumn, int toColumn) {
         _sheet.groupColumnRange(fromColumn, toColumn, true);
     }
 
+    @Override
     public void ungroupColumn(int fromColumn, int toColumn) {
         _sheet.groupColumnRange(fromColumn, toColumn, false);
     }
@@ -1968,14 +2028,17 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param fromRow start row (0-based)
      * @param toRow   end row (0-based)
      */
+    @Override
     public void groupRow(int fromRow, int toRow) {
         _sheet.groupRowRange(fromRow, toRow, true);
     }
 
+    @Override
     public void ungroupRow(int fromRow, int toRow) {
         _sheet.groupRowRange(fromRow, toRow, false);
     }
 
+    @Override
     public void setRowGroupCollapsed(int rowIndex, boolean collapse) {
         if (collapse) {
             _sheet.getRowsAggregate().collapseRow(rowIndex);
@@ -1990,6 +2053,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param column the column index
      * @param style  the style to set
      */
+    @Override
     public void setDefaultColumnStyle(int column, CellStyle style) {
         _sheet.setDefaultColumnStyle(column, ((HSSFCellStyle) style).getIndex());
     }
@@ -2003,6 +2067,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @param column the column index
      */
+    @Override
     public void autoSizeColumn(int column) {
         autoSizeColumn(column, false);
     }
@@ -2020,6 +2085,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * @param column         the column index
      * @param useMergedCells whether to use the contents of merged cells when calculating the width of the column
      */
+    @Override
     public void autoSizeColumn(int column, boolean useMergedCells) {
         double width = SheetUtil.getColumnWidth(this, column, useMergedCells);
 
@@ -2038,11 +2104,92 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      * Returns cell comment for the specified row and column
      *
      * @return cell comment or <code>null</code> if not found
+     * @deprecated as of 2015-11-23 (circa POI 3.14beta1). Use {@link #getCellComment(CellAddress)} instead.
      */
+    @Override
     public HSSFComment getCellComment(int row, int column) {
         return findCellComment(row, column);
     }
+    
+    /**
+     * Returns cell comment for the specified row and column
+     *
+     * @return cell comment or <code>null</code> if not found
+     */
+    @Override
+    public HSSFComment getCellComment(CellAddress ref) {
+        return findCellComment(ref.getRow(), ref.getColumn());
+    }
+    
+    /**
+     * Get a Hyperlink in this sheet anchored at row, column
+     *
+     * @param row
+     * @param column
+     * @return hyperlink if there is a hyperlink anchored at row, column; otherwise returns null
+     */
+    @Override
+    public HSSFHyperlink getHyperlink(int row, int column) {
+        for (Iterator<RecordBase> it = _sheet.getRecords().iterator(); it.hasNext(); ) {
+            RecordBase rec = it.next();
+            if (rec instanceof HyperlinkRecord){
+                HyperlinkRecord link = (HyperlinkRecord)rec;
+                if (link.getFirstColumn() == column && link.getFirstRow() == row) {
+                    return new HSSFHyperlink(link);
+                }
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Get a list of Hyperlinks in this sheet
+     *
+     * @return Hyperlinks for the sheet
+     */
+    @Override
+    public List<HSSFHyperlink> getHyperlinkList() {
+        final List<HSSFHyperlink> hyperlinkList = new ArrayList<HSSFHyperlink>();
+        for (Iterator<RecordBase> it = _sheet.getRecords().iterator(); it.hasNext(); ) {
+            RecordBase rec = it.next();
+            if (rec instanceof HyperlinkRecord){
+                HyperlinkRecord link = (HyperlinkRecord)rec;
+                hyperlinkList.add(new HSSFHyperlink(link));
+            }
+        }
+        return hyperlinkList;
+    }
+    
+    /**
+     * Remove the underlying HyperlinkRecord from this sheet.
+     * If multiple HSSFHyperlinks refer to the same HyperlinkRecord, all HSSFHyperlinks will be removed.
+     *
+     * @param link the HSSFHyperlink wrapper around the HyperlinkRecord to remove
+     */
+    protected void removeHyperlink(HSSFHyperlink link) {
+        removeHyperlink(link.record);
+    }
+    
+    /**
+     * Remove the underlying HyperlinkRecord from this sheet
+     *
+     * @param link the underlying HyperlinkRecord to remove from this sheet
+     */
+    protected void removeHyperlink(HyperlinkRecord link) {
+        for (Iterator<RecordBase> it = _sheet.getRecords().iterator(); it.hasNext();) {
+            RecordBase rec = it.next();
+            if (rec instanceof HyperlinkRecord) {
+                HyperlinkRecord recLink = (HyperlinkRecord) rec;
+                if (link == recLink) {
+                    it.remove();
+                    // if multiple HSSFHyperlinks refer to the same record
+                    return;
+                }
+            }
+        }
+    }
 
+    @Override
     public HSSFSheetConditionalFormatting getSheetConditionalFormatting() {
         return new HSSFSheetConditionalFormatting(this);
     }
@@ -2052,7 +2199,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *
      * @return the name of this sheet
      */
-    @SuppressWarnings("resource")
+    @Override
     public String getSheetName() {
         HSSFWorkbook wb = getWorkbook();
         int idx = wb.getSheetIndex(this);
@@ -2086,6 +2233,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
         return SSCellRange.create(firstRow, firstColumn, height, width, temp, HSSFCell.class);
     }
 
+    @Override
     public CellRange<HSSFCell> setArrayFormula(String formula, CellRangeAddress range) {
         // make sure the formula parses OK first
         int sheetIndex = _workbook.getSheetIndex(this);
@@ -2101,7 +2249,7 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
         return cells;
     }
 
-
+    @Override
     public CellRange<HSSFCell> removeArrayFormula(Cell cell) {
         if (cell.getSheet() != this) {
             throw new IllegalArgumentException("Specified cell does not belong to this sheet.");
@@ -2122,10 +2270,12 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
         return result;
     }
 
+    @Override
     public DataValidationHelper getDataValidationHelper() {
         return new HSSFDataValidationHelper(this);
     }
 
+    @Override
     public HSSFAutoFilter setAutoFilter(CellRangeAddress range) {
         InternalWorkbook workbook = _workbook.getWorkbook();
         int sheetIndex = _workbook.getSheetIndex(this);
@@ -2194,23 +2344,61 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
         return null;
     }
 
+    /**
+     * Returns all cell comments on this sheet.
+     * @return A map of each Comment in the sheet, keyed on the cell address where
+     * the comment is located.
+     */
+    @Override
+    public Map<CellAddress, HSSFComment> getCellComments() {
+        HSSFPatriarch patriarch = getDrawingPatriarch();
+        if (null == patriarch) {
+            patriarch = createDrawingPatriarch();
+        }
+        
+        Map<CellAddress, HSSFComment> locations = new TreeMap<CellAddress, HSSFComment>();
+        findCellCommentLocations(patriarch, locations);
+        return locations;
+    }
+    /**
+     * Finds all cell comments in this sheet and adds them to the specified locations map
+     *
+     * @param container a container that may contain HSSFComments
+     * @param locations the map to store the HSSFComments in
+     */
+    private void findCellCommentLocations(HSSFShapeContainer container, Map<CellAddress, HSSFComment> locations) {
+        for (Object object : container.getChildren()) {
+            HSSFShape shape = (HSSFShape) object;
+            if (shape instanceof HSSFShapeGroup) {
+                findCellCommentLocations((HSSFShapeGroup) shape, locations);
+                continue;
+            }
+            if (shape instanceof HSSFComment) {
+                HSSFComment comment = (HSSFComment) shape;
+                if (comment.hasPosition()) {
+                    locations.put(new CellAddress(comment.getRow(), comment.getColumn()), comment);
+                }
+            }
+        }
+    }
 
+    @Override
     public CellRangeAddress getRepeatingRows() {
         return getRepeatingRowsOrColums(true);
     }
 
-
+    @Override
     public CellRangeAddress getRepeatingColumns() {
         return getRepeatingRowsOrColums(false);
     }
 
-
+    @Override
     public void setRepeatingRows(CellRangeAddress rowRangeRef) {
         CellRangeAddress columnRangeRef = getRepeatingColumns();
         setRepeatingRowsAndColumns(rowRangeRef, columnRangeRef);
     }
 
-
+    @Override
     public void setRepeatingColumns(CellRangeAddress columnRangeRef) {
         CellRangeAddress rowRangeRef = getRepeatingRows();
         setRepeatingRowsAndColumns(rowRangeRef, columnRangeRef);
@@ -2353,7 +2541,29 @@ public final class HSSFSheet implements org.apache.poi.ss.usermodel.Sheet {
      *  put it into more groups (outlines), reduced as
      *  you take it out of them.
      */
+    @Override
     public int getColumnOutlineLevel(int columnIndex) {
         return _sheet.getColumnOutlineLevel(columnIndex);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public CellAddress getActiveCell() {
+        int row = _sheet.getActiveCellRow();
+        int col = _sheet.getActiveCellCol();
+        return new CellAddress(row, col);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setActiveCell(CellAddress address) {
+        int row = address.getRow();
+        short col = (short) address.getColumn();
+        _sheet.setActiveCellRow(row);
+        _sheet.setActiveCellCol(col);
     }
 }

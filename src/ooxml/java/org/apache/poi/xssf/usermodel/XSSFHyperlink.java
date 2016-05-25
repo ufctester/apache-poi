@@ -23,6 +23,7 @@ import org.apache.poi.openxml4j.opc.PackagePart;
 import org.apache.poi.openxml4j.opc.PackageRelationship;
 import org.apache.poi.ss.usermodel.Hyperlink;
 import org.apache.poi.ss.util.CellReference;
+import org.apache.poi.util.Internal;
 import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTHyperlink;
 
 /**
@@ -31,10 +32,10 @@ import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTHyperlink;
  * are largely stored as relations of the sheet
  */
 public class XSSFHyperlink implements Hyperlink {
-    private int _type;
-    private PackageRelationship _externalRel;
-    private CTHyperlink _ctHyperlink;
-    private String _location;
+    final private int _type;
+    final private PackageRelationship _externalRel;
+    final private CTHyperlink _ctHyperlink; //contains a reference to the cell where the hyperlink is anchored, getRef()
+    private String _location; //what the hyperlink refers to
 
     /**
      * Create a new XSSFHyperlink. This method is protected to be used only by XSSFCreationHelper
@@ -44,10 +45,11 @@ public class XSSFHyperlink implements Hyperlink {
     protected XSSFHyperlink(int type) {
         _type = type;
         _ctHyperlink = CTHyperlink.Factory.newInstance();
+        _externalRel = null;
     }
 
     /**
-     * Create a XSSFHyperlink amd initialize it from the supplied CTHyperlink bean and package relationship
+     * Create a XSSFHyperlink and initialize it from the supplied CTHyperlink bean and package relationship
      *
      * @param ctHyperlink the xml bean containing xml properties
      * @param hyperlinkRel the relationship in the underlying OPC package which stores the actual link's address
@@ -90,10 +92,34 @@ public class XSSFHyperlink implements Hyperlink {
 
         }
     }
-
+    
+    /**
+     * Create a new XSSFHyperlink. This method is for Internal use only.
+     * XSSFHyperlinks can be created by XSSFCreationHelper.
+     *
+     * @param other the hyperlink to copy
+     */
+    @Internal //FIXME: change to protected if/when SXSSFHyperlink class is created
+    public XSSFHyperlink(Hyperlink other) {
+        if (other instanceof XSSFHyperlink) {
+            XSSFHyperlink xlink = (XSSFHyperlink) other;
+            _type = xlink.getType();
+            _location = xlink._location;
+            _externalRel = xlink._externalRel;
+            _ctHyperlink = (CTHyperlink) xlink._ctHyperlink.copy();
+        }
+        else {
+            _type = other.getType();
+            _location = other.getAddress();
+            _externalRel = null;
+            _ctHyperlink = CTHyperlink.Factory.newInstance();
+            setCellReference(new CellReference(other.getFirstRow(), other.getFirstColumn()));
+        }
+    }
     /**
      * @return the underlying CTHyperlink object
      */
+    @Internal
     public CTHyperlink getCTHyperlink() {
         return _ctHyperlink;
     }
@@ -125,6 +151,7 @@ public class XSSFHyperlink implements Hyperlink {
      *
      * @return the type of this hyperlink
      */
+    @Override
     public int getType() {
         return _type;
     }
@@ -142,6 +169,7 @@ public class XSSFHyperlink implements Hyperlink {
      *
      * @return the address of this hyperlink
      */
+    @Override
     public String getAddress() {
         return _location;
     }
@@ -151,6 +179,7 @@ public class XSSFHyperlink implements Hyperlink {
      *
      * @return text to display
      */
+    @Override
     public String getLabel() {
         return _ctHyperlink.getDisplay();
     }
@@ -170,6 +199,7 @@ public class XSSFHyperlink implements Hyperlink {
      *
      * @param label text label for this hyperlink
      */
+    @Override
     public void setLabel(String label) {
         _ctHyperlink.setDisplay(label);
     }
@@ -189,6 +219,7 @@ public class XSSFHyperlink implements Hyperlink {
      *
      * @param address - the address of this hyperlink
      */
+    @Override
     public void setAddress(String address) {
         validate(address);
 
@@ -219,7 +250,8 @@ public class XSSFHyperlink implements Hyperlink {
     /**
      * Assigns this hyperlink to the given cell reference
      */
-    protected void setCellReference(String ref) {
+    @Internal
+    public void setCellReference(String ref) {
         _ctHyperlink.setRef(ref);
     }
     protected void setCellReference(CellReference ref) {
@@ -240,6 +272,7 @@ public class XSSFHyperlink implements Hyperlink {
      *
      * @return the 0-based column of the first cell that contains the hyperlink
      */
+    @Override
     public int getFirstColumn() {
         return buildCellReference().getCol();
     }
@@ -250,6 +283,7 @@ public class XSSFHyperlink implements Hyperlink {
      *
      * @return the 0-based column of the last cell that contains the hyperlink
      */
+    @Override
     public int getLastColumn() {
         return buildCellReference().getCol();
     }
@@ -259,6 +293,7 @@ public class XSSFHyperlink implements Hyperlink {
      *
      * @return the 0-based row of the cell that contains the hyperlink
      */
+    @Override
     public int getFirstRow() {
         return buildCellReference().getRow();
     }
@@ -269,6 +304,7 @@ public class XSSFHyperlink implements Hyperlink {
      *
      * @return the 0-based row of the last cell that contains the hyperlink
      */
+    @Override
     public int getLastRow() {
         return buildCellReference().getRow();
     }
@@ -278,6 +314,7 @@ public class XSSFHyperlink implements Hyperlink {
      *
      * @param col the 0-based column of the first cell that contains the hyperlink
      */
+    @Override
     public void setFirstColumn(int col) {
         setCellReference(new CellReference( getFirstRow(), col ));
     }
@@ -288,6 +325,7 @@ public class XSSFHyperlink implements Hyperlink {
      *
      * @param col the 0-based column of the last cell that contains the hyperlink
      */
+    @Override
     public void setLastColumn(int col) {
         setFirstColumn(col);
     }
@@ -297,6 +335,7 @@ public class XSSFHyperlink implements Hyperlink {
      *
      * @param row the 0-based row of the first cell that contains the hyperlink
      */
+    @Override
     public void setFirstRow(int row) {
         setCellReference(new CellReference( row, getFirstColumn() ));
     }
@@ -307,6 +346,7 @@ public class XSSFHyperlink implements Hyperlink {
      *
      * @param row the 0-based row of the last cell that contains the hyperlink
      */
+    @Override
     public void setLastRow(int row) {
         setFirstRow(row);
 	}

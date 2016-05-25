@@ -17,14 +17,19 @@
 
 package org.apache.poi.hslf.record;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.poi.hslf.exceptions.HSLFException;
 import org.apache.poi.hslf.model.textproperties.TextPropCollection;
 import org.apache.poi.hslf.model.textproperties.TextPropCollection.TextPropType;
 import org.apache.poi.util.LittleEndian;
+import org.apache.poi.util.LittleEndianOutputStream;
+import org.apache.poi.util.POILogFactory;
+import org.apache.poi.util.POILogger;
 
 /**
  * TxMasterStyleAtom atom (4003).
@@ -43,6 +48,8 @@ import org.apache.poi.util.LittleEndian;
  *  @author Yegor Kozlov
  */
 public final class TxMasterStyleAtom extends RecordAtom {
+    private static final POILogger LOG = POILogFactory.getLogger(TxMasterStyleAtom.class);
+    
     /**
      * Maximum number of indentation levels allowed in PowerPoint documents
      */
@@ -66,7 +73,7 @@ public final class TxMasterStyleAtom extends RecordAtom {
         try {
             init();
         } catch (Exception e){
-            e.printStackTrace();
+            LOG.log(POILogger.WARN, "Exception when reading available styles", e);
         }
     }
 
@@ -140,8 +147,8 @@ public final class TxMasterStyleAtom extends RecordAtom {
         paragraphStyles = new ArrayList<TextPropCollection>(levels);
         charStyles = new ArrayList<TextPropCollection>(levels);
 
-        for(short j = 0; j < levels; j++) {
-            TextPropCollection prprops = new TextPropCollection(0, TextPropType.paragraph); //  getParagraphProps(type, j)
+        for(short i = 0; i < levels; i++) {
+            TextPropCollection prprops = new TextPropCollection(0, TextPropType.paragraph);
             if (type >= TextHeaderAtom.CENTRE_BODY_TYPE) {
                 // Fetch the 2 byte value, that is safe to ignore for some types of text
                 short indentLevel = LittleEndian.getShort(_data, pos);
@@ -159,36 +166,48 @@ public final class TxMasterStyleAtom extends RecordAtom {
 
             head = LittleEndian.getInt(_data, pos);
             pos += LittleEndian.INT_SIZE;
-            TextPropCollection chprops = new TextPropCollection(0, TextPropType.character); //  getCharacterProps(type, j)
+            TextPropCollection chprops = new TextPropCollection(0, TextPropType.character);
             pos += chprops.buildTextPropList( head, _data, pos);
             charStyles.add(chprops);
         }
-
     }
 
     /**
-     * Paragraph properties for the specified text type and
-     *  indent level
-     * Depending on the level and type, it may be our special
-     *  ones, or the standard StyleTextPropAtom ones
+     * Updates the rawdata from the modified paragraph/character styles
+     * 
+     * @since POI 3.14-beta1
      */
-//    protected TextProp[] getParagraphProps(int type, int level){
-//        return StyleTextPropAtom.paragraphTextPropTypes;
-//        return (level != 0 || type >= MAX_INDENT)
-//            ? StyleTextPropAtom.paragraphTextPropTypes
-//            : paragraphSpecialPropTypes;
-//    }
-
-    /**
-     * Character properties for the specified text type and
-     *  indent level.
-     * Depending on the level and type, it may be our special
-     *  ones, or the standard StyleTextPropAtom ones
-     */
-//    protected TextProp[] getCharacterProps(int type, int level){
-//        return StyleTextPropAtom.characterTextPropTypes;
-//        return (level != 0 || type >= MAX_INDENT) 
-//            ? StyleTextPropAtom.characterTextPropTypes
-//            : characterSpecialPropTypes;
-//    }
+    public void updateStyles() {
+        int type = getTextType();
+        
+        try {
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            LittleEndianOutputStream leos = new LittleEndianOutputStream(bos);
+            int levels = paragraphStyles.size();
+            leos.writeShort(levels);
+            
+            TextPropCollection prdummy = new TextPropCollection(0, TextPropType.paragraph);
+            TextPropCollection chdummy = new TextPropCollection(0, TextPropType.character);
+            
+            for (int i=0; i<levels; i++) {
+                prdummy.copy(paragraphStyles.get(i));
+                chdummy.copy(charStyles.get(i));
+                if (type >= TextHeaderAtom.CENTRE_BODY_TYPE) {
+                    leos.writeShort(prdummy.getIndentLevel());
+                }
+                
+                // Indent level is not written for master styles
+                prdummy.setIndentLevel((short)-1);
+                prdummy.writeOut(bos, true);
+                chdummy.writeOut(bos, true);
+            }
+            
+            _data = bos.toByteArray();
+            leos.close();
+            
+            LittleEndian.putInt(_header, 4, _data.length);
+        } catch (IOException e) {
+            throw new HSLFException("error in updating master style properties", e);
+        }
+    }
 }

@@ -16,6 +16,8 @@
 ==================================================================== */
 package org.apache.poi.xssf.eventusermodel;
 
+import static org.apache.poi.xssf.usermodel.XSSFRelation.NS_SPREADSHEETML;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -113,16 +115,22 @@ public class ReadOnlySharedStringsTable extends DefaultHandler {
 
     /**
      * Like POIXMLDocumentPart constructor
-     *
-     * @param part
-     * @param rel_ignored
-     * @throws IOException
+     * 
+     * @since POI 3.14-Beta1
      */
-    public ReadOnlySharedStringsTable(PackagePart part, PackageRelationship rel_ignored)
-            throws IOException, SAXException {
+    public ReadOnlySharedStringsTable(PackagePart part) throws IOException, SAXException {
         readFrom(part.getInputStream());
     }
 
+    /**
+     * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+     */
+    @Deprecated
+    public ReadOnlySharedStringsTable(PackagePart part, PackageRelationship rel_ignored)
+    throws IOException, SAXException {
+        this(part);
+    }
+    
     /**
      * Read this shared strings table from an XML file.
      *
@@ -187,7 +195,11 @@ public class ReadOnlySharedStringsTable extends DefaultHandler {
 
     public void startElement(String uri, String localName, String name,
                              Attributes attributes) throws SAXException {
-        if ("sst".equals(name)) {
+        if (uri != null && ! uri.equals(NS_SPREADSHEETML)) {
+            return;
+        }
+        
+        if ("sst".equals(localName)) {
             String count = attributes.getValue("count");
             if(count != null) this.count = Integer.parseInt(count);
             String uniqueCount = attributes.getValue("uniqueCount");
@@ -196,18 +208,22 @@ public class ReadOnlySharedStringsTable extends DefaultHandler {
             this.strings = new ArrayList<String>(this.uniqueCount);
 
             characters = new StringBuffer();
-        } else if ("si".equals(name)) {
+        } else if ("si".equals(localName)) {
             characters.setLength(0);
-        } else if ("t".equals(name)) {
+        } else if ("t".equals(localName)) {
             tIsOpen = true;
         }
     }
 
     public void endElement(String uri, String localName, String name)
             throws SAXException {
-        if ("si".equals(name)) {
+        if (uri != null && ! uri.equals(NS_SPREADSHEETML)) {
+            return;
+        }
+        
+        if ("si".equals(localName)) {
             strings.add(characters.toString());
-        } else if ("t".equals(name)) {
+        } else if ("t".equals(localName)) {
            tIsOpen = false;
         }
     }

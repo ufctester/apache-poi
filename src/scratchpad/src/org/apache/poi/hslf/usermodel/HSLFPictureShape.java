@@ -18,7 +18,7 @@
 package org.apache.poi.hslf.usermodel;
 
 import java.awt.Insets;
-import java.awt.Rectangle;
+import java.awt.geom.Rectangle2D;
 import java.util.List;
 
 import org.apache.poi.ddf.AbstractEscherOptRecord;
@@ -113,6 +113,7 @@ public class HSLFPictureShape extends HSLFSimpleShape implements PictureShape<HS
         return _escherContainer;
     }
 
+    @SuppressWarnings("resource")
     @Override
     public HSLFPictureData getPictureData(){
         HSLFSlideShow ppt = getSheet().getSlideShow();
@@ -132,6 +133,7 @@ public class HSLFPictureShape extends HSLFSimpleShape implements PictureShape<HS
         return null;
     }
 
+    @SuppressWarnings("resource")
     protected EscherBSERecord getEscherBSERecord(){
         HSLFSlideShow ppt = getSheet().getSlideShow();
         Document doc = ppt.getDocumentRecord();
@@ -184,7 +186,7 @@ public class HSLFPictureShape extends HSLFSimpleShape implements PictureShape<HS
         EscherBSERecord bse = getEscherBSERecord();
         bse.setRef(bse.getRef() + 1);
 
-        Rectangle anchor = getAnchor();
+        Rectangle2D anchor = getAnchor();
         if (anchor.isEmpty()){
             new DrawPictureShape(this).resize();
         }
@@ -206,6 +208,13 @@ public class HSLFPictureShape extends HSLFSimpleShape implements PictureShape<HS
         return (top==0 && bottom==0 && left==0 && right==0)
             ? null
             : new Insets((int)(top*100000), (int)(left*100000), (int)(bottom*100000), (int)(right*100000));
+    }
+
+    @Override
+    public ShapeType getShapeType() {
+        // this is kind of a hack, as picture/ole shapes can have a shape type of "frame"
+        // but rendering is handled like a rectangle
+        return ShapeType.RECT;
     }
     
     /**

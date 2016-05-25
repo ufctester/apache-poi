@@ -41,6 +41,7 @@
           * <a href="ant.apache.org">Ant</a>  
           * <a href="http://forrest.apache.org/">Forrest</a>. 
       Currently, Forrest needs to be 0.5.1, Ant 1.8+ should be fine
+      Make sure FORREST_HOME is set.
 
    6b. To deploy with Maven, you should have the latest stable Maven 2.x.
         POI 3.10-beta2 was deployed with Maven 2.2.1.
@@ -62,6 +63,11 @@
     </server>
   </servers>
 </settings>
+
+   6e. It's a good idea to check at https://builds.apache.org/job/POI/
+       that Jenkins is in a good state (i.e. most recent build passed
+       and is up to date with SVN). You probably also want to e-mail
+       the dev list with a note to say you're building a release.
 
    7. Before building, you should run the "rat-check" build task, which
       uses <a href="http://incubator.apache.org/rat/">Apache Rat</a>
@@ -184,6 +190,10 @@ then add .gz and .zip packages along with checksums and release notes.
 
  binaries should be in ./bin, sources in ./src sub-directories
 
+ the JARs and their Maven poms should be in a ./maven sub-directory; 
+ this is split into sub-directories for each pom (see the last release
+ for the directory names)
+
 8c. commit
 After commit the files should be accessible at https://dist.apache.org/repos/dist/dev/poi/3.8-RC2/
 
@@ -279,7 +289,7 @@ mvn compile
 {code}
 
 You should see [INFO] BUILD SUCCESSFUL in the end, which tells you that
-the jars could be donwloaded fine.
+the jars could be downloaded fine.
 
 4. Edit the website homepage and list the new release there. If a full release,
    remove older full releases and all beta releases. If a beta release, keep
@@ -300,7 +310,8 @@ the jars could be donwloaded fine.
 
 Note, announcements should be sent from your @apache.org e-mail address.
 
-9. Add a new project version in Bugzilla
+9. If this is a final release, in Bugzilla, add a new -FINAL version and the
+   next -dev version. Also close the n-2 -dev version to new bugs.
 
 10. If this is a final release, add it to the DOAP file too
 

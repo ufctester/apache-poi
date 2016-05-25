@@ -16,6 +16,8 @@
 ==================================================================== */
 package org.apache.poi.xslf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Locale;
@@ -25,6 +27,7 @@ import org.apache.poi.POIXMLDocumentPart;
 import org.apache.poi.openxml4j.opc.PackagePart;
 import org.apache.poi.openxml4j.opc.PackageRelationship;
 import org.apache.poi.sl.usermodel.MasterSheet;
+import org.apache.poi.sl.usermodel.Placeholder;
 import org.apache.poi.util.Beta;
 import org.apache.xmlbeans.XmlException;
 import org.openxmlformats.schemas.drawingml.x2006.main.CTColorMapping;
@@ -66,14 +69,25 @@ import org.openxmlformats.schemas.presentationml.x2006.main.SldMasterDocument;
         _slide = CTSlideMaster.Factory.newInstance();
     }
 
-    protected XSLFSlideMaster(PackagePart part, PackageRelationship rel) throws IOException, XmlException {
-        super(part, rel);
+    /**
+     * @since POI 3.14-Beta1
+     */
+    protected XSLFSlideMaster(PackagePart part) throws IOException, XmlException {
+        super(part);
         SldMasterDocument doc =
-            SldMasterDocument.Factory.parse(getPackagePart().getInputStream());
+            SldMasterDocument.Factory.parse(getPackagePart().getInputStream(), DEFAULT_XML_OPTIONS);
         _slide = doc.getSldMaster();
         setCommonSlideData(_slide.getCSld());
     }
 
+    /**
+     * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+     */
+    @Deprecated
+    protected XSLFSlideMaster(PackagePart part, PackageRelationship rel) throws IOException, XmlException {
+        this(part);
+    }
+    
     @Override
 	public CTSlideMaster getXmlObject() {
 		return _slide;

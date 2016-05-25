@@ -121,9 +121,11 @@ public class WorkbookFactory {
         if (password != null) {
             Biff8EncryptionKey.setCurrentUserPassword(password);
         }
-        Workbook wb = new HSSFWorkbook(root, true);
-        Biff8EncryptionKey.setCurrentUserPassword(null);
-        return wb;
+        try {
+            return new HSSFWorkbook(root, true);
+        } finally {
+            Biff8EncryptionKey.setCurrentUserPassword(null);
+        }
     }
 
     /**
@@ -276,7 +278,14 @@ public class WorkbookFactory {
 
         try {
             NPOIFSFileSystem fs = new NPOIFSFileSystem(file, readOnly);
-            return create(fs, password);
+            try {
+                return create(fs, password);
+            } catch (RuntimeException e) {
+                // ensure that the file-handle is closed again
+                fs.close();
+                
+                throw e;
+            }
         } catch(OfficeXmlFileException e) {
             // opening as .xls failed => try opening as .xlsx
             OPCPackage pkg = OPCPackage.open(file, readOnly ? PackageAccess.READ : PackageAccess.READ_WRITE);
@@ -289,7 +298,7 @@ public class WorkbookFactory {
 
                 // rethrow exception
                 throw ioe;
-            } catch (IllegalArgumentException ioe) {
+            } catch (RuntimeException ioe) {
                 // ensure that file handles are closed (use revert() to not re-write the file)
                 pkg.revert();
                 //pkg.close();

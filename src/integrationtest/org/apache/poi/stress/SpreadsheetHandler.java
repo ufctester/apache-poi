@@ -29,6 +29,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.util.RecordFormatException;
 
 public abstract class SpreadsheetHandler extends AbstractFileHandler {
 	public void handleWorkbook(Workbook wb, String extension) throws IOException {
@@ -54,6 +55,10 @@ public abstract class SpreadsheetHandler extends AbstractFileHandler {
 		assertNotNull(read);
 		
 		readContent(read);
+		
+		modifyContent(read);
+
+		read.close();
 	}
 
 	private ByteArrayOutputStream writeToArray(Workbook wb)
@@ -69,12 +74,17 @@ public abstract class SpreadsheetHandler extends AbstractFileHandler {
 	}
 
 	private void readContent(Workbook wb) {
-		for(int i = 0;i < wb.getNumberOfSheets();i++) {
+	    for(int i = 0;i < wb.getNumberOfSheets();i++) {
 			Sheet sheet = wb.getSheetAt(i);
 			assertNotNull(wb.getSheet(sheet.getSheetName()));
 			sheet.groupColumn((short) 4, (short) 5);
 			sheet.setColumnGroupCollapsed(4, true);
 			sheet.setColumnGroupCollapsed(4, false);
+
+			// don't do this for very large sheets as it will take a long time
+			if(sheet.getPhysicalNumberOfRows() > 1000) {
+			    continue;
+			}
 			
 			for(Row row : sheet) {
 			    for(Cell cell : row) {
@@ -82,5 +92,27 @@ public abstract class SpreadsheetHandler extends AbstractFileHandler {
 			    }
 			}
 		}
+	}
+	
+	private void modifyContent(Workbook wb) {
+	    for (int i=wb.getNumberOfSheets()-1; i>=0; i--) {
+	        try {
+	            wb.cloneSheet(i);
+	        } catch (RecordFormatException e) {
+	            if (e.getCause() instanceof CloneNotSupportedException) {
+	                // ignore me
+	                continue;
+	            }
+	            throw e;
+	        } catch (RuntimeException e) {
+	            if ("Could not find 'internal references' EXTERNALBOOK".equals(e.getMessage()) ||
+	                    "CountryRecord not found".equals(e.getMessage()) ||
+	                    "Cannot add more than 65535 shapes".equals(e.getMessage()) ) {
+	                // ignore these here for now
+	                continue;
+                }
+	            throw e;
+	        }
+	    }
 	}
 }

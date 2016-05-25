@@ -24,6 +24,8 @@
 
 package org.apache.poi.poifs.crypt.dsig.facets;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import javax.xml.crypto.MarshalException;
 
 import org.apache.xmlbeans.XmlException;
@@ -56,7 +58,7 @@ public class Office2010SignatureFacet extends SignatureFacet {
 
         QualifyingPropertiesType qualProps;
         try {
-            qualProps = QualifyingPropertiesType.Factory.parse(nl.item(0));
+            qualProps = QualifyingPropertiesType.Factory.parse(nl.item(0), DEFAULT_XML_OPTIONS);
         } catch (XmlException e) {
             throw new MarshalException(e);
         }

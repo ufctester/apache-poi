@@ -528,8 +528,9 @@ public class ExampleEventUserModel {
 
 		XMLReader parser = fetchSheetParser(sst);
 
-		// rId2 found by processing the Workbook
-		// Seems to either be rId# or rSheet#
+		// To look up the Sheet Name / Sheet Order / rID,
+		//  you need to process the core Workbook stream.
+		// Normally it's of the form rId# or rSheet#
 		InputStream sheet2 = r.getSheet("rId2");
 		InputSource sheetSource = new InputSource(sheet2);
 		parser.parse(sheetSource);
@@ -829,24 +830,6 @@ This is the read/write/modify test.  It reads in the spreadsheet, modifies a cel
 Failing this test is not necessarily a bad thing.  If HSSF tries to modify a non-existant sheet then this will
 most likely fail.  No big deal.  </li>
 </ul>
-     </section>
-    <section><title>Logging facility</title>
-        <p>POI can dynamically select its logging implementation. POI tries to
-        create a logger using the System property named "org.apache.poi.util.POILogger".
-        Out of the box this can be set to one of three values:
-        </p>
-        <ul>
-           <li>org.apache.poi.util.CommonsLogger</li>
-           <li>org.apache.poi.util.NullLogger</li>
-           <li>org.apache.poi.util.SystemOutLogger</li>
-        </ul>
-        <p>
-        If the property is not defined or points to an invalid classthen the NullLogger is used.
-        </p>
-        <p>
-        Refer to the commons logging package level javadoc for more information concerning how to
-        <link href="http://jakarta.apache.org/commons/logging/api/index.html">configure commons logging.</link>
-        </p>
      </section>
     <section><title>HSSF Developer's Tools</title>
 

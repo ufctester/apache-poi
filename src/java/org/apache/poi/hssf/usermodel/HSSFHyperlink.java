@@ -26,33 +26,37 @@ public class HSSFHyperlink implements Hyperlink {
 
     /**
      * Link to an existing file or web page
+     * May be deprecated in the future. Consider using {@link Hyperlink#LINK_URL} instead.
      */
-    public static final int LINK_URL = 1;
+    public static final int LINK_URL = Hyperlink.LINK_URL;
 
     /**
      * Link to a place in this document
+     * May be deprecated in the future. Consider using {@link Hyperlink#LINK_DOCUMENT} instead.
      */
-    public static final int LINK_DOCUMENT = 2;
+    public static final int LINK_DOCUMENT = Hyperlink.LINK_DOCUMENT;
 
     /**
      * Link to an E-mail address
+     * May be deprecated in the future. Consider using {@link Hyperlink#LINK_EMAIL} instead.
      */
-    public static final int LINK_EMAIL = 3;
+    public static final int LINK_EMAIL = Hyperlink.LINK_EMAIL;
 
     /**
      * Link to a file
+     * May be deprecated in the future. Consider using {@link Hyperlink#LINK_FILE} instead.
      */
-    public static final int LINK_FILE = 4;
+    public static final int LINK_FILE = Hyperlink.LINK_FILE;
 
     /**
      * Low-level record object that stores the actual hyperlink data
      */
-    protected HyperlinkRecord record = null;
+    final protected HyperlinkRecord record;
 
     /**
      * If we create a new hyperlink remember its type
      */
-    protected int link_type;
+    final protected int link_type;
 
     /**
      * Construct a new hyperlink
@@ -85,19 +89,40 @@ public class HSSFHyperlink implements Hyperlink {
     protected HSSFHyperlink( HyperlinkRecord record )
     {
         this.record = record;
-        
+        link_type = getType(record);
+    }
+    
+    private int getType(HyperlinkRecord record) {
+        int link_type;
         // Figure out the type
-        if(record.isFileLink()) {
-           link_type = LINK_FILE;
+        if (record.isFileLink()) {
+            link_type = LINK_FILE;
         } else if(record.isDocumentLink()) {
-           link_type = LINK_DOCUMENT;
+            link_type = LINK_DOCUMENT;
         } else {
-           if(record.getAddress() != null &&
-                 record.getAddress().startsWith("mailto:")) {
-              link_type = LINK_EMAIL;
-           } else {
-              link_type = LINK_URL;
-           }
+            if(record.getAddress() != null &&
+                    record.getAddress().startsWith("mailto:")) {
+                link_type = LINK_EMAIL;
+            } else {
+                link_type = LINK_URL;
+            }
+        }
+        return link_type;
+    }
+    
+    protected HSSFHyperlink(Hyperlink other) {
+        if (other instanceof HSSFHyperlink) {
+            HSSFHyperlink hlink = (HSSFHyperlink) other;
+            record = hlink.record.clone();
+            link_type = getType(record);
+        }
+        else {
+            link_type = other.getType();
+            record = new HyperlinkRecord();
+            setFirstRow(other.getFirstRow());
+            setFirstColumn(other.getFirstColumn());
+            setLastRow(other.getLastRow());
+            setLastColumn(other.getLastColumn());
         }
     }
 
@@ -106,6 +131,7 @@ public class HSSFHyperlink implements Hyperlink {
      *
      * @return the 0-based row of the cell that contains the hyperlink
      */
+    @Override
     public int getFirstRow(){
         return record.getFirstRow();
     }
@@ -115,6 +141,7 @@ public class HSSFHyperlink implements Hyperlink {
      *
      * @param row the 0-based row of the first cell that contains the hyperlink
      */
+    @Override
     public void setFirstRow(int row){
         record.setFirstRow(row);
     }
@@ -124,6 +151,7 @@ public class HSSFHyperlink implements Hyperlink {
      *
      * @return the 0-based row of the last cell that contains the hyperlink
      */
+    @Override
     public int getLastRow(){
         return record.getLastRow();
     }
@@ -133,6 +161,7 @@ public class HSSFHyperlink implements Hyperlink {
      *
      * @param row the 0-based row of the last cell that contains the hyperlink
      */
+    @Override
     public void setLastRow(int row){
         record.setLastRow(row);
     }
@@ -142,6 +171,7 @@ public class HSSFHyperlink implements Hyperlink {
      *
      * @return the 0-based column of the first cell that contains the hyperlink
      */
+    @Override
     public int getFirstColumn(){
         return record.getFirstColumn();
     }
@@ -151,6 +181,7 @@ public class HSSFHyperlink implements Hyperlink {
      *
      * @param col the 0-based column of the first cell that contains the hyperlink
      */
+    @Override
     public void setFirstColumn(int col){
         record.setFirstColumn((short)col);
     }
@@ -160,6 +191,7 @@ public class HSSFHyperlink implements Hyperlink {
      *
      * @return the 0-based column of the last cell that contains the hyperlink
      */
+    @Override
     public int getLastColumn(){
         return record.getLastColumn();
     }
@@ -169,6 +201,7 @@ public class HSSFHyperlink implements Hyperlink {
      *
      * @param col the 0-based column of the last cell that contains the hyperlink
      */
+    @Override
     public void setLastColumn(int col){
         record.setLastColumn((short)col);
     }
@@ -178,6 +211,7 @@ public class HSSFHyperlink implements Hyperlink {
      *
      * @return  the address of this hyperlink
      */
+    @Override
     public String getAddress(){
         return record.getAddress();
     }
@@ -210,6 +244,7 @@ public class HSSFHyperlink implements Hyperlink {
      *
      * @param address  the address of this hyperlink
      */
+    @Override
     public void setAddress(String address){
         record.setAddress(address);
     }
@@ -219,6 +254,7 @@ public class HSSFHyperlink implements Hyperlink {
      *
      * @return  text to display
      */
+    @Override
     public String getLabel(){
         return record.getLabel();
     }
@@ -228,6 +264,7 @@ public class HSSFHyperlink implements Hyperlink {
      *
      * @param label text label for this hyperlink
      */
+    @Override
     public void setLabel(String label){
         record.setLabel(label);
     }
@@ -237,7 +274,24 @@ public class HSSFHyperlink implements Hyperlink {
      *
      * @return the type of this hyperlink
      */
+    @Override
     public int getType(){
         return link_type;
+    }
+    
+    /**
+     * @return whether the objects have the same HyperlinkRecord
+     */
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) return true;
+        if (!(other instanceof HSSFHyperlink)) return false;
+        HSSFHyperlink otherLink = (HSSFHyperlink) other;
+        return record == otherLink.record;
+    }
+    
+    @Override
+    public int hashCode() {
+        return record.hashCode();
     }
 }

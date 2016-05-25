@@ -17,6 +17,8 @@
 
 package org.apache.poi.xssf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import org.apache.poi.POIXMLException;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -50,15 +52,15 @@ import org.openxmlformats.schemas.spreadsheetml.x2006.main.STPatternType;
  * SpreadsheetML document.
  *
  * @see org.apache.poi.xssf.usermodel.XSSFWorkbook#createCellStyle()
- * @see org.apache.poi.xssf.usermodel.XSSFWorkbook#getCellStyleAt(short)
+ * @see org.apache.poi.xssf.usermodel.XSSFWorkbook#getCellStyleAt(int)
  * @see org.apache.poi.xssf.usermodel.XSSFCell#setCellStyle(org.apache.poi.ss.usermodel.CellStyle)
  */
 public class XSSFCellStyle implements CellStyle {
 
     private int _cellXfId;
-    private StylesTable _stylesSource;
+    private final StylesTable _stylesSource;
     private CTXf _cellXf;
-    private CTXf _cellStyleXf;
+    private final CTXf _cellStyleXf;
     private XSSFFont _font;
     private XSSFCellAlignment _cellAlignment;
     private ThemesTable _theme;
@@ -153,14 +155,20 @@ public class XSSFCellStyle implements CellStyle {
 
                   // Create a new Xf with the same contents
                   _cellXf = CTXf.Factory.parse(
-                        src.getCoreXf().toString()
+                        src.getCoreXf().toString(), DEFAULT_XML_OPTIONS
                   );
 
                   // bug 56295: ensure that the fills is available and set correctly
                   CTFill fill = CTFill.Factory.parse(
-                		  src.getCTFill().toString()
+                		  src.getCTFill().toString(), DEFAULT_XML_OPTIONS
                 		  );
                   addFill(fill);
+
+                  // bug 58084: set borders correctly
+                  CTBorder border = CTBorder.Factory.parse(
+                          src.getCTBorder().toString(), DEFAULT_XML_OPTIONS
+                          );
+                  addBorder(border);
 
                   // Swap it over
                   _stylesSource.replaceCellXfAt(_cellXfId, _cellXf);
@@ -177,7 +185,7 @@ public class XSSFCellStyle implements CellStyle {
                // Copy the font
                try {
                   CTFont ctFont = CTFont.Factory.parse(
-                        src.getFont().getCTFont().toString()
+                        src.getFont().getCTFont().toString(), DEFAULT_XML_OPTIONS
                   );
                   XSSFFont font = new XSSFFont(ctFont);
                   font.registerTo(_stylesSource);
@@ -200,6 +208,13 @@ public class XSSFCellStyle implements CellStyle {
 
 		_cellXf.setFillId(idx);
 		_cellXf.setApplyFill(true);
+	}
+	
+	private void addBorder(CTBorder border) {
+        int idx = _stylesSource.putBorder(new XSSFCellBorder(border, _theme));
+
+        _cellXf.setBorderId(idx);
+        _cellXf.setApplyBorder(true);
 	}
 
     /**
@@ -465,7 +480,7 @@ public class XSSFCellStyle implements CellStyle {
      * Note - many cells are actually filled with a foreground
      *  fill, not a background fill - see {@link #getFillForegroundColor()}
      * </p>
-     * @see org.apache.poi.xssf.usermodel.XSSFColor#getRgb()
+     * @see org.apache.poi.xssf.usermodel.XSSFColor#getRGB()
      * @return XSSFColor - fill color or <code>null</code> if not set
      */
     public XSSFColor getFillBackgroundXSSFColor() {
@@ -1060,7 +1075,7 @@ public void setBorderTop(short border) {
         CTFill ct = getCTFill();
         CTPatternFill ptrn = ct.getPatternFill();
         if(color == null) {
-            if(ptrn != null) ptrn.unsetBgColor();
+            if(ptrn != null && ptrn.isSetBgColor()) ptrn.unsetBgColor();
         } else {
             if(ptrn == null) ptrn = ct.addNewPatternFill();
             ptrn.setBgColor(color.getCTColor());
@@ -1114,7 +1129,7 @@ public void setBorderTop(short border) {
 
         CTPatternFill ptrn = ct.getPatternFill();
         if(color == null) {
-            if(ptrn != null) ptrn.unsetFgColor();
+            if(ptrn != null && ptrn.isSetFgColor()) ptrn.unsetFgColor();
         } else {
             if(ptrn == null) ptrn = ct.addNewPatternFill();
             ptrn.setFgColor(color.getCTColor());
@@ -1196,8 +1211,8 @@ public void setBorderTop(short border) {
      * @see #setFillForegroundColor(short)
      * @param fp  fill pattern (set to {@link org.apache.poi.ss.usermodel.CellStyle#SOLID_FOREGROUND} to fill w/foreground color)
      */
-   @Override
-public void setFillPattern(short fp) {
+    @Override
+    public void setFillPattern(short fp) {
         CTFill ct = getCTFill();
         CTPatternFill ptrn = ct.isSetPatternFill() ? ct.getPatternFill() : ct.addNewPatternFill();
         if(fp == NO_FILL && ptrn.isSetPatternType()) ptrn.unsetPatternType();
@@ -1348,6 +1363,11 @@ public void setFillPattern(short fp) {
      * <br/>
      * <code>[degrees below horizon] = 90 - textRotation.</code>
      * </p>
+     *
+     * Note: HSSF uses values from -90 to 90 degrees, whereas XSSF 
+     * uses values from 0 to 180 degrees. The implementations of this method will map between these two value-ranges 
+     * accordingly, however the corresponding getter is returning values in the range mandated by the current type
+     * of Excel file-format that this CellStyle is applied to.
      *
      * @param rotation - the rotation degrees (between 0 and 180 degrees)
      */

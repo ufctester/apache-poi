@@ -17,17 +17,20 @@
 
 package org.apache.poi;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-import junit.framework.TestCase;
-
 import org.apache.poi.hssf.HSSFTestDataSamples;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.poifs.filesystem.NPOIFSFileSystem;
 import org.apache.poi.poifs.filesystem.OPOIFSFileSystem;
+import org.junit.Before;
+import org.junit.Test;
 
 /**
  * Tests that POIDocument correctly loads and saves the common
@@ -35,139 +38,156 @@ import org.apache.poi.poifs.filesystem.OPOIFSFileSystem;
  *
  * This is part 1 of 2 of the tests - it only does the POIDocuments
  *  which are part of the Main (not scratchpad)
- *
- * @author Nick Burch (nick at torchbox dot com)
  */
-public final class TestPOIDocumentMain extends TestCase {
-	// The POI Documents to work on
-	private POIDocument doc;
-	private POIDocument doc2;
+public final class TestPOIDocumentMain {
+    // The POI Documents to work on
+    private POIDocument doc;
+    private POIDocument doc2;
 
-	/**
-	 * Set things up, two spreadsheets for our testing
-	 */
-	public void setUp() {
-		doc = HSSFTestDataSamples.openSampleWorkbook("DateFormats.xls");
-		doc2 = HSSFTestDataSamples.openSampleWorkbook("StringFormulas.xls");
-	}
+    /**
+     * Set things up, two spreadsheets for our testing
+     */
+    @Before
+    public void setUp() {
+        doc = HSSFTestDataSamples.openSampleWorkbook("DateFormats.xls");
+        doc2 = HSSFTestDataSamples.openSampleWorkbook("StringFormulas.xls");
+    }
 
-	public void testReadProperties() {
-		// We should have both sets
-		assertNotNull(doc.getDocumentSummaryInformation());
-		assertNotNull(doc.getSummaryInformation());
+    @Test
+    public void readProperties() {
+        // We should have both sets
+        assertNotNull(doc.getDocumentSummaryInformation());
+        assertNotNull(doc.getSummaryInformation());
 
-		// Check they are as expected for the test doc
-		assertEquals("Administrator", doc.getSummaryInformation().getAuthor());
-		assertEquals(0, doc.getDocumentSummaryInformation().getByteCount());
-	}
+        // Check they are as expected for the test doc
+        assertEquals("Administrator", doc.getSummaryInformation().getAuthor());
+        assertEquals(0, doc.getDocumentSummaryInformation().getByteCount());
+    }
 
-	public void testReadProperties2() {
-		// Check again on the word one
-		assertNotNull(doc2.getDocumentSummaryInformation());
-		assertNotNull(doc2.getSummaryInformation());
+    @Test
+    public void readProperties2() {
+        // Check again on the word one
+        assertNotNull(doc2.getDocumentSummaryInformation());
+        assertNotNull(doc2.getSummaryInformation());
 
-		assertEquals("Avik Sengupta", doc2.getSummaryInformation().getAuthor());
-		assertEquals(null, doc2.getSummaryInformation().getKeywords());
-		assertEquals(0, doc2.getDocumentSummaryInformation().getByteCount());
-	}
+        assertEquals("Avik Sengupta", doc2.getSummaryInformation().getAuthor());
+        assertEquals(null, doc2.getSummaryInformation().getKeywords());
+        assertEquals(0, doc2.getDocumentSummaryInformation().getByteCount());
+    }
 
-	public void testWriteProperties() throws Exception {
-		// Just check we can write them back out into a filesystem
-		NPOIFSFileSystem outFS = new NPOIFSFileSystem();
-		doc.readProperties();
-		doc.writeProperties(outFS);
+    @Test
+    public void writeProperties() throws Exception {
+        // Just check we can write them back out into a filesystem
+        NPOIFSFileSystem outFS = new NPOIFSFileSystem();
+        doc.readProperties();
+        doc.writeProperties(outFS);
 
-		// Should now hold them
-		assertNotNull(
-				outFS.createDocumentInputStream("\005SummaryInformation")
-		);
-		assertNotNull(
-				outFS.createDocumentInputStream("\005DocumentSummaryInformation")
-		);
-	}
+        // Should now hold them
+        assertNotNull(
+                outFS.createDocumentInputStream("\005SummaryInformation")
+        );
+        assertNotNull(
+                outFS.createDocumentInputStream("\005DocumentSummaryInformation")
+        );
+    }
 
-	public void testWriteReadProperties() throws Exception {
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    @Test
+    public void WriteReadProperties() throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
-		// Write them out
-		NPOIFSFileSystem outFS = new NPOIFSFileSystem();
-		doc.readProperties();
-		doc.writeProperties(outFS);
-		outFS.writeFilesystem(baos);
+        // Write them out
+        NPOIFSFileSystem outFS = new NPOIFSFileSystem();
+        doc.readProperties();
+        doc.writeProperties(outFS);
+        outFS.writeFilesystem(baos);
 
-		// Create a new version
-		ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-		OPOIFSFileSystem inFS = new OPOIFSFileSystem(bais);
+        // Create a new version
+        ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
+        OPOIFSFileSystem inFS = new OPOIFSFileSystem(bais);
 
-		// Check they're still there
-		doc.directory = inFS.getRoot();
-		doc.readProperties();
+        // Check they're still there
+        doc.directory = inFS.getRoot();
+        doc.readProperties();
 
-		// Delegate test
-		testReadProperties();
-	}
-	
-	public void testCreateNewProperties() throws IOException {
-		POIDocument doc = new HSSFWorkbook();
-		
-		// New document won't have them
-		assertNull(doc.getSummaryInformation());
-		assertNull(doc.getDocumentSummaryInformation());
-		
-		// Add them in
-		doc.createInformationProperties();
-		assertNotNull(doc.getSummaryInformation());
-		assertNotNull(doc.getDocumentSummaryInformation());
+        // Delegate test
+        readProperties();
+    }
 
-		// Write out and back in again, no change
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		doc.write(baos);
-		ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
+    @Test
+    public void createNewProperties() throws IOException {
+        POIDocument doc = new HSSFWorkbook();
 
-		doc = new HSSFWorkbook(bais);
-		
-		assertNotNull(doc.getSummaryInformation());
-		assertNotNull(doc.getDocumentSummaryInformation());
-	}
-	
-	public void testCreateNewPropertiesOnExistingFile() throws IOException {
-		POIDocument doc = new HSSFWorkbook();
-		
-		// New document won't have them
-		assertNull(doc.getSummaryInformation());
-		assertNull(doc.getDocumentSummaryInformation());
+        // New document won't have them
+        assertNull(doc.getSummaryInformation());
+        assertNull(doc.getDocumentSummaryInformation());
 
-		// Write out and back in again, no change
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		doc.write(baos);
-		ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-		doc = new HSSFWorkbook(bais);
-		
-		assertNull(doc.getSummaryInformation());
-		assertNull(doc.getDocumentSummaryInformation());
-		
-		// Create, and change
-		doc.createInformationProperties();
-		doc.getSummaryInformation().setAuthor("POI Testing");
-		doc.getDocumentSummaryInformation().setCompany("ASF");
-		
-		// Save and re-load
-		baos = new ByteArrayOutputStream();
-		doc.write(baos);
-		bais = new ByteArrayInputStream(baos.toByteArray());
-		doc = new HSSFWorkbook(bais);
-		
-		// Check
-		assertNotNull(doc.getSummaryInformation());
-		assertNotNull(doc.getDocumentSummaryInformation());
-		assertEquals("POI Testing", doc.getSummaryInformation().getAuthor());
-		assertEquals("ASF", doc.getDocumentSummaryInformation().getCompany());
-		
-		// Asking to re-create will make no difference now
-		doc.createInformationProperties();
-		assertNotNull(doc.getSummaryInformation());
-		assertNotNull(doc.getDocumentSummaryInformation());
-		assertEquals("POI Testing", doc.getSummaryInformation().getAuthor());
-		assertEquals("ASF", doc.getDocumentSummaryInformation().getCompany());
-	}
+        // Add them in
+        doc.createInformationProperties();
+        assertNotNull(doc.getSummaryInformation());
+        assertNotNull(doc.getDocumentSummaryInformation());
+
+        // Write out and back in again, no change
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        doc.write(baos);
+        ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
+
+        ((HSSFWorkbook)doc).close();
+
+        doc = new HSSFWorkbook(bais);
+
+        assertNotNull(doc.getSummaryInformation());
+        assertNotNull(doc.getDocumentSummaryInformation());
+        
+        ((HSSFWorkbook)doc).close();
+    }
+
+    @Test
+    public void createNewPropertiesOnExistingFile() throws IOException {
+        POIDocument doc = new HSSFWorkbook();
+
+        // New document won't have them
+        assertNull(doc.getSummaryInformation());
+        assertNull(doc.getDocumentSummaryInformation());
+
+        // Write out and back in again, no change
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        doc.write(baos);
+        
+        ((HSSFWorkbook)doc).close();
+        
+        ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
+        doc = new HSSFWorkbook(bais);
+
+        assertNull(doc.getSummaryInformation());
+        assertNull(doc.getDocumentSummaryInformation());
+
+        // Create, and change
+        doc.createInformationProperties();
+        doc.getSummaryInformation().setAuthor("POI Testing");
+        doc.getDocumentSummaryInformation().setCompany("ASF");
+
+        // Save and re-load
+        baos = new ByteArrayOutputStream();
+        doc.write(baos);
+        
+        ((HSSFWorkbook)doc).close();
+
+        bais = new ByteArrayInputStream(baos.toByteArray());
+        doc = new HSSFWorkbook(bais);
+
+        // Check
+        assertNotNull(doc.getSummaryInformation());
+        assertNotNull(doc.getDocumentSummaryInformation());
+        assertEquals("POI Testing", doc.getSummaryInformation().getAuthor());
+        assertEquals("ASF", doc.getDocumentSummaryInformation().getCompany());
+
+        // Asking to re-create will make no difference now
+        doc.createInformationProperties();
+        assertNotNull(doc.getSummaryInformation());
+        assertNotNull(doc.getDocumentSummaryInformation());
+        assertEquals("POI Testing", doc.getSummaryInformation().getAuthor());
+        assertEquals("ASF", doc.getDocumentSummaryInformation().getCompany());
+
+        ((HSSFWorkbook)doc).close();
+    }
 }

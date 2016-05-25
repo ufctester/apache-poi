@@ -19,6 +19,8 @@
 
 package org.apache.poi.xslf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -53,7 +55,6 @@ public class XSLFTable extends XSLFGraphicFrame implements Iterable<XSLFTableRow
     private CTTable _table;
     private List<XSLFTableRow> _rows;
 
-    @SuppressWarnings("deprecation")
     /*package*/ XSLFTable(CTGraphicalObjectFrame shape, XSLFSheet sheet){
         super(shape, sheet);
 
@@ -67,7 +68,7 @@ public class XSLFTable extends XSLFGraphicFrame implements Iterable<XSLFTableRow
         // it never happens when using the full ooxml-schemas jar but may happen with the abridged poi-ooxml-schemas
         if(rs[0] instanceof XmlAnyTypeImpl){
             try {
-                rs[0] = CTTable.Factory.parse(rs[0].toString());
+                rs[0] = CTTable.Factory.parse(rs[0].toString(), DEFAULT_XML_OPTIONS);
             }catch (XmlException e){
                 throw new POIXMLException(e);
             }
@@ -79,28 +80,61 @@ public class XSLFTable extends XSLFGraphicFrame implements Iterable<XSLFTableRow
         for(CTTableRow row : trArray) _rows.add(new XSLFTableRow(row, this));
     }
 
+    @Override
+    public XSLFTableCell getCell(int row, int col) {
+        List<XSLFTableRow> rows = getRows();
+        if (row < 0 || rows.size() <= row) {
+            return null;
+        }
+        XSLFTableRow r = rows.get(row);
+        if (r == null) {
+            // empty row
+            return null;
+        }
+        List<XSLFTableCell> cells = r.getCells();
+        if (col < 0 || cells.size() <= col) {
+            return null;
+        }
+        // cell can be potentially empty ...
+        return cells.get(col);
+    }
+    
     @Internal
     public CTTable getCTTable(){
         return _table;
     }
 
+    @Override
     public int getNumberOfColumns() {
         return _table.getTblGrid().sizeOfGridColArray();
     }
 
+    @Override
     public int getNumberOfRows() {
         return _table.sizeOfTrArray();
     }
 
+    @Override
     public double getColumnWidth(int idx){
         return Units.toPoints(
                 _table.getTblGrid().getGridColArray(idx).getW());
     }
 
-    public void setColumnWidth(int idx, double width){
+    @Override
+    public void setColumnWidth(int idx, double width) {
         _table.getTblGrid().getGridColArray(idx).setW(Units.toEMU(width));
     }
 
+    @Override
+    public double getRowHeight(int row) {
+        return Units.toPoints(_table.getTrArray(row).getH());
+    }
+    
+    @Override
+    public void setRowHeight(int row, double height) {
+        _table.getTrArray(row).setH(Units.toEMU(height));
+    }
+    
     public Iterator<XSLFTableRow> iterator(){
         return _rows.iterator();
     }

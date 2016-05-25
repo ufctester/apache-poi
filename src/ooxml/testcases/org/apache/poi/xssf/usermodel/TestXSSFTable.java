@@ -34,20 +34,17 @@ import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.junit.Test;
 import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTTable;
 import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTTableColumn;
+import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTTableStyleInfo;
 
 public final class TestXSSFTable {
 
-    public TestXSSFTable() {
-    }
-
     @Test
-    @SuppressWarnings("deprecation")
     public void bug56274() throws IOException {
         // read sample file
-        XSSFWorkbook inputWorkbook = XSSFTestDataSamples.openSampleWorkbook("56274.xlsx");
+        XSSFWorkbook wb1 = XSSFTestDataSamples.openSampleWorkbook("56274.xlsx");
 
         // read the original sheet header order
-        XSSFRow row = inputWorkbook.getSheetAt(0).getRow(0);
+        XSSFRow row = wb1.getSheetAt(0).getRow(0);
         List<String> headers = new ArrayList<String>();
         for (Cell cell : row) {
             headers.add(cell.getStringCellValue());
@@ -55,12 +52,17 @@ public final class TestXSSFTable {
 
         // save the worksheet as-is using SXSSF
         File outputFile = TempFile.createTempFile("poi-56274", ".xlsx");
-        SXSSFWorkbook outputWorkbook = new org.apache.poi.xssf.streaming.SXSSFWorkbook(inputWorkbook);
-        outputWorkbook.write(new FileOutputStream(outputFile));
+        SXSSFWorkbook outputWorkbook = new SXSSFWorkbook(wb1);
+        FileOutputStream fos = new FileOutputStream(outputFile);
+        outputWorkbook.write(fos);
+        fos.close();
+        outputWorkbook.close();
 
         // re-read the saved file and make sure headers in the xml are in the original order
-        inputWorkbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new FileInputStream(outputFile));
-        CTTable ctTable = inputWorkbook.getSheetAt(0).getTables().get(0).getCTTable();
+        FileInputStream fis = new FileInputStream(outputFile);
+        XSSFWorkbook wb2 = new XSSFWorkbook(fis);
+        fis.close();
+        CTTable ctTable = wb2.getSheetAt(0).getTables().get(0).getCTTable();
         CTTableColumn[] ctTableColumnArray = ctTable.getTableColumns().getTableColumnArray();
 
         assertEquals("number of headers in xml table should match number of header cells in worksheet",
@@ -70,6 +72,42 @@ public final class TestXSSFTable {
                     headers.get(i), ctTableColumnArray[i].getName());
         }
         assertTrue(outputFile.delete());
+        wb2.close();
+        wb1.close();
+    }
+
+    @Test
+    public void testCTTableStyleInfo() throws IOException {
+        XSSFWorkbook outputWorkbook = new XSSFWorkbook();
+        XSSFSheet sheet = outputWorkbook.createSheet();
+
+        //Create
+        XSSFTable outputTable = sheet.createTable();
+        outputTable.setDisplayName("Test");
+        CTTable outputCTTable = outputTable.getCTTable();
+
+        //Style configurations
+        CTTableStyleInfo outputStyleInfo = outputCTTable.addNewTableStyleInfo();
+        outputStyleInfo.setName("TableStyleLight1");
+        outputStyleInfo.setShowColumnStripes(false);
+        outputStyleInfo.setShowRowStripes(true);
+
+        XSSFWorkbook inputWorkbook = XSSFTestDataSamples.writeOutAndReadBack(outputWorkbook);
+        List<XSSFTable> tables = inputWorkbook.getSheetAt(0).getTables();
+        assertEquals("Tables number", 1, tables.size());
+
+        XSSFTable inputTable = tables.get(0);
+        assertEquals("Table display name", outputTable.getDisplayName(), inputTable.getDisplayName());
+
+        CTTableStyleInfo inputStyleInfo = inputTable.getCTTable().getTableStyleInfo();
+        assertEquals("Style name", outputStyleInfo.getName(), inputStyleInfo.getName());
+        assertEquals("Show column stripes",
+                outputStyleInfo.getShowColumnStripes(), inputStyleInfo.getShowColumnStripes());
+        assertEquals("Show row stripes",
+                outputStyleInfo.getShowRowStripes(), inputStyleInfo.getShowRowStripes());
+
+        inputWorkbook.close();
+        outputWorkbook.close();
     }
 
 }

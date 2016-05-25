@@ -17,8 +17,11 @@
 
 package org.apache.poi.xssf.dev;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Enumeration;
 import java.util.zip.ZipEntry;
@@ -26,6 +29,7 @@ import java.util.zip.ZipFile;
 
 import org.apache.poi.openxml4j.opc.internal.ZipHelper;
 import org.apache.poi.util.IOUtils;
+import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlObject;
 import org.apache.xmlbeans.XmlOptions;
 
@@ -41,40 +45,59 @@ public final class XSSFDump {
             System.out.println("Dumping " + args[i]);
             ZipFile zip = ZipHelper.openZipFile(args[i]);
             try {
-            	dump(zip);
+                dump(zip);
             } finally {
-            	zip.close();
+                zip.close();
             }
         }
     }
+    
+    private static void createDirIfMissing(File directory) throws RuntimeException {
+        if (!directory.exists()) {
+            boolean dirWasCreated = directory.mkdir();
+            if (!dirWasCreated) {
+                throw new RuntimeException("Unable to create directory: " + directory);
+            }
+        }
+    }
+    
+    private static void recursivelyCreateDirIfMissing(File directory) throws RuntimeException {
+        if (!directory.exists()) {
+            boolean dirsWereCreated = directory.mkdirs();
+            if (!dirsWereCreated) {
+                throw new RuntimeException("Unable to recursively create directory: " + directory);
+            }
+        }
+    }
+    
 
     public static void dump(ZipFile zip) throws Exception {
         String zipname = zip.getName();
         int sep = zipname.lastIndexOf('.');
         File root = new File(zipname.substring(0, sep));
-        root.mkdir();
-        System.out.println("Dupming to directory " + root);
+        createDirIfMissing(root);
+        System.out.println("Dumping to directory " + root);
 
         Enumeration<? extends ZipEntry> en = zip.entries();
-        while(en.hasMoreElements()){
+        while (en.hasMoreElements()) {
             ZipEntry entry = en.nextElement();
             String name = entry.getName();
             int idx = name.lastIndexOf('/');
-            if(idx != -1){
+            if (idx != -1) {
                 File bs = new File(root, name.substring(0, idx));
-                bs.mkdirs();
+                recursivelyCreateDirIfMissing(bs);
             }
 
             File f = new File(root, entry.getName());
             OutputStream out = new FileOutputStream(f);
             try {
-                if(entry.getName().endsWith(".xml") || entry.getName().endsWith(".vml") || entry.getName().endsWith(".rels")){
+                if (entry.getName().endsWith(".xml") || entry.getName().endsWith(".vml") || entry.getName().endsWith(".rels")) {
                     try {
-                        XmlObject xml = XmlObject.Factory.parse(zip.getInputStream(entry));
+                        XmlObject xml = XmlObject.Factory.parse(zip.getInputStream(entry), DEFAULT_XML_OPTIONS);
                         XmlOptions options = new XmlOptions();
                         options.setSavePrettyPrint();
                         xml.save(out, options);
-                    } catch (Exception e){
+                    } catch (XmlException e) {
                         System.err.println("Failed to parse " + entry.getName() + ", dumping raw content");
                         IOUtils.copy(zip.getInputStream(entry), out);
                     }
@@ -82,7 +105,7 @@ public final class XSSFDump {
                     IOUtils.copy(zip.getInputStream(entry), out);
                 }
             } finally {
-            	out.close();
+                out.close();
             }
         }
     }

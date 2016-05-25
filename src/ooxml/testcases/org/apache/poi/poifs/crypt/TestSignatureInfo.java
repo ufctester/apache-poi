@@ -28,13 +28,14 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.reflect.Method;
 import java.net.ConnectException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -54,6 +55,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.poi.POIDataSamples;
+import org.apache.poi.POITestCase;
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.openxml4j.opc.PackageAccess;
 import org.apache.poi.poifs.crypt.dsig.DigestInfo;
@@ -68,11 +70,13 @@ import org.apache.poi.poifs.crypt.dsig.services.RevocationData;
 import org.apache.poi.poifs.crypt.dsig.services.RevocationDataService;
 import org.apache.poi.poifs.crypt.dsig.services.TimeStampService;
 import org.apache.poi.poifs.crypt.dsig.services.TimeStampServiceValidator;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.util.DocumentHelper;
 import org.apache.poi.util.IOUtils;
 import org.apache.poi.util.LocaleUtil;
 import org.apache.poi.util.POILogFactory;
 import org.apache.poi.util.POILogger;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.xmlbeans.XmlObject;
 import org.bouncycastle.asn1.x509.KeyUsage;
@@ -81,6 +85,7 @@ import org.etsi.uri.x01903.v13.DigestAlgAndValueType;
 import org.etsi.uri.x01903.v13.QualifyingPropertiesType;
 import org.junit.Assume;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.w3.x2000.x09.xmldsig.ReferenceType;
 import org.w3.x2000.x09.xmldsig.SignatureDocument;
@@ -248,9 +253,7 @@ public class TestSignatureInfo {
         XSSFWorkbook wb = new XSSFWorkbook(pkg);
         wb.setSheetName(0, "manipulated");
         // ... I don't know, why commit is protected ...
-        Method m = XSSFWorkbook.class.getDeclaredMethod("commit");
-        m.setAccessible(true);
-        m.invoke(wb);
+        POITestCase.callMethod(XSSFWorkbook.class, wb, Void.class, "commit", new Class[0], new Object[0]);
 
         // todo: test a manipulation on a package part, which is not signed
         // ... maybe in combination with #56164 
@@ -289,7 +292,6 @@ public class TestSignatureInfo {
         pkg.close();
     }
 
-    @SuppressWarnings("resource")
     @Test
     public void testSignEnvelopingDocument() throws Exception {
         String testFile = "hello-world-unsigned.xlsx";
@@ -340,7 +342,7 @@ public class TestSignatureInfo {
                 @Override
                 public byte[] timeStamp(byte[] data, RevocationData revocationData) throws Exception {
                     revocationData.addCRL(crl);
-                    return "time-stamp-token".getBytes();                
+                    return "time-stamp-token".getBytes(LocaleUtil.CHARSET_1252);                
                 }
                 @Override
                 public void setSignatureConfig(SignatureConfig config) {
@@ -383,6 +385,7 @@ public class TestSignatureInfo {
         try {
             si.confirmSignature();
         } catch (RuntimeException e) {
+            pkg.close();
             // only allow a ConnectException because of timeout, we see this in Jenkins from time to time...
             if(e.getCause() == null) {
                 throw e;
@@ -550,7 +553,49 @@ public class TestSignatureInfo {
             }
         }
     }
+
+    @Test
+    public void bug58630() throws Exception {
+        // test deletion of sheet 0 and signing
+        File tpl = copy(testdata.getFile("bug58630.xlsx"));
+        SXSSFWorkbook wb1 = new SXSSFWorkbook((XSSFWorkbook)WorkbookFactory.create(tpl), 10);
+        wb1.setCompressTempFiles(true);
+        wb1.removeSheetAt(0);
+        ByteArrayOutputStream os = new ByteArrayOutputStream();
+        wb1.write(os);
+        wb1.close();
+        OPCPackage pkg = OPCPackage.open(new ByteArrayInputStream(os.toByteArray()));
+        
+        initKeyPair("Test", "CN=Test");
+        SignatureConfig signatureConfig = new SignatureConfig();
+        signatureConfig.setKey(keyPair.getPrivate());
+        signatureConfig.setSigningCertificateChain(Collections.singletonList(x509));
+        signatureConfig.setOpcPackage(pkg);
+        
+        SignatureInfo si = new SignatureInfo();
+        si.setSignatureConfig(signatureConfig);
+        si.confirmSignature();
+        assertTrue("invalid signature", si.verifySignature());
+        
+        pkg.close();
+    }
     
+    @Test
+    @Ignore
+    public void testMultiSign() throws Exception {
+        initKeyPair("KeyA", "CN=KeyA");
+        KeyPair keyPairA = keyPair;
+        X509Certificate x509A = x509;
+        initKeyPair("KeyB", "CN=KeyB");
+        KeyPair keyPairB = keyPair;
+        X509Certificate x509B = x509;
+        
+        File tpl = copy(testdata.getFile("bug58630.xlsx"));
+        OPCPackage pkg = OPCPackage.open(tpl);
+        SignatureConfig signatureConfig = new SignatureConfig();
+        
+        
+    }
     
     private void sign(OPCPackage pkgCopy, String alias, String signerDn, int signerCount) throws Exception {
         initKeyPair(alias, signerDn);

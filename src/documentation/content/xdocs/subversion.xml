@@ -31,7 +31,7 @@
     <section><title>Download the Source</title>
       <p>
          Most users of the source code probably don't need to have day to 
-         day access to the source code as it changes. Most users will want
+         day access to the source code as it changes. Therefore most users will want
          to make use of our <link href="download.html">source release</link>
          packages, which contain the complete source tree for each binary
          release, suitable for browsing or debugging. These source releases
@@ -39,9 +39,9 @@
          <link href="download.html">download page.</link>
       </p>
       <p>
-         The Apache POI sourcecode is also available as source artifacts
+         The Apache POI source code is also available as source artifacts
          in the Maven Central repository, which may be helpful for those
-         users who make use of POI and wish to inspect the source (eg when
+         users who make use of POI via Maven and wish to inspect the source (eg when
          debugging in an IDE).
       </p>
     </section>
@@ -109,9 +109,8 @@
     </section>
     <section><title>Code metrics </title>
       <p>
-        We are trying to get code quality reports for Apache POI on the <link href="http://analysis.apache.org/">Apache Sonar instance</link>, 
-        see <link href="https://issues.apache.org/jira/browse/INFRA-8567">INFRA-8567</link> 
-        for some discussion
+        Code quality reports for Apache POI are available on the 
+        <link href="https://analysis.apache.org/dashboard/index/221489">Apache Sonar instance</link>.
       </p>
       <p>
         Sonar provides lots of useful numbers and statistics, especially

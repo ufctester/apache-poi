@@ -42,6 +42,7 @@ import java.awt.geom.Arc2D;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Line2D;
+import java.awt.geom.Path2D;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.awt.image.BufferedImageOp;
@@ -244,7 +245,7 @@ public final class PPGraphics2D extends Graphics2D implements Cloneable {
      * @see #setComposite
      */
     public void draw(Shape shape){
-        GeneralPath path = new GeneralPath(_transform.createTransformedShape(shape));
+        Path2D.Double path = new Path2D.Double(_transform.createTransformedShape(shape));
         HSLFFreeformShape p = new HSLFFreeformShape(_group);
         p.setPath(path);
         p.getFill().setForegroundColor(null);
@@ -282,7 +283,7 @@ public final class PPGraphics2D extends Graphics2D implements Cloneable {
      */
     public void drawString(String s, float x, float y) {
         HSLFTextBox txt = new HSLFTextBox(_group);
-        txt.getTextParagraphs().get(0).supplySheet(_group.getSheet());
+        txt.setSheet(_group.getSheet());
         txt.setText(s);
 
         HSLFTextRun rt = txt.getTextParagraphs().get(0).getTextRuns().get(0);
@@ -297,7 +298,7 @@ public final class PPGraphics2D extends Graphics2D implements Cloneable {
         txt.setTopInset(0);
         txt.setLeftInset(0);
         txt.setRightInset(0);
-        txt.setWordWrap(HSLFTextBox.WrapNone);
+        txt.setWordWrap(false);
         txt.setHorizontalCentered(false);
         txt.setVerticalAlignment(VerticalAlignment.MIDDLE);
 
@@ -346,7 +347,7 @@ public final class PPGraphics2D extends Graphics2D implements Cloneable {
      * @see #setClip
      */
     public void fill(Shape shape){
-        GeneralPath path = new GeneralPath(_transform.createTransformedShape(shape));
+        Path2D.Double path = new Path2D.Double(_transform.createTransformedShape(shape));
         HSLFFreeformShape p = new HSLFFreeformShape(_group);
         p.setPath(path);
         applyPaint(p);
@@ -1826,7 +1827,7 @@ public final class PPGraphics2D extends Graphics2D implements Cloneable {
             float[] dash = bs.getDashArray();
             if (dash != null) {
                 //TODO: implement more dashing styles
-                shape.setLineDashing(StrokeStyle.LineDash.DASH);
+                shape.setLineDash(StrokeStyle.LineDash.DASH);
             }
         }
     }

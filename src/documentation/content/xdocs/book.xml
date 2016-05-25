@@ -39,8 +39,8 @@
         <menu-item label="Javadocs" href="ext:javadoc"/>
         <menu-item label="FAQ" href="faq.html"/>
         <menu-item label="Mailing Lists" href="mailinglists.html"/>
-        <menu-item label="Bug Database" href="http://issues.apache.org/bugzilla/buglist.cgi?product=POI"/>
-        <menu-item label="Changes Log" href="changes.html"/>
+        <menu-item label="Bug Database" href="https://bz.apache.org/bugzilla/buglist.cgi?product=POI"/>
+        <menu-item label="Changelog" href="changes.html"/>
     </menu>
 
     <menu label="Getting Involved">
@@ -61,6 +61,7 @@
         <menu-item label="Visio (HDGF)" href="hdgf/index.html"/>
         <menu-item label="TNEF (HMEF)" href="hmef/index.html"/>
         <menu-item label="Publisher (HPBF)" href="hpbf/index.html"/>
+        <menu-item label="Logging framework" href="logging.html"/>
     </menu>
 
     <menu label="Apache Wide">

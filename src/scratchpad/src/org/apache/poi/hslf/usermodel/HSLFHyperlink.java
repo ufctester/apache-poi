@@ -17,30 +17,109 @@
 
 package org.apache.poi.hslf.usermodel;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.ListIterator;
 
-import org.apache.poi.ddf.*;
-import org.apache.poi.hslf.record.*;
+import org.apache.poi.hslf.record.ExHyperlink;
+import org.apache.poi.hslf.record.ExHyperlinkAtom;
+import org.apache.poi.hslf.record.ExObjList;
+import org.apache.poi.hslf.record.HSLFEscherClientDataRecord;
+import org.apache.poi.hslf.record.InteractiveInfo;
+import org.apache.poi.hslf.record.InteractiveInfoAtom;
+import org.apache.poi.hslf.record.Record;
+import org.apache.poi.hslf.record.TxInteractiveInfoAtom;
+import org.apache.poi.sl.usermodel.Hyperlink;
+import org.apache.poi.sl.usermodel.Slide;
 
 /**
  * Represents a hyperlink in a PowerPoint document
- *
- * @author Yegor Kozlov
  */
-public final class HSLFHyperlink {
-    public static final byte LINK_NEXTSLIDE = InteractiveInfoAtom.LINK_NextSlide;
-    public static final byte LINK_PREVIOUSSLIDE = InteractiveInfoAtom.LINK_PreviousSlide;
-    public static final byte LINK_FIRSTSLIDE = InteractiveInfoAtom.LINK_FirstSlide;
-    public static final byte LINK_LASTSLIDE = InteractiveInfoAtom.LINK_LastSlide;
-    public static final byte LINK_SLIDENUMBER = InteractiveInfoAtom.LINK_SlideNumber;
-    public static final byte LINK_URL = InteractiveInfoAtom.LINK_Url;
-    public static final byte LINK_NULL = InteractiveInfoAtom.LINK_NULL;
+public final class HSLFHyperlink implements Hyperlink<HSLFShape,HSLFTextParagraph> {
+    private final ExHyperlink exHyper;
+    private final InteractiveInfo info;
+    private TxInteractiveInfoAtom txinfo;
 
-    private int id=-1;
-    private int type;
-    private String address;
-    private String title;
-    private int startIndex, endIndex;
+    protected HSLFHyperlink(ExHyperlink exHyper, InteractiveInfo info) {
+        this.info = info;
+        this.exHyper = exHyper;
+    }
+
+    public ExHyperlink getExHyperlink() {
+        return exHyper;
+    }
+    
+    public InteractiveInfo getInfo() {
+        return info;
+    }
+    
+    public TxInteractiveInfoAtom getTextRunInfo() {
+        return txinfo;
+    }
+    
+    protected void setTextRunInfo(TxInteractiveInfoAtom txinfo) {
+        this.txinfo = txinfo;
+    }
+
+    /**
+     * Creates a new Hyperlink and assign it to a shape
+     * This is only a helper method - use {@link HSLFSimpleShape#createHyperlink()} instead!
+     *
+     * @param shape the shape which receives the hyperlink
+     * @return the new hyperlink
+     * 
+     * @see HSLFSimpleShape#createHyperlink()
+     */
+    /* package */ static HSLFHyperlink createHyperlink(HSLFSimpleShape shape) {
+        // TODO: check if a hyperlink already exists
+        ExHyperlink exHyper = new ExHyperlink();
+        int linkId = shape.getSheet().getSlideShow().addToObjListAtom(exHyper);
+        ExHyperlinkAtom obj = exHyper.getExHyperlinkAtom();
+        obj.setNumber(linkId);
+        InteractiveInfo info = new InteractiveInfo();
+        info.getInteractiveInfoAtom().setHyperlinkID(linkId);
+        HSLFEscherClientDataRecord cldata = shape.getClientData(true);
+        cldata.addChild(info);
+        HSLFHyperlink hyper = new HSLFHyperlink(exHyper, info);
+        hyper.linkToNextSlide();
+        shape.setHyperlink(hyper);
+        return hyper;
+    }
+
+    /**
+     * Creates a new Hyperlink for a textrun.
+     * This is only a helper method - use {@link HSLFTextRun#createHyperlink()} instead!
+     *
+     * @param run the run which receives the hyperlink
+     * @return the new hyperlink
+     * 
+     * @see HSLFTextRun#createHyperlink()
+     */
+    /* package */ static HSLFHyperlink createHyperlink(HSLFTextRun run) {
+        // TODO: check if a hyperlink already exists
+        ExHyperlink exHyper = new ExHyperlink();
+        int linkId = run.getTextParagraph().getSheet().getSlideShow().addToObjListAtom(exHyper);
+        ExHyperlinkAtom obj = exHyper.getExHyperlinkAtom();
+        obj.setNumber(linkId);
+        InteractiveInfo info = new InteractiveInfo();
+        info.getInteractiveInfoAtom().setHyperlinkID(linkId);
+        // don't add the hyperlink now to text paragraph records
+        // this will be done, when the paragraph is saved
+        HSLFHyperlink hyper = new HSLFHyperlink(exHyper, info);
+        hyper.linkToNextSlide();
+        
+        TxInteractiveInfoAtom txinfo = new TxInteractiveInfoAtom();
+        int startIdx = run.getTextParagraph().getStartIdxOfTextRun(run);
+        int endIdx = startIdx + run.getLength();
+        txinfo.setStartIndex(startIdx);
+        txinfo.setEndIndex(endIdx);
+        hyper.setTextRunInfo(txinfo);
+        
+        run.setHyperlink(hyper);
+        return hyper;
+    }
+    
 
     /**
      * Gets the type of the hyperlink action.
@@ -49,77 +128,132 @@ public final class HSLFHyperlink {
      * @return the hyperlink URL
      * @see InteractiveInfoAtom
      */
+    @Override
     public int getType() {
-        return type;
-    }
-
-    public void setType(int val) {
-        type = val;
-        switch(type){
-            case LINK_NEXTSLIDE:
-                title = "NEXT";
-                address = "1,-1,NEXT";
-                break;
-            case LINK_PREVIOUSSLIDE:
-                title = "PREV";
-                address = "1,-1,PREV";
-                break;
-            case LINK_FIRSTSLIDE:
-                title = "FIRST";
-                address = "1,-1,FIRST";
-                break;
-            case LINK_LASTSLIDE:
-                title = "LAST";
-                address = "1,-1,LAST";
-                break;
-            case LINK_SLIDENUMBER:
-                break;
-            default:
-                title = "";
-                address = "";
-                break;
+        switch (info.getInteractiveInfoAtom().getHyperlinkType()) {
+        case InteractiveInfoAtom.LINK_Url:
+            return (exHyper.getLinkURL().startsWith("mailto:")) ? LINK_EMAIL : LINK_URL;
+        case InteractiveInfoAtom.LINK_NextSlide:
+        case InteractiveInfoAtom.LINK_PreviousSlide:
+        case InteractiveInfoAtom.LINK_FirstSlide:
+        case InteractiveInfoAtom.LINK_LastSlide:
+        case InteractiveInfoAtom.LINK_SlideNumber:
+            return LINK_DOCUMENT;
+        case InteractiveInfoAtom.LINK_CustomShow:
+        case InteractiveInfoAtom.LINK_OtherPresentation:
+        case InteractiveInfoAtom.LINK_OtherFile:
+            return LINK_FILE;
+        default:
+        case InteractiveInfoAtom.LINK_NULL:
+            return -1;
         }
     }
 
-    /**
-     * Gets the hyperlink URL
-     *
-     * @return the hyperlink URL
-     */
+    @Override
+    public void linkToEmail(String emailAddress) {
+        InteractiveInfoAtom iia = info.getInteractiveInfoAtom();
+        iia.setAction(InteractiveInfoAtom.ACTION_HYPERLINK);
+        iia.setJump(InteractiveInfoAtom.JUMP_NONE);
+        iia.setHyperlinkType(InteractiveInfoAtom.LINK_Url);
+        exHyper.setLinkURL("mailto:"+emailAddress);
+        exHyper.setLinkTitle(emailAddress);
+        exHyper.setLinkOptions(0x10);
+    }
+
+    @Override
+    public void linkToUrl(String url) {
+        InteractiveInfoAtom iia = info.getInteractiveInfoAtom();
+        iia.setAction(InteractiveInfoAtom.ACTION_HYPERLINK);
+        iia.setJump(InteractiveInfoAtom.JUMP_NONE);
+        iia.setHyperlinkType(InteractiveInfoAtom.LINK_Url);
+        exHyper.setLinkURL(url);
+        exHyper.setLinkTitle(url);
+        exHyper.setLinkOptions(0x10);
+    }
+
+    @Override
+    public void linkToSlide(Slide<HSLFShape,HSLFTextParagraph> slide) {
+        assert(slide instanceof HSLFSlide);
+        HSLFSlide sl = (HSLFSlide)slide;
+        int slideNum = slide.getSlideNumber();
+        String alias = "Slide "+slideNum;
+
+        InteractiveInfoAtom iia = info.getInteractiveInfoAtom();
+        iia.setAction(InteractiveInfoAtom.ACTION_HYPERLINK);
+        iia.setJump(InteractiveInfoAtom.JUMP_NONE);
+        iia.setHyperlinkType(InteractiveInfoAtom.LINK_SlideNumber);
+
+        linkToDocument(sl._getSheetNumber(),slideNum,alias,0x30);
+    }
+
+    @Override
+    public void linkToNextSlide() {
+        InteractiveInfoAtom iia = info.getInteractiveInfoAtom();
+        iia.setAction(InteractiveInfoAtom.ACTION_JUMP);
+        iia.setJump(InteractiveInfoAtom.JUMP_NEXTSLIDE);
+        iia.setHyperlinkType(InteractiveInfoAtom.LINK_NextSlide);
+
+        linkToDocument(1,-1,"NEXT",0x10);
+    }
+
+    @Override
+    public void linkToPreviousSlide() {
+        InteractiveInfoAtom iia = info.getInteractiveInfoAtom();
+        iia.setAction(InteractiveInfoAtom.ACTION_JUMP);
+        iia.setJump(InteractiveInfoAtom.JUMP_PREVIOUSSLIDE);
+        iia.setHyperlinkType(InteractiveInfoAtom.LINK_PreviousSlide);
+
+        linkToDocument(1,-1,"PREV",0x10);
+    }
+
+    @Override
+    public void linkToFirstSlide() {
+        InteractiveInfoAtom iia = info.getInteractiveInfoAtom();
+        iia.setAction(InteractiveInfoAtom.ACTION_JUMP);
+        iia.setJump(InteractiveInfoAtom.JUMP_FIRSTSLIDE);
+        iia.setHyperlinkType(InteractiveInfoAtom.LINK_FirstSlide);
+
+        linkToDocument(1,-1,"FIRST",0x10);
+    }
+
+    @Override
+    public void linkToLastSlide() {
+        InteractiveInfoAtom iia = info.getInteractiveInfoAtom();
+        iia.setAction(InteractiveInfoAtom.ACTION_JUMP);
+        iia.setJump(InteractiveInfoAtom.JUMP_LASTSLIDE);
+        iia.setHyperlinkType(InteractiveInfoAtom.LINK_LastSlide);
+
+        linkToDocument(1,-1,"LAST",0x10);
+    }
+
+    private void linkToDocument(int sheetNumber, int slideNumber, String alias, int options) {
+        exHyper.setLinkURL(sheetNumber+","+slideNumber+","+alias);
+        exHyper.setLinkTitle(alias);
+        exHyper.setLinkOptions(options);
+    }
+
+    @Override
     public String getAddress() {
-        return address;
+        return exHyper.getLinkURL();
     }
 
-    public void setAddress(HSLFSlide slide) {
-        String href = slide._getSheetNumber() + ","+slide.getSlideNumber()+",Slide " + slide.getSlideNumber();
-        setAddress(href);;
-        setTitle("Slide " + slide.getSlideNumber());
-        setType(HSLFHyperlink.LINK_SLIDENUMBER);
-    }
-
+    @Override
     public void setAddress(String str) {
-        address = str;
+        exHyper.setLinkURL(str);
     }
 
     public int getId() {
-        return id;
+        return exHyper.getExHyperlinkAtom().getNumber();
     }
 
-    public void setId(int id) {
-        this.id = id;
+    @Override
+    public String getLabel() {
+        return exHyper.getLinkTitle();
     }
 
-    /**
-     * Gets the hyperlink user-friendly title (if different from URL)
-     *
-     * @return the  hyperlink user-friendly title
-     */
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String str) {
-        title = str;
+    @Override
+    public void setLabel(String label) {
+        exHyper.setLinkTitle(label);
     }
 
     /**
@@ -128,7 +262,18 @@ public final class HSLFHyperlink {
      * @return the beginning character position
      */
     public int getStartIndex() {
-        return startIndex;
+        return (txinfo == null) ? -1 : txinfo.getStartIndex();
+    }
+
+    /**
+     * Sets the beginning character position
+     *
+     * @param startIndex the beginning character position
+     */
+    public void setStartIndex(int startIndex) {
+        if (txinfo != null) {
+            txinfo.setStartIndex(startIndex);
+        }
     }
 
     /**
@@ -137,7 +282,18 @@ public final class HSLFHyperlink {
      * @return the ending character position
      */
     public int getEndIndex() {
-        return endIndex;
+        return (txinfo == null) ? -1 : txinfo.getEndIndex();
+    }
+
+    /**
+     * Sets the ending character position
+     *
+     * @param endIndex the ending character position
+     */
+    public void setEndIndex(int endIndex) {
+        if (txinfo != null) {
+            txinfo.setEndIndex(endIndex);
+        }
     }
 
     /**
@@ -156,19 +312,20 @@ public final class HSLFHyperlink {
      * @param paragraphs  List of <code>TextParagraph</code> to lookup hyperlinks
      * @return found hyperlinks
      */
-    public static List<HSLFHyperlink> find(List<HSLFTextParagraph> paragraphs){
+    @SuppressWarnings("resource")
+    protected static List<HSLFHyperlink> find(List<HSLFTextParagraph> paragraphs){
         List<HSLFHyperlink> lst = new ArrayList<HSLFHyperlink>();
         if (paragraphs == null || paragraphs.isEmpty()) return lst;
 
         HSLFTextParagraph firstPara = paragraphs.get(0);
-        
+
         HSLFSlideShow ppt = firstPara.getSheet().getSlideShow();
         //document-level container which stores info about all links in a presentation
-        ExObjList exobj = ppt.getDocumentRecord().getExObjList();
-        if (exobj == null) return lst;
-        
-        Record[] records = firstPara.getRecords();
-        find(records, exobj, lst);
+        ExObjList exobj = ppt.getDocumentRecord().getExObjList(false);
+        if (exobj != null) {
+            Record[] records = firstPara.getRecords();
+            find(Arrays.asList(records), exobj, lst);
+        }
 
         return lst;
     }
@@ -179,50 +336,52 @@ public final class HSLFHyperlink {
      * @param shape  <code>Shape</code> to lookup hyperlink in
      * @return found hyperlink or <code>null</code>
      */
-    public static HSLFHyperlink find(HSLFShape shape){
-        List<HSLFHyperlink> lst = new ArrayList<HSLFHyperlink>();
+    @SuppressWarnings("resource")
+    protected static HSLFHyperlink find(HSLFShape shape){
         HSLFSlideShow ppt = shape.getSheet().getSlideShow();
         //document-level container which stores info about all links in a presentation
-        ExObjList exobj = ppt.getDocumentRecord().getExObjList();
-        if (exobj == null) {
-            return null;
+        ExObjList exobj = ppt.getDocumentRecord().getExObjList(false);
+        HSLFEscherClientDataRecord cldata = shape.getClientData(false);
+
+        if (exobj != null && cldata != null) {
+            List<HSLFHyperlink> lst = new ArrayList<HSLFHyperlink>();
+            find(cldata.getHSLFChildRecords(), exobj, lst);
+            return lst.isEmpty() ? null : (HSLFHyperlink)lst.get(0);
         }
 
-        EscherContainerRecord spContainer = shape.getSpContainer();
-        for (Iterator<EscherRecord> it = spContainer.getChildIterator(); it.hasNext(); ) {
-            EscherRecord obj = it.next();
-            if (obj.getRecordId() ==  EscherClientDataRecord.RECORD_ID){
-                byte[] data = obj.serialize();
-                Record[] records = Record.findChildRecords(data, 8, data.length-8);
-                find(records, exobj, lst);
-            }
-        }
-
-        return lst.size() == 1 ? (HSLFHyperlink)lst.get(0) : null;
+        return null;
     }
 
-    private static void find(Record[] records, ExObjList exobj, List<HSLFHyperlink> out){
-        if (records == null) return;
-        for (int i = 0; i < records.length; i++) {
-            //see if we have InteractiveInfo in the textrun's records
-            if(!(records[i] instanceof InteractiveInfo)) continue;
-            
-            InteractiveInfo hldr = (InteractiveInfo)records[i];
+    private static void find(List<? extends Record> records, ExObjList exobj, List<HSLFHyperlink> out){
+        ListIterator<? extends Record> iter = records.listIterator();
+        while (iter.hasNext()) {
+            Record r = iter.next();
+            // see if we have InteractiveInfo in the textrun's records
+            if (!(r instanceof InteractiveInfo)) {
+                continue;
+            }
+
+            InteractiveInfo hldr = (InteractiveInfo)r;
             InteractiveInfoAtom info = hldr.getInteractiveInfoAtom();
+            if (info == null) {
+                continue;
+            }
             int id = info.getHyperlinkID();
-            ExHyperlink linkRecord = exobj.get(id);
-            if (linkRecord == null) continue;
-            
-            HSLFHyperlink link = new HSLFHyperlink();
-            link.title = linkRecord.getLinkTitle();
-            link.address = linkRecord.getLinkURL();
-            link.type = info.getAction();
+            ExHyperlink exHyper = exobj.get(id);
+            if (exHyper == null) {
+                continue;
+            }
+
+            HSLFHyperlink link = new HSLFHyperlink(exHyper, hldr);
             out.add(link);
 
-            if (i+1 < records.length && records[i+1] instanceof TxInteractiveInfoAtom){
-                TxInteractiveInfoAtom txinfo = (TxInteractiveInfoAtom)records[++i];
-                link.startIndex = txinfo.getStartIndex();
-                link.endIndex = txinfo.getEndIndex();
+            if (iter.hasNext()) {
+                r = iter.next();
+                if (!(r instanceof TxInteractiveInfoAtom)) {
+                    iter.previous();
+                    continue;
+                }
+                link.setTextRunInfo((TxInteractiveInfoAtom)r);
             }
         }
     }

@@ -16,6 +16,8 @@
 ==================================================================== */
 package org.apache.poi.poifs.crypt.agile;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -111,7 +113,7 @@ public class AgileEncryptionInfoBuilder implements EncryptionInfoBuilder {
     
     protected static EncryptionDocument parseDescriptor(String descriptor) {
         try {
-            return EncryptionDocument.Factory.parse(descriptor);
+            return EncryptionDocument.Factory.parse(descriptor, DEFAULT_XML_OPTIONS);
         } catch (XmlException e) {
             throw new EncryptedDocumentException("Unable to parse encryption descriptor", e);
         }
@@ -119,7 +121,7 @@ public class AgileEncryptionInfoBuilder implements EncryptionInfoBuilder {
 
     protected static EncryptionDocument parseDescriptor(InputStream descriptor) {
         try {
-            return EncryptionDocument.Factory.parse(descriptor);
+            return EncryptionDocument.Factory.parse(descriptor, DEFAULT_XML_OPTIONS);
         } catch (Exception e) {
             throw new EncryptedDocumentException("Unable to parse encryption descriptor", e);
         }

@@ -16,6 +16,8 @@
 ==================================================================== */
 package org.apache.poi.xssf.eventusermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -66,6 +68,18 @@ public class XSSFReader {
 
         PackageRelationship coreDocRelationship = this.pkg.getRelationshipsByType(
                 PackageRelationshipTypes.CORE_DOCUMENT).getRelationship(0);
+
+        // strict OOXML likely not fully supported, see #57699
+        // this code is similar to POIXMLDocumentPart.getPartFromOPCPackage(), but I could not combine it
+        // easily due to different return values
+        if(coreDocRelationship == null) {
+            if (this.pkg.getRelationshipsByType(
+                    PackageRelationshipTypes.STRICT_CORE_DOCUMENT).getRelationship(0) != null) {
+                throw new POIXMLException("Strict OOXML isn't currently supported, please see bug #57699");
+            }
+
+            throw new POIXMLException("OOXML file structure broken/invalid - no core document found!");
+        }
 
         // Get the part that holds the workbook
         workbookPart = this.pkg.getPart(coreDocRelationship);
@@ -208,7 +222,7 @@ public class XSSFReader {
                 }
                 //step 2. Read array of CTSheet elements, wrap it in a ArayList and construct an iterator
                 //Note, using XMLBeans might be expensive, consider refactoring to use SAX or a plain regexp search
-                CTWorkbook wbBean = WorkbookDocument.Factory.parse(wb.getInputStream()).getWorkbook();
+                CTWorkbook wbBean = WorkbookDocument.Factory.parse(wb.getInputStream(), DEFAULT_XML_OPTIONS).getWorkbook();
                 sheetIterator = wbBean.getSheets().getSheetList().iterator(); 
             } catch (InvalidFormatException e){
                 throw new POIXMLException(e);

@@ -37,6 +37,7 @@ import org.apache.poi.ddf.EscherRecord;
 import org.apache.poi.ddf.EscherSimpleProperty;
 import org.apache.poi.ddf.EscherSpRecord;
 import org.apache.poi.ddf.EscherSplitMenuColorsRecord;
+import org.apache.poi.hssf.extractor.OldExcelExtractor;
 import org.apache.poi.hssf.record.BOFRecord;
 import org.apache.poi.hssf.record.BackupRecord;
 import org.apache.poi.hssf.record.BookBoolRecord;
@@ -123,6 +124,22 @@ public final class InternalWorkbook {
      */
     private static final int MAX_SENSITIVE_SHEET_NAME_LEN = 31;
 
+    /**
+     * Normally, the Workbook will be in a POIFS Stream called 
+     *  "Workbook". However, some weird XLS generators use "WORKBOOK"
+     *  or "BOOK".
+     */
+    public static final String[] WORKBOOK_DIR_ENTRY_NAMES = {
+        "Workbook", // as per BIFF8 spec
+        "WORKBOOK", // Typically from third party programs
+        "BOOK",     // Typically odd Crystal Reports exports
+    };
+    /**
+     * Name of older (pre-Excel 97) Workbook streams, which
+     *  aren't supported by HSSFWorkbook, only by
+     *  {@link OldExcelExtractor}
+     */
+    public static final String OLD_WORKBOOK_DIR_ENTRY_NAME = "Book";
 
     private static final POILogger log = POILogFactory.getLogger(InternalWorkbook.class);
     private static final int DEBUG = POILogger.DEBUG;
@@ -777,10 +794,8 @@ public final class InternalWorkbook {
         
         if (linkTable != null) {
             // also tell the LinkTable about the removed sheet
-            // +1 because we already removed it from the count of sheets!
-            for(int i = sheetIndex+1;i < getNumSheets()+1;i++) {
-                linkTable.removeSheet(i);
-            }
+            //index hasn't change in the linktable
+            linkTable.removeSheet(sheetIndex);
         }
     }
 

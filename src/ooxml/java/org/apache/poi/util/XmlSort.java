@@ -17,6 +17,8 @@
 
 package org.apache.poi.util;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.Comparator;
@@ -49,7 +51,7 @@ public final class XmlSort
         File f = new File(args[0]);
         try
         {
-            XmlObject docInstance = XmlObject.Factory.parse(f);
+            XmlObject docInstance = XmlObject.Factory.parse(f, DEFAULT_XML_OPTIONS);
             XmlObject element = null;
             if (args.length > 1)
             {

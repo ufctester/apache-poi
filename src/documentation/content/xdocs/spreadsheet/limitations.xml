@@ -36,6 +36,34 @@
             </p>
             <ul>
                 <li>
+                    File sizes/Memory usage<br/><br/>
+					<ul>
+						<li>
+							There are some inherent limits in the Excel file formats. These are defined in class 
+							<link href="https://poi.apache.org/apidocs/org/apache/poi/ss/SpreadsheetVersion.html">SpreadsheetVersion</link>. 
+							As long as you have enough main-memory, you should be able to handle files up to these limits. For huge files 
+							using the default POI classes you will likely need a very large amount of memory.
+							<br/>
+							<br/>
+							There are ways to overcome the main-memory limitations if needed:
+							<br/>
+							<ul>
+								<li>
+									For writing very huge files, there is <link href="http://poi.apache.org/spreadsheet/index.html">SXSSFWorkbook</link> 
+									which allows to do a streaming write of data out to files (with certain limitations on what you can do as only 
+									parts of the file are held in memory).
+								</li>
+								<li>
+									For reading very huge files, take a look at the sample 
+									<link href="https://svn.apache.org/repos/asf/poi/trunk/src/examples/src/org/apache/poi/xssf/eventusermodel/XLSX2CSV.java">XLSX2CSV</link> 
+									which shows how you can read a file in streaming fashion (again with some limitations on what information you 
+									can read out of the file, but there are ways to get at most of it if necessary).
+								</li>
+							</ul>
+						</li>
+					</ul>
+                </li>
+                <li>
                     Charts<br/><br/>
 					<ul>
 						<li>

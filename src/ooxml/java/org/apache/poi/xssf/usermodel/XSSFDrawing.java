@@ -17,23 +17,21 @@
 
 package org.apache.poi.xssf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import javax.xml.namespace.QName;
 
 import org.apache.poi.POIXMLDocumentPart;
 import org.apache.poi.openxml4j.opc.PackagePart;
-import org.apache.poi.openxml4j.opc.PackagePartName;
 import org.apache.poi.openxml4j.opc.PackageRelationship;
-import org.apache.poi.openxml4j.opc.TargetMode;
 import org.apache.poi.ss.usermodel.ClientAnchor;
 import org.apache.poi.ss.usermodel.Drawing;
-import org.apache.poi.ss.util.CellReference;
+import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.util.Internal;
 import org.apache.poi.util.Units;
 import org.apache.poi.xssf.model.CommentsTable;
@@ -41,13 +39,19 @@ import org.apache.xmlbeans.XmlCursor;
 import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlObject;
 import org.apache.xmlbeans.XmlOptions;
-import org.openxmlformats.schemas.drawingml.x2006.spreadsheetDrawing.*;
-import org.openxmlformats.schemas.officeDocument.x2006.relationships.STRelationshipId;
+import org.openxmlformats.schemas.drawingml.x2006.spreadsheetDrawing.CTConnector;
+import org.openxmlformats.schemas.drawingml.x2006.spreadsheetDrawing.CTDrawing;
+import org.openxmlformats.schemas.drawingml.x2006.spreadsheetDrawing.CTGraphicalObjectFrame;
+import org.openxmlformats.schemas.drawingml.x2006.spreadsheetDrawing.CTGroupShape;
+import org.openxmlformats.schemas.drawingml.x2006.spreadsheetDrawing.CTMarker;
+import org.openxmlformats.schemas.drawingml.x2006.spreadsheetDrawing.CTOneCellAnchor;
+import org.openxmlformats.schemas.drawingml.x2006.spreadsheetDrawing.CTPicture;
+import org.openxmlformats.schemas.drawingml.x2006.spreadsheetDrawing.CTShape;
+import org.openxmlformats.schemas.drawingml.x2006.spreadsheetDrawing.CTTwoCellAnchor;
+import org.openxmlformats.schemas.drawingml.x2006.spreadsheetDrawing.STEditAs;
 
 /**
  * Represents a SpreadsheetML drawing
- *
- * @author Yegor Kozlov
  */
 public final class XSSFDrawing extends POIXMLDocumentPart implements Drawing {
     /**
@@ -56,8 +60,8 @@ public final class XSSFDrawing extends POIXMLDocumentPart implements Drawing {
     private CTDrawing drawing;
     private long numOfGraphicFrames = 0L;
     
-    protected static final String NAMESPACE_A = "http://schemas.openxmlformats.org/drawingml/2006/main";
-    protected static final String NAMESPACE_C = "http://schemas.openxmlformats.org/drawingml/2006/chart";
+    protected static final String NAMESPACE_A = XSSFRelation.NS_DRAWINGML;
+    protected static final String NAMESPACE_C = XSSFRelation.NS_CHART;
 
     /**
      * Create a new SpreadsheetML drawing
@@ -74,17 +78,25 @@ public final class XSSFDrawing extends POIXMLDocumentPart implements Drawing {
      *
      * @param part the package part holding the drawing data,
      * the content type must be <code>application/vnd.openxmlformats-officedocument.drawing+xml</code>
-     * @param rel  the package relationship holding this drawing,
-     * the relationship type must be http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing
+     * 
+     * @since POI 3.14-Beta1
      */
-    public XSSFDrawing(PackagePart part, PackageRelationship rel) throws IOException, XmlException {
-        super(part, rel);
+    public XSSFDrawing(PackagePart part) throws IOException, XmlException {
+        super(part);
         XmlOptions options  = new XmlOptions(DEFAULT_XML_OPTIONS);
         //Removing root element
         options.setLoadReplaceDocumentElement(null);
         drawing = CTDrawing.Factory.parse(part.getInputStream(),options);
     }
 
+    /**
+     * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+     */
+    @Deprecated
+    public XSSFDrawing(PackagePart part, PackageRelationship rel) throws IOException, XmlException {
+        this(part);
+    }
+    
     /**
      * Construct a new CTDrawing bean. By default, it's just an empty placeholder for drawing objects
      *
@@ -117,10 +129,6 @@ public final class XSSFDrawing extends POIXMLDocumentPart implements Drawing {
         xmlOptions.setSaveSyntheticDocumentElement(
                 new QName(CTDrawing.type.getName().getNamespaceURI(), "wsDr", "xdr")
         );
-        Map<String, String> map = new HashMap<String, String>();
-        map.put(NAMESPACE_A, "a");
-        map.put(STRelationshipId.type.getName().getNamespaceURI(), "r");
-        xmlOptions.setSaveSuggestedPrefixes(map);
 
         PackagePart part = getPackagePart();
         OutputStream out = part.getOutputStream();
@@ -195,9 +203,10 @@ public final class XSSFDrawing extends POIXMLDocumentPart implements Drawing {
         int chartNumber = getPackagePart().getPackage().
             getPartsByContentType(XSSFRelation.CHART.getContentType()).size() + 1;
 
-        XSSFChart chart = (XSSFChart) createRelationship(
-                XSSFRelation.CHART, XSSFFactory.getInstance(), chartNumber);
-        String chartRelId = chart.getPackageRelationship().getId();
+        RelationPart rp = createRelationship(
+            XSSFRelation.CHART, XSSFFactory.getInstance(), chartNumber, false);
+        XSSFChart chart = rp.getDocumentPart();
+        String chartRelId = rp.getRelationship().getId();
 
         XSSFGraphicFrame frame = createGraphicFrame(anchor);
         frame.setChart(chart, chartRelId);
@@ -216,13 +225,13 @@ public final class XSSFDrawing extends POIXMLDocumentPart implements Drawing {
      * @param pictureIndex the index of the picture in the workbook collection of pictures,
      *   {@link org.apache.poi.xssf.usermodel.XSSFWorkbook#getAllPictures()} .
      */
+    @SuppressWarnings("resource")
     protected PackageRelationship addPictureReference(int pictureIndex){
         XSSFWorkbook wb = (XSSFWorkbook)getParent().getParent();
         XSSFPictureData data = wb.getAllPictures().get(pictureIndex);
-        PackagePartName ppName = data.getPackagePart().getPartName();
-        PackageRelationship rel = getPackagePart().addRelationship(ppName, TargetMode.INTERNAL, XSSFRelation.IMAGES.getRelation());
-        addRelation(rel.getId(),new XSSFPictureData(data.getPackagePart(), rel));
-        return rel;
+        XSSFPictureData pic = new XSSFPictureData(data.getPackagePart(), null);
+        RelationPart rp = addRelation(null, XSSFRelation.IMAGES, pic);
+        return rp.getRelationship();
     }
 
     /**
@@ -297,7 +306,7 @@ public final class XSSFDrawing extends POIXMLDocumentPart implements Drawing {
         //create comments and vmlDrawing parts if they don't exist
         CommentsTable comments = sheet.getCommentsTable(true);
         XSSFVMLDrawing vml = sheet.getVMLDrawing(true);
-        schemasMicrosoftComVml.CTShape vmlShape = vml.newCommentShape();
+        com.microsoft.schemas.vml.CTShape vmlShape = vml.newCommentShape();
         if(ca.isSet()){
             // convert offsets from emus to pixels since we get a DrawingML-anchor
             // but create a VML Drawing
@@ -312,7 +321,7 @@ public final class XSSFDrawing extends POIXMLDocumentPart implements Drawing {
                     ca.getRow2() + ", " + dy2Pixels;
             vmlShape.getClientDataArray(0).setAnchorArray(0, position);
         }
-        String ref = new CellReference(ca.getRow1(), ca.getCol1()).formatAsString();
+        CellAddress ref = new CellAddress(ca.getRow1(), ca.getCol1());
 
         if(comments.findCellComment(ref) != null) {
             throw new IllegalArgumentException("Multiple cell comments in one cell are not allowed, cell: " + ref);
@@ -368,9 +377,9 @@ public final class XSSFDrawing extends POIXMLDocumentPart implements Drawing {
         anchor.setFrom(ctAnchor.getFrom());
         STEditAs.Enum aditAs;
         switch(anchor.getAnchorType()) {
-            case ClientAnchor.DONT_MOVE_AND_RESIZE: aditAs = STEditAs.ABSOLUTE; break;
-            case ClientAnchor.MOVE_AND_RESIZE: aditAs = STEditAs.TWO_CELL; break;
-            case ClientAnchor.MOVE_DONT_RESIZE: aditAs = STEditAs.ONE_CELL; break;
+            case DONT_MOVE_AND_RESIZE: aditAs = STEditAs.ABSOLUTE; break;
+            case MOVE_AND_RESIZE: aditAs = STEditAs.TWO_CELL; break;
+            case MOVE_DONT_RESIZE: aditAs = STEditAs.ONE_CELL; break;
             default: aditAs = STEditAs.ONE_CELL;
         }
         ctAnchor.setEditAs(aditAs);

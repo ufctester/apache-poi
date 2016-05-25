@@ -24,6 +24,7 @@
 
 package org.apache.poi.poifs.crypt.dsig;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
 import static org.apache.poi.poifs.crypt.dsig.facets.SignatureFacet.XML_DIGSIG_NS;
 
 import java.io.ByteArrayOutputStream;
@@ -161,9 +162,9 @@ import org.w3c.dom.events.EventTarget;
  * <p>To use SignatureInfo and its sibling classes, you'll need to have the following libs
  * in the classpath:</p>
  * <ul>
- * <li>BouncyCastle bcpkix and bcprov (tested against 1.51)</li>
- * <li>Apache Santuario "xmlsec" (tested against 2.0.1)</li>
- * <li>and slf4j-api (tested against 1.7.7)</li>
+ * <li>BouncyCastle bcpkix and bcprov (tested against 1.53)</li>
+ * <li>Apache Santuario "xmlsec" (tested against 2.0.5)</li>
+ * <li>and slf4j-api (tested against 1.7.12)</li>
  * </ul>
  */
 public class SignatureInfo implements SignatureConfigurable {
@@ -212,7 +213,7 @@ public class SignatureInfo implements SignatureConfigurable {
          */
         public SignatureDocument getSignatureDocument() throws IOException, XmlException {
             // TODO: check for XXE
-            return SignatureDocument.Factory.parse(signaturePart.getInputStream());
+            return SignatureDocument.Factory.parse(signaturePart.getInputStream(), DEFAULT_XML_OPTIONS);
         }
         
         /**
@@ -630,7 +631,7 @@ public class SignatureInfo implements SignatureConfigurable {
         
         try {
             OutputStream os = sigPart.getOutputStream();
-            SignatureDocument sigDoc = SignatureDocument.Factory.parse(document);
+            SignatureDocument sigDoc = SignatureDocument.Factory.parse(document, DEFAULT_XML_OPTIONS);
             sigDoc.save(os, xo);
             os.close();
         } catch (Exception e) {
@@ -658,9 +659,9 @@ public class SignatureInfo implements SignatureConfigurable {
      * @param other the reference to wrap, if null
      * @return if other is null, an empty lists is returned, otherwise other is returned
      */
-    @SuppressWarnings("unchecked")
     private static <T> List<T> safe(List<T> other) {
-        return other == null ? Collections.EMPTY_LIST : other;
+        List<T> emptyList = Collections.emptyList();
+        return other == null ? emptyList : other;
     }
 
     private void brokenJvmWorkaround(XMLSignContext context) {

@@ -17,13 +17,13 @@
 
 package org.apache.poi.xwpf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import javax.xml.namespace.QName;
 
@@ -50,12 +50,21 @@ public class XWPFFootnotes extends POIXMLDocumentPart {
      * Construct XWPFFootnotes from a package part
      *
      * @param part the package part holding the data of the footnotes,
-     * @param rel  the package relationship of type "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes"
+     * 
+     * @since POI 3.14-Beta1
      */
-    public XWPFFootnotes(PackagePart part, PackageRelationship rel) throws IOException, OpenXML4JException {
-        super(part, rel);
+    public XWPFFootnotes(PackagePart part) throws IOException, OpenXML4JException {
+        super(part);
     }
 
+    /**
+     * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+     */
+    @Deprecated
+    public XWPFFootnotes(PackagePart part, PackageRelationship rel) throws IOException, OpenXML4JException {
+        this(part);
+    }
+    
     /**
      * Construct XWPFFootnotes from scratch for a new document.
      */
@@ -66,15 +75,19 @@ public class XWPFFootnotes extends POIXMLDocumentPart {
      * Read document
      */
     @Override
-    @SuppressWarnings("deprecation")
     protected void onDocumentRead() throws IOException {
         FootnotesDocument notesDoc;
+        InputStream is = null;
         try {
-            InputStream is = getPackagePart().getInputStream();
-            notesDoc = FootnotesDocument.Factory.parse(is);
+            is = getPackagePart().getInputStream();
+            notesDoc = FootnotesDocument.Factory.parse(is, DEFAULT_XML_OPTIONS);
             ctFootnotes = notesDoc.getFootnotes();
         } catch (XmlException e) {
             throw new POIXMLException();
+        } finally {
+            if (is != null) {
+                is.close();
+            }
         }
 
         // Find our footnotes
@@ -87,10 +100,6 @@ public class XWPFFootnotes extends POIXMLDocumentPart {
     protected void commit() throws IOException {
         XmlOptions xmlOptions = new XmlOptions(DEFAULT_XML_OPTIONS);
         xmlOptions.setSaveSyntheticDocumentElement(new QName(CTFootnotes.type.getName().getNamespaceURI(), "footnotes"));
-        Map<String, String> map = new HashMap<String, String>();
-        map.put("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "r");
-        map.put("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "w");
-        xmlOptions.setSaveSuggestedPrefixes(map);
         PackagePart part = getPackagePart();
         OutputStream out = part.getOutputStream();
         ctFootnotes.save(out, xmlOptions);

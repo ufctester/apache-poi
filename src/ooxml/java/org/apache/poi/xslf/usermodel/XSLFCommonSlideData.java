@@ -17,6 +17,8 @@
 
 package org.apache.poi.xslf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -44,7 +46,6 @@ public class XSLFCommonSlideData {
         this.data = data;
     }
     
-    @SuppressWarnings("deprecation")
     public List<DrawingTextBody> getDrawingText() {
         CTGroupShape gs = data.getSpTree();
 
@@ -67,7 +68,7 @@ public class XSLFCommonSlideData {
                 if (o instanceof XmlAnyTypeImpl) {
                     // Pesky XmlBeans bug - see Bugzilla #49934
                     try {
-                        o = CTTable.Factory.parse(o.toString());
+                        o = CTTable.Factory.parse(o.toString(), DEFAULT_XML_OPTIONS);
                     } catch (XmlException e) {
                         throw new POIXMLException(e);
                     }
@@ -98,7 +99,6 @@ public class XSLFCommonSlideData {
        return paragraphs;
     }
 
-    @SuppressWarnings("deprecation")
     private void processShape(CTGroupShape gs, List<DrawingTextBody> out) {
         for (CTShape shape : gs.getSpArray()) {
             CTTextBody ctTextBody = shape.getTxBody();

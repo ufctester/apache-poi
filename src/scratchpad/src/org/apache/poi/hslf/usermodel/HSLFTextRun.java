@@ -21,6 +21,7 @@ import static org.apache.poi.hslf.usermodel.HSLFTextParagraph.getPropVal;
 
 import java.awt.Color;
 
+import org.apache.poi.hslf.exceptions.HSLFException;
 import org.apache.poi.hslf.model.textproperties.BitMaskTextProp;
 import org.apache.poi.hslf.model.textproperties.CharFlagsTextProp;
 import org.apache.poi.hslf.model.textproperties.TextProp;
@@ -30,6 +31,7 @@ import org.apache.poi.sl.draw.DrawPaint;
 import org.apache.poi.sl.usermodel.PaintStyle;
 import org.apache.poi.sl.usermodel.PaintStyle.SolidPaint;
 import org.apache.poi.sl.usermodel.TextRun;
+import org.apache.poi.util.Internal;
 import org.apache.poi.util.POILogFactory;
 import org.apache.poi.util.POILogger;
 
@@ -45,6 +47,7 @@ public final class HSLFTextRun implements TextRun {
 	private HSLFTextParagraph parentParagraph;
 	private String _runText = "";
 	private String _fontFamily;
+	private HSLFHyperlink link;
 	
 	/**
 	 * Our paragraph and character style.
@@ -65,9 +68,22 @@ public final class HSLFTextRun implements TextRun {
 	}
 
 	public void setCharacterStyle(TextPropCollection characterStyle) {
-	    assert(characterStyle != null);
-	    this.characterStyle = characterStyle;
+	    this.characterStyle.copy(characterStyle);
+	    this.characterStyle.updateTextSize(_runText.length());
 	}
+	
+    /**
+     * Setting a master style reference
+     *
+     * @param characterStyle the master style reference
+     * 
+     * @since POI 3.14-Beta1
+     */
+	@Internal
+    /* package */ void setMasterStyleReference(TextPropCollection characterStyle) {
+        this.characterStyle = characterStyle;
+    }
+ 
 	
 	/**
 	 * Supply the SlideShow we belong to
@@ -97,7 +113,16 @@ public final class HSLFTextRun implements TextRun {
 	 * Change the text
 	 */
 	public void setText(String text) {
-	    _runText = HSLFTextParagraph.toInternalString(text);
+	    if (text == null) {
+	        throw new HSLFException("text must not be null");
+	    }
+	    String newText = HSLFTextParagraph.toInternalString(text);
+	    if (!newText.equals(_runText)) {
+	        _runText = newText;
+	        if (HSLFSlideShow.getLoadSavePhase() == HSLFSlideShow.LoadSavePhase.LOADED) {
+	            parentParagraph.setDirty();
+	        }
+	    }
 	}
 
 	// --------------- Internal helpers on rich text properties -------
@@ -116,7 +141,7 @@ public final class HSLFTextRun implements TextRun {
 
 		BitMaskTextProp prop = (BitMaskTextProp)characterStyle.findByName(CharFlagsTextProp.NAME);
 
-		if (prop == null){
+		if (prop == null || !prop.getSubPropMatches()[index]) {
             int txtype = parentParagraph.getRunType();
 			HSLFSheet sheet = parentParagraph.getSheet();
 			if (sheet != null) {
@@ -157,44 +182,32 @@ public final class HSLFTextRun implements TextRun {
 
 	// --------------- Friendly getters / setters on rich text properties -------
 
-	/**
-	 * Is the text bold?
-	 */
+	@Override
 	public boolean isBold() {
 		return isCharFlagsTextPropVal(CharFlagsTextProp.BOLD_IDX);
 	}
 
-	/**
-	 * Is the text bold?
-	 */
+	@Override
 	public void setBold(boolean bold) {
 		setCharFlagsTextPropVal(CharFlagsTextProp.BOLD_IDX, bold);
 	}
 
-	/**
-	 * Is the text italic?
-	 */
+	@Override
 	public boolean isItalic() {
 		return isCharFlagsTextPropVal(CharFlagsTextProp.ITALIC_IDX);
 	}
 
-	/**
-	 * Is the text italic?
-	 */
+	@Override
 	public void setItalic(boolean italic) {
 		setCharFlagsTextPropVal(CharFlagsTextProp.ITALIC_IDX, italic);
 	}
 
-	/**
-	 * Is the text underlined?
-	 */
+	@Override
 	public boolean isUnderlined() {
 		return isCharFlagsTextPropVal(CharFlagsTextProp.UNDERLINE_IDX);
 	}
 
-	/**
-	 * Is the text underlined?
-	 */
+	@Override
 	public void setUnderlined(boolean underlined) {
 		setCharFlagsTextPropVal(CharFlagsTextProp.UNDERLINE_IDX, underlined);
 	}
@@ -227,16 +240,12 @@ public final class HSLFTextRun implements TextRun {
 		setCharFlagsTextPropVal(CharFlagsTextProp.RELIEF_IDX, flag);
 	}
 
-	/**
-	 * Gets the strikethrough flag
-	 */
+	@Override
 	public boolean isStrikethrough() {
 		return isCharFlagsTextPropVal(CharFlagsTextProp.STRIKETHROUGH_IDX);
 	}
 
-	/**
-	 * Sets the strikethrough flag
-	 */
+	@Override
 	public void setStrikethrough(boolean flag) {
 		setCharFlagsTextPropVal(CharFlagsTextProp.STRIKETHROUGH_IDX, flag);
 	}
@@ -288,34 +297,30 @@ public final class HSLFTextRun implements TextRun {
 		setCharTextPropVal("font.index", idx);
 	}
 
-
-	/**
-	 * Sets the font name to use
-	 */
+	@Override
 	public void setFontFamily(String fontFamily) {
 	    HSLFSheet sheet = parentParagraph.getSheet();
-	    HSLFSlideShow slideShow = (sheet == null) ? null : sheet.getSlideShow();
+	    @SuppressWarnings("resource")
+        HSLFSlideShow slideShow = (sheet == null) ? null : sheet.getSlideShow();
 		if (sheet == null || slideShow == null) {
 			//we can't set font since slideshow is not assigned yet
 			_fontFamily = fontFamily;
 			return;
 		}
 		// Get the index for this font (adding if needed)
-		int fontIdx = slideShow.getFontCollection().addFont(fontFamily);
+		Integer fontIdx = (fontFamily == null) ? null : slideShow.getFontCollection().addFont(fontFamily);
 		setCharTextPropVal("font.index", fontIdx);
 	}
 
-	/**
-	 * Gets the font name
-	 */
 	@Override
 	public String getFontFamily() {
         HSLFSheet sheet = parentParagraph.getSheet();
+        @SuppressWarnings("resource")
         HSLFSlideShow slideShow = (sheet == null) ? null : sheet.getSlideShow();
 		if (sheet == null || slideShow == null) {
 			return _fontFamily;
 		}
-        TextProp tp = getPropVal(characterStyle, "font.index", parentParagraph);
+        TextProp tp = getPropVal(characterStyle, "font.index,asian.font.index,ansi.font.index,symbol.font.index", parentParagraph);
         if (tp == null) { return null; }
 		return slideShow.getFontCollection().getFontWithId(tp.getValue());
 	}
@@ -373,15 +378,40 @@ public final class HSLFTextRun implements TextRun {
         return TextCap.NONE;
     }
 
+    @Override
     public boolean isSubscript() {
-        return false;
+        return getSuperscript() < 0;
     }
 
+    @Override
     public boolean isSuperscript() {
-        return false;
+        return getSuperscript() > 0;
     }
 
     public byte getPitchAndFamily() {
         return 0;
+    }
+
+    /**
+     * Sets the hyperlink - used when parsing the document
+     *
+     * @param link the hyperlink
+     */
+    protected void setHyperlink(HSLFHyperlink link) {
+        this.link = link;
+    }
+    
+    @Override
+    public HSLFHyperlink getHyperlink() {
+        return link;
+    }
+    
+    @Override
+    public HSLFHyperlink createHyperlink() {
+        if (link == null) {
+            link = HSLFHyperlink.createHyperlink(this);
+            parentParagraph.setDirty();
+        }
+        return link;
     }
 }

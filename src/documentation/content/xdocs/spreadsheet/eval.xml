@@ -47,7 +47,7 @@
          Excel, until you go to the cell and hit enter or F9, you will either see 
          the old value or '#VALUE!' for the cell. (Sometimes Excel will notice
          itself, and trigger a recalculation on load, but unless you know you are
-         using volatile functions it's generally best to trigger a Recalulation
+         using volatile functions it's generally best to trigger a <link href="#recalculation">Recalulation</link>
          through POI)
       </p>
     </section>
@@ -62,8 +62,8 @@
         for details. </p>
             <p> Both HSSFWorkbook and XSSFWorkbook are supported, so you can 
                 evaluate formulas on both .xls and .xlsx files.</p>
-			<p> Note that user-defined functions are not supported, and is not likely to done
-				any time soon... at least, not till there is a VB implementation in Java!
+			<p> User-defined functions are <link href="user-defined-functions.html">supported</link>,
+				but must be rewritten in Java and registered with the macro-enabled workbook in order to be evaluated.
 			</p>
 		</section>
 		<section><title>User API How-TO</title>
@@ -395,9 +395,9 @@ mainWorkbookEvaluator.evaluateAll();
 
     <anchor id="sxssf"/>
     <section><title>Formula Evaluation and SXSSF</title>
-      <p>For versions before 3.13 beta 2, no formula evaluation is possible with
+      <p>For versions before 3.13 final, no formula evaluation is possible with
        SXSSF.</p>
-      <p>If using POI 3.13 beta 2 or newer, formula evaluation is possible with SXSSF,
+      <p>If you are using POI 3.13 final or newer, formula evaluation is possible with SXSSF,
        but with some caveats.</p>
       <p>The biggest restriction is that, since evaluating a cell needs that cell in memory
        and any others it depends on, only pure-function formulas and formulas referencing

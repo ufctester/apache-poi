@@ -34,10 +34,12 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.util.Internal;
 import org.apache.poi.util.POILogFactory;
 import org.apache.poi.util.POILogger;
 import org.apache.poi.xssf.usermodel.XSSFCell;
 import org.apache.poi.xssf.usermodel.XSSFEvaluationWorkbook;
+import org.apache.poi.xssf.usermodel.XSSFHyperlink;
 import org.apache.poi.xssf.usermodel.XSSFName;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
@@ -124,6 +126,7 @@ public final class XSSFRowShifter {
     /**
      * Updated named ranges
      */
+    @SuppressWarnings("resource")
     public void updateNamedRanges(FormulaShifter shifter) {
         XSSFWorkbook wb = sheet.getWorkbook();
         XSSFEvaluationWorkbook fpb = XSSFEvaluationWorkbook.create(wb);
@@ -143,6 +146,7 @@ public final class XSSFRowShifter {
     /**
      * Update formulas.
      */
+    @SuppressWarnings("resource")
     public void updateFormulas(FormulaShifter shifter) {
         //update formulas on the parent sheet
         updateSheetFormulas(sheet, shifter);
@@ -162,7 +166,14 @@ public final class XSSFRowShifter {
         }
     }
 
-    private void updateRowFormulas(XSSFRow row, FormulaShifter shifter) {
+    /**
+     * Update the formulas in specified row using the formula shifting policy specified by shifter
+     *
+     * @param row the row to update the formulas on
+     * @param shifter the formula shifting policy
+     */
+    @Internal
+    public void updateRowFormulas(XSSFRow row, FormulaShifter shifter) {
         for (Cell c : row) {
             XSSFCell cell = (XSSFCell) c;
 
@@ -202,6 +213,7 @@ public final class XSSFRowShifter {
      * @return the shifted formula if the formula was changed,
      *         <code>null</code> if the formula wasn't modified
      */
+    @SuppressWarnings("resource")
     private static String shiftFormula(XSSFRow row, String formula, FormulaShifter shifter) {
         XSSFSheet sheet = row.getSheet();
         XSSFWorkbook wb = sheet.getWorkbook();
@@ -222,7 +234,7 @@ public final class XSSFRowShifter {
         }
     }
 
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings("resource")
     public void updateConditionalFormatting(FormulaShifter shifter) {
         XSSFWorkbook wb = sheet.getWorkbook();
         int sheetIndex = wb.getSheetIndex(sheet);
@@ -277,6 +289,30 @@ public final class XSSFRowShifter {
                         cfRule.setFormulaArray(i, shiftedFmla);
                     }
                 }
+            }
+        }
+    }
+    
+    /**
+     * Shift the Hyperlink anchors (not the hyperlink text, even if the hyperlink
+     * is of type LINK_DOCUMENT and refers to a cell that was shifted). Hyperlinks
+     * do not track the content they point to.
+     *
+     * @param shifter
+     */
+    public void updateHyperlinks(FormulaShifter shifter) {
+        int sheetIndex = sheet.getWorkbook().getSheetIndex(sheet);
+        List<XSSFHyperlink> hyperlinkList = sheet.getHyperlinkList();
+        
+        for (XSSFHyperlink hyperlink : hyperlinkList) {
+            String cellRef = hyperlink.getCellRef();
+            CellRangeAddress cra = CellRangeAddress.valueOf(cellRef);
+            CellRangeAddress shiftedRange = shiftRange(shifter, cra, sheetIndex);
+            if (shiftedRange != null && shiftedRange != cra) {
+                // shiftedRange should not be null. If shiftedRange is null, that means
+                // that a hyperlink wasn't deleted at the beginning of shiftRows when
+                // identifying rows that should be removed because they will be overwritten
+                hyperlink.setCellReference(shiftedRange.formatAsString());
             }
         }
     }

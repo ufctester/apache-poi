@@ -207,8 +207,9 @@ public class ExcelExtractor extends POIOLE2TextExtractor implements org.apache.p
 
 	/**
 	 * Command line extractor.
+	 * @throws IOException 
 	 */
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException {
 
 		CommandArgs cmdArgs;
 		try {
@@ -225,27 +226,23 @@ public class ExcelExtractor extends POIOLE2TextExtractor implements org.apache.p
 			return;
 		}
 
-		try {
-			InputStream is;
-			if(cmdArgs.getInputFile() == null) {
-				is = System.in;
-			} else {
-				is = new FileInputStream(cmdArgs.getInputFile());
-			}
-			HSSFWorkbook wb = new HSSFWorkbook(is);
-
-			ExcelExtractor extractor = new ExcelExtractor(wb);
-			extractor.setIncludeSheetNames(cmdArgs.shouldShowSheetNames());
-			extractor.setFormulasNotResults(!cmdArgs.shouldEvaluateFormulas());
-			extractor.setIncludeCellComments(cmdArgs.shouldShowCellComments());
-			extractor.setIncludeBlankCells(cmdArgs.shouldShowBlankCells());
-			extractor.setIncludeHeadersFooters(cmdArgs.shouldIncludeHeadersFooters());
-			System.out.println(extractor.getText());
-			extractor.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-			System.exit(1);
+		InputStream is;
+		if(cmdArgs.getInputFile() == null) {
+			is = System.in;
+		} else {
+			is = new FileInputStream(cmdArgs.getInputFile());
 		}
+		HSSFWorkbook wb = new HSSFWorkbook(is);
+		is.close();
+
+		ExcelExtractor extractor = new ExcelExtractor(wb);
+		extractor.setIncludeSheetNames(cmdArgs.shouldShowSheetNames());
+		extractor.setFormulasNotResults(!cmdArgs.shouldEvaluateFormulas());
+		extractor.setIncludeCellComments(cmdArgs.shouldShowCellComments());
+		extractor.setIncludeBlankCells(cmdArgs.shouldShowBlankCells());
+		extractor.setIncludeHeadersFooters(cmdArgs.shouldIncludeHeadersFooters());
+		System.out.println(extractor.getText());
+		extractor.close();
 	}
 	/**
 	 * Should sheet names be included? Default is true
@@ -358,18 +355,11 @@ public class ExcelExtractor extends POIOLE2TextExtractor implements org.apache.p
 											}
 											break;
 										case HSSFCell.CELL_TYPE_NUMERIC:
-										   HSSFCellStyle style = cell.getCellStyle();
-										   if(style == null) {
-										      text.append( cell.getNumericCellValue() );
-										   } else {
-	                                 text.append(
-	                                       _formatter.formatRawCellContents(
-	                                             cell.getNumericCellValue(),
-	                                             style.getDataFormat(),
-	                                             style.getDataFormatString()
-	                                       )
-	                                 );
-										   }
+											HSSFCellStyle style = cell.getCellStyle();
+											double nVal = cell.getNumericCellValue();
+											short df = style.getDataFormat();
+											String dfs = style.getDataFormatString();
+											text.append(_formatter.formatRawCellContents(nVal, df, dfs));
 											break;
 										case HSSFCell.CELL_TYPE_BOOLEAN:
 											text.append(cell.getBooleanCellValue());

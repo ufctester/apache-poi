@@ -17,6 +17,8 @@
 
 package org.apache.poi.xssf.model;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -59,16 +61,24 @@ public class MapInfo extends POIXMLDocumentPart {
 
 	}
 
-	public MapInfo(PackagePart part, PackageRelationship rel)
-			throws IOException {
-		super(part, rel);
-		readFrom(part.getInputStream());
+	/**
+     * @since POI 3.14-Beta1
+     */
+	public MapInfo(PackagePart part) throws IOException {
+	    super(part);
+	    readFrom(part.getInputStream());
+    }	
+	
+   /**
+    * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+    */
+	public MapInfo(PackagePart part, PackageRelationship rel) throws IOException {
+		this(part);
 	}
 
-    @SuppressWarnings("deprecation")
 	public void readFrom(InputStream is) throws IOException {
 		try {
-			MapInfoDocument doc = MapInfoDocument.Factory.parse(is);
+			MapInfoDocument doc = MapInfoDocument.Factory.parse(is, DEFAULT_XML_OPTIONS);
 			mapInfo = doc.getMapInfo();
 
             maps= new HashMap<Integer, XSSFMap>();
@@ -104,7 +114,6 @@ public class MapInfo extends POIXMLDocumentPart {
 	 * @param schemaId the schema ID
 	 * @return CTSchema by it's ID
 	 */
-    @SuppressWarnings("deprecation")
 	public CTSchema getCTSchemaById(String schemaId){
 		CTSchema xmlSchema = null;
 

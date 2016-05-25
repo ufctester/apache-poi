@@ -62,15 +62,9 @@
    <section>
     <title>An overview of the code</title>
     <p>
-        Source code in the
-        <em>org.apache.poi.hdf</em>
-        tree is the old legacy code. Source in the
-        <em>org.apache.poi.hwpf.model</em>
-        tree is the old legacy code refactored into an new object model. Those packages contains
-        Java representation of internal Word format structure. This code is "internal", it shall not
-        be used by your code. Because of backward-compatibility some API still has references to
-        those packages. They are subject to be deprecated and removed. Code from
-        <em>org.apache.poi.hwpf.usermodel</em>
+        Source in the <em>org.apache.poi.hwpf.model</em> tree is the Java representation of
+        internal Word format structure. This code is "internal", it shall not
+        be used by your code. Code from <em>org.apache.poi.hwpf.usermodel</em>
         package is actual public and user-friendly (as much as possible) API to access document
         parts. Source code in the
         <em>org.apache.poi.hwpf.extractor</em>

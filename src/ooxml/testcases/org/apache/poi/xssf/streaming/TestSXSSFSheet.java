@@ -23,6 +23,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import org.apache.poi.ss.SpreadsheetVersion;
 import org.apache.poi.ss.usermodel.BaseTestSheet;
@@ -45,6 +47,12 @@ public class TestSXSSFSheet extends BaseTestSheet {
     public void tearDown(){
         SXSSFITestDataProvider.instance.cleanup();
     }
+    
+    @Override
+    protected void trackColumnsForAutoSizingIfSXSSF(Sheet sheet) {
+        SXSSFSheet sxSheet = (SXSSFSheet) sheet;
+        sxSheet.trackAllColumnsForAutoSizing();
+    }
 
 
     /**
@@ -52,7 +60,7 @@ public class TestSXSSFSheet extends BaseTestSheet {
      */
     @Override
     @Test
-    public void cloneSheet() {
+    public void cloneSheet() throws IOException {
         thrown.expect(RuntimeException.class);
         thrown.expectMessage("NotImplemented");
         super.cloneSheet();
@@ -60,7 +68,7 @@ public class TestSXSSFSheet extends BaseTestSheet {
 
     @Override
     @Test
-    public void cloneSheetMultipleTimes() {
+    public void cloneSheetMultipleTimes() throws IOException {
         thrown.expect(RuntimeException.class);
         thrown.expectMessage("NotImplemented");
         super.cloneSheetMultipleTimes();
@@ -71,7 +79,7 @@ public class TestSXSSFSheet extends BaseTestSheet {
      */
     @Override
     @Test
-    public void shiftMerged(){
+    public void shiftMerged() throws IOException {
         thrown.expect(RuntimeException.class);
         thrown.expectMessage("NotImplemented");
         super.shiftMerged();
@@ -84,7 +92,7 @@ public class TestSXSSFSheet extends BaseTestSheet {
      */
     @Override
     @Test
-    public void bug35084(){
+    public void bug35084() throws IOException {
         thrown.expect(RuntimeException.class);
         thrown.expectMessage("NotImplemented");
         super.bug35084();
@@ -92,9 +100,9 @@ public class TestSXSSFSheet extends BaseTestSheet {
 
     @Test
     public void getCellComment() throws IOException {
-    	// TODO: reading cell comments via Sheet does not work currently as it tries 
-    	// to access the underlying sheet for this, but comments are stored as
-    	// properties on Cells...
+        // TODO: reading cell comments via Sheet does not work currently as it tries 
+        // to access the underlying sheet for this, but comments are stored as
+        // properties on Cells...
     }
     
     @Override
@@ -146,11 +154,12 @@ public class TestSXSSFSheet extends BaseTestSheet {
             sheet.createRow(2);
         } finally {
             wb.close();
+            template.close();
         }
     }
 
-    @Test
-    public void createRowAfterLastRow() {
+    @Test(expected=IllegalArgumentException.class)
+    public void createRowAfterLastRow() throws IOException {
         createRowAfterLastRow(SpreadsheetVersion.EXCEL2007);
     }
 }

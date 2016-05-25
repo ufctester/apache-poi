@@ -32,7 +32,26 @@ import org.apache.poi.util.Units;
 import org.apache.poi.xslf.model.ParagraphPropertyFetcher;
 import org.apache.xmlbeans.XmlCursor;
 import org.apache.xmlbeans.XmlObject;
-import org.openxmlformats.schemas.drawingml.x2006.main.*;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTColor;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTRegularTextRun;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTSRgbColor;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextAutonumberBullet;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextBulletSizePercent;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextBulletSizePoint;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextCharBullet;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextCharacterProperties;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextField;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextFont;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextLineBreak;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextNormalAutofit;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextParagraph;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextParagraphProperties;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextSpacing;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextTabStop;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextTabStopList;
+import org.openxmlformats.schemas.drawingml.x2006.main.STTextAlignType;
+import org.openxmlformats.schemas.drawingml.x2006.main.STTextAutonumberScheme;
+import org.openxmlformats.schemas.drawingml.x2006.main.STTextFontAlignType;
 import org.openxmlformats.schemas.presentationml.x2006.main.CTPlaceholder;
 import org.openxmlformats.schemas.presentationml.x2006.main.STPlaceholderType;
 
@@ -100,6 +119,7 @@ public class XSLFTextParagraph implements TextParagraph<XSLFShape,XSLFTextParagr
 
     }
 
+    @Override
     public List<XSLFTextRun> getTextRuns(){
         return _runs;
     }
@@ -143,14 +163,7 @@ public class XSLFTextParagraph implements TextParagraph<XSLFShape,XSLFTextParagr
         return run;
     }
 
-    /**
-     * Returns the alignment that is applied to the paragraph.
-     *
-     * If this attribute is omitted, then null is returned.
-     * User code can imply the value {@link org.apache.poi.sl.usermodel.TextParagraph.TextAlign#LEFT} then.
-     *
-     * @return alignment that is applied to the paragraph
-     */
+    @Override
     public TextAlign getTextAlign(){
         ParagraphPropertyFetcher<TextAlign> fetcher = new ParagraphPropertyFetcher<TextAlign>(getIndentLevel()){
             public boolean fetch(CTTextParagraphProperties props){
@@ -166,14 +179,8 @@ public class XSLFTextParagraph implements TextParagraph<XSLFShape,XSLFTextParagr
         return fetcher.getValue();
     }
 
-    /**
-     * Specifies the alignment that is to be applied to the paragraph.
-     * Possible values for this include left, right, centered, justified and distributed,
-     * see {@link org.apache.poi.sl.usermodel.TextParagraph.TextAlign}.
-     *
-     * @param align text align
-     */
-    public void setTextAlign(TextAlign align){
+    @Override
+    public void setTextAlign(TextAlign align) {
         CTTextParagraphProperties pr = _p.isSetPPr() ? _p.getPPr() : _p.addNewPPr();
         if(align == null) {
             if(pr.isSetAlgn()) pr.unsetAlgn();
@@ -796,6 +803,7 @@ public class XSLFTextParagraph implements TextParagraph<XSLFShape,XSLFTextParagr
         CTPlaceholder ph = shape.getCTPlaceholder();
         if(ph == null){
             // if it is a plain text box then take defaults from presentation.xml
+            @SuppressWarnings("resource")
             XMLSlideShow ppt = sheet.getSlideShow();
             CTTextParagraphProperties themeProps = ppt.getDefaultParagraphStyle(getIndentLevel());
             if (themeProps != null) ok = visitor.fetch(themeProps);
@@ -811,7 +819,6 @@ public class XSLFTextParagraph implements TextParagraph<XSLFShape,XSLFTextParagr
         return false;
     }
 
-    @SuppressWarnings("deprecation")
     void copy(XSLFTextParagraph other){
         if (other == this) return;
         
@@ -964,5 +971,49 @@ public class XSLFTextParagraph implements TextParagraph<XSLFShape,XSLFTextParagr
             }
 
         };
+    }
+
+    @Override
+    public void setBulletStyle(Object... styles) {
+        if (styles.length == 0) {
+            setBullet(false);
+        } else {
+            setBullet(true);
+            for (Object ostyle : styles) {
+                if (ostyle instanceof Number) {
+                    setBulletFontSize(((Number)ostyle).doubleValue());
+                } else if (ostyle instanceof Color) {
+                    setBulletFontColor((Color)ostyle);
+                } else if (ostyle instanceof Character) {
+                    setBulletCharacter(ostyle.toString());
+                } else if (ostyle instanceof String) {
+                    setBulletFont((String)ostyle);
+                } else if (ostyle instanceof AutoNumberingScheme) {
+                    setBulletAutoNumber((AutoNumberingScheme)ostyle, 0);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Helper method for appending text and keeping paragraph and character properties.
+     * The character properties are moved to the end paragraph marker
+     */
+    /* package */ void clearButKeepProperties() {
+        CTTextParagraph thisP = getXmlObject();
+        for (int i=thisP.sizeOfBrArray(); i>0; i--) {
+            thisP.removeBr(i-1);
+        }
+        for (int i=thisP.sizeOfFldArray(); i>0; i--) {
+            thisP.removeFld(i-1);
+        }
+        if (!_runs.isEmpty()) {
+            int size = _runs.size();
+            thisP.setEndParaRPr(_runs.get(size-1).getRPr());
+            for (int i=size; i>0; i--) {
+                thisP.removeR(i-1);
+            }
+            _runs.clear();
+        }
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.poi.sl.usermodel;
 
 import java.awt.Color;
+import java.util.List;
 
 
 
@@ -311,11 +312,21 @@ public interface TextParagraph<
     /**
      * Returns the alignment that is applied to the paragraph.
      *
-     * If this attribute is omitted, then a value of left is implied.
-     * @return ??? alignment that is applied to the paragraph
+     * If this attribute is omitted, then null is returned.
+     * User code can imply the value {@link org.apache.poi.sl.usermodel.TextParagraph.TextAlign#LEFT} then.
+     *
+     * @return alignment that is applied to the paragraph
      */
     TextAlign getTextAlign();
-    
+
+    /**
+     * Specifies the alignment that is to be applied to the paragraph.
+     * Possible values for this include left, right, centered, justified and distributed,
+     * see {@link org.apache.poi.sl.usermodel.TextParagraph.TextAlign}.
+     *
+     * @param align text align
+     */    
+    void setTextAlign(TextAlign align);
     
     /**
      * Returns the font alignment that is applied to the paragraph.
@@ -331,6 +342,15 @@ public interface TextParagraph<
      * @return the bullet style of the paragraph, if {@code null} then no bullets are used 
      */
     BulletStyle getBulletStyle();
+
+    /**
+     * Sets the bullet styles. If no styles are given, the bullets are omitted.
+     * Possible attributes are integer/double (bullet size), Color (bullet color),
+     * character (bullet character), string (bullet font), AutoNumberingScheme
+     *
+     * @param styles
+     */
+    void setBulletStyle(Object... styles);
     
     /**
      * @return the default size for a tab character within this paragraph in points, null if unset
@@ -339,4 +359,9 @@ public interface TextParagraph<
 
     
     TextShape<S,P> getParentShape();
+    
+    /**
+     * Fetch the text runs that are contained within this block of text
+     */
+    List<T> getTextRuns();
 }

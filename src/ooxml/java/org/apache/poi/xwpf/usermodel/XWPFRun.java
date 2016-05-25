@@ -16,6 +16,8 @@
 ==================================================================== */
 package org.apache.poi.xwpf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
@@ -72,6 +74,7 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTVerticalAlignRun
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STBrClear;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STBrType;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STHighlightColor;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STOnOff;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STUnderline;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STVerticalAlignRun;
@@ -91,7 +94,6 @@ public class XWPFRun implements ISDTContents, IRunElement, CharacterRun {
      * @param r the CTR bean which holds the run attributes
      * @param p the parent paragraph
      */
-    @SuppressWarnings("deprecation")
     public XWPFRun(CTR r, IRunBody p) {
         this.run = r;
         this.parent = p;
@@ -175,7 +177,7 @@ public class XWPFRun implements ISDTContents, IRunElement, CharacterRun {
             if (pict instanceof XmlAnyTypeImpl) {
                 // Pesky XmlBeans bug - see Bugzilla #49934
                 try {
-                    pict = CTPicture.Factory.parse(pict.toString());
+                    pict = CTPicture.Factory.parse(pict.toString(), DEFAULT_XML_OPTIONS);
                 } catch (XmlException e) {
                     throw new POIXMLException(e);
                 }
@@ -622,6 +624,17 @@ public class XWPFRun implements ISDTContents, IRunElement, CharacterRun {
         kernmes.setVal(BigInteger.valueOf(kern));
     }
 
+    public boolean isHighlighted() {
+        CTRPr pr = run.getRPr();
+        if (pr == null || !pr.isSetHighlight())
+            return false;
+        if (pr.getHighlight().getVal() == STHighlightColor.NONE)
+            return false;
+        return true;
+    }
+    // TODO Provide a wrapper round STHighlightColor, then expose getter/setter
+    //  for the highlight colour. Ideally also then add to CharacterRun interface
+
     public int getCharacterSpacing() {
         CTRPr pr = run.getRPr();
         if (pr == null || !pr.isSetSpacing())
@@ -945,7 +958,7 @@ public class XWPFRun implements ISDTContents, IRunElement, CharacterRun {
                             "<pic:pic xmlns:pic=\"" + CTPicture.type.getName().getNamespaceURI() + "\" />" +
                             "</a:graphicData>" +
                             "</a:graphic>";
-            inline.set(XmlToken.Factory.parse(xml));
+            inline.set(XmlToken.Factory.parse(xml, DEFAULT_XML_OPTIONS));
 
             // Setup the inline
             inline.setDistT(0);
@@ -984,7 +997,7 @@ public class XWPFRun implements ISDTContents, IRunElement, CharacterRun {
 
             CTBlipFillProperties blipFill = pic.addNewBlipFill();
             CTBlip blip = blipFill.addNewBlip();
-            blip.setEmbed(picData.getPackageRelationship().getId());
+            blip.setEmbed(parent.getDocument().getRelationId(picData));
             blipFill.addNewStretch().addNewFillRect();
 
             CTShapeProperties spPr = pic.addNewSpPr();

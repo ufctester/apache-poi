@@ -227,12 +227,69 @@ public class PropertyIDMap extends HashMap<Long,String> {
      * <p>If this entry is -1 the links are dirty and should be
      * re-evaluated.</p>
      */
-    public static final int PID_LINKSDIRTY = 16;
+    public static final int PID_LINKSDIRTY = 0x10;
+    
+    /**
+     * <p>The entry specifies an estimate of the number of characters 
+     *  in the document, including whitespace, as an integer
+     */
+    public static final int PID_CCHWITHSPACES = 0x11;
+    
+    // 0x12 Unused
+    // 0x13 GKPIDDSI_SHAREDDOC - Must be False
+    // 0x14 GKPIDDSI_LINKBASE - Must not be written
+    // 0x15 GKPIDDSI_HLINKS - Must not be written
 
     /**
-     * <p>The highest well-known property ID. Applications are free to use higher values for custom purposes.</p>
+     * <p>This entry contains a boolean which marks if the User Defined
+     *  Property Set has been updated outside of the Application, if so the
+     *  hyperlinks should be updated on document load.
      */
-    public static final int PID_MAX = PID_LINKSDIRTY;
+    public static final int PID_HYPERLINKSCHANGED = 0x16;
+    
+    /**
+     * <p>This entry contains the version of the Application which wrote the
+     *  Property set, stored with the two high order bytes having the major
+     *  version number, and the two low order bytes the minor version number.
+     */
+    public static final int PID_VERSION = 0x17;
+    
+    /**
+     * <p>This entry contains the VBA digital signature for the VBA project 
+     *  embedded in the document.
+     */
+    public static final int PID_DIGSIG = 0x18;
+    
+    // 0x19 Unused
+    
+    /**
+     * <p>This entry contains a string of the content type of the file.
+     */
+    public static final int PID_CONTENTTYPE = 0x1A;
+    
+    /**
+     * <p>This entry contains a string of the document status.
+     */
+    public static final int PID_CONTENTSTATUS = 0x1B;
+    
+    /**
+     * <p>This entry contains a string of the document language, but
+     *  normally should be empty.
+     */
+    public static final int PID_LANGUAGE = 0x1C;
+    
+    /**
+     * <p>This entry contains a string of the document version, but
+     *  normally should be empty
+     */
+    public static final int PID_DOCVERSION = 0x1D;
+    
+    /**
+     * <p>The highest well-known property ID. Applications are free to use 
+     *  higher values for custom purposes. (This value is based on Office 12,
+     *  earlier versions of Office had lower values)</p>
+     */
+    public static final int PID_MAX = 0x1F;
 
 
 

@@ -16,14 +16,14 @@
 ==================================================================== */
 package org.apache.poi.xwpf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.math.BigInteger;
 import java.security.SecureRandom;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 
 import javax.xml.namespace.QName;
 
@@ -49,10 +49,21 @@ public class XWPFSettings extends POIXMLDocumentPart {
 
     private CTSettings ctSettings;
 
-    public XWPFSettings(PackagePart part, PackageRelationship rel) throws IOException {
-        super(part, rel);
+    /**
+     * @since POI 3.14-Beta1
+     */
+    public XWPFSettings(PackagePart part) throws IOException {
+        super(part);
     }
 
+    /**
+     * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+     */
+    @Deprecated
+    public XWPFSettings(PackagePart part, PackageRelationship rel) throws IOException {
+        this(part);
+    }
+    
     public XWPFSettings() {
         super();
         ctSettings = CTSettings.Factory.newInstance();
@@ -108,6 +119,29 @@ public class XWPFSettings extends POIXMLDocumentPart {
         }
         CTZoom zoom = ctSettings.getZoom();
         zoom.setPercent(BigInteger.valueOf(zoomPercent));
+    }
+	
+	/**
+     * Verifies the documentProtection tag inside settings.xml file <br/>
+     * if the protection is enforced (w:enforcement="1") <br/>
+     *  <p/>
+     * <br/>
+     * sample snippet from settings.xml
+     * <pre>
+     *     &lt;w:settings  ... &gt;
+     *         &lt;w:documentProtection w:edit=&quot;readOnly&quot; w:enforcement=&quot;1&quot;/&gt;
+     * </pre>
+     *
+     * @return true if documentProtection is enforced with option any
+     */
+	public boolean isEnforcedWith() {
+        CTDocProtect ctDocProtect = ctSettings.getDocumentProtection();
+
+        if (ctDocProtect == null) {
+            return false;
+        }
+
+        return ctDocProtect.getEnforcement().equals(STOnOff.X_1);
     }
 
     /**
@@ -382,9 +416,6 @@ public class XWPFSettings extends POIXMLDocumentPart {
 
         XmlOptions xmlOptions = new XmlOptions(DEFAULT_XML_OPTIONS);
         xmlOptions.setSaveSyntheticDocumentElement(new QName(CTSettings.type.getName().getNamespaceURI(), "settings"));
-        Map<String, String> map = new HashMap<String, String>();
-        map.put("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "w");
-        xmlOptions.setSaveSuggestedPrefixes(map);
 
         PackagePart part = getPackagePart();
         OutputStream out = part.getOutputStream();
@@ -403,7 +434,7 @@ public class XWPFSettings extends POIXMLDocumentPart {
 
     private void readFrom(InputStream inputStream) {
         try {
-            ctSettings = SettingsDocument.Factory.parse(inputStream).getSettings();
+            ctSettings = SettingsDocument.Factory.parse(inputStream, DEFAULT_XML_OPTIONS).getSettings();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

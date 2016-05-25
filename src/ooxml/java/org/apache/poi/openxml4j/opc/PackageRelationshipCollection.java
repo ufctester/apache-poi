@@ -273,13 +273,13 @@ public final class PackageRelationshipCollection implements
         if (index < 0 || index > relationshipsByID.values().size())
             throw new IllegalArgumentException("index");
 
-        PackageRelationship retRel = null;
         int i = 0;
         for (PackageRelationship rel : relationshipsByID.values()) {
             if (index == i++)
                 return rel;
         }
-        return retRel;
+
+        return null;
     }
 
     /**
@@ -320,7 +320,7 @@ public final class PackageRelationshipCollection implements
             // Check OPC compliance M4.1 rule
             boolean fCorePropertiesRelationship = false;
 
-            NodeList nodeList = root.getElementsByTagName(PackageRelationship.RELATIONSHIP_TAG_NAME);
+            NodeList nodeList = root.getElementsByTagNameNS(PackageNamespaces.RELATIONSHIPS, PackageRelationship.RELATIONSHIP_TAG_NAME);
             int nodeCount = nodeList.getLength();
             for (int i = 0; i < nodeCount; i++) {
                 Element element = (Element)nodeList.item(i);

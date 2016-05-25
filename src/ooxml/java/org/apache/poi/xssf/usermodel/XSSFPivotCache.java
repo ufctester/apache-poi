@@ -16,18 +16,17 @@
 ==================================================================== */
 package org.apache.poi.xssf.usermodel;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
+
 import java.io.IOException;
 import java.io.InputStream;
 
 import org.apache.poi.POIXMLDocumentPart;
-import static org.apache.poi.POIXMLDocumentPart.DEFAULT_XML_OPTIONS;
 import org.apache.poi.openxml4j.opc.PackagePart;
 import org.apache.poi.openxml4j.opc.PackageRelationship;
 import org.apache.poi.util.Beta;
-
 import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlOptions;
-
 import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTPivotCache;
 
 public class XSSFPivotCache extends POIXMLDocumentPart {
@@ -51,21 +50,30 @@ public class XSSFPivotCache extends POIXMLDocumentPart {
      * Should only be called when reading in an existing file.
      *
      * @param part - The package part that holds xml data representing this pivot cache definition.
-     * @param rel - the relationship of the given package part in the underlying OPC package
+     * 
+     * @since POI 3.14-Beta1
      */
     @Beta
-    protected XSSFPivotCache(PackagePart part, PackageRelationship rel) throws IOException {
-        super(part, rel);
+    protected XSSFPivotCache(PackagePart part) throws IOException {
+        super(part);
         readFrom(part.getInputStream());
     }
 
+    /**
+     * @deprecated in POI 3.14, scheduled for removal in POI 3.16
+     */
+    @Deprecated
+    protected XSSFPivotCache(PackagePart part, PackageRelationship rel) throws IOException {
+        this(part);
+    }
+    
     @Beta
     protected void readFrom(InputStream is) throws IOException {
 	try {
         XmlOptions options  = new XmlOptions(DEFAULT_XML_OPTIONS);
         //Removing root element
         options.setLoadReplaceDocumentElement(null);
-            ctPivotCache = CTPivotCache.Factory.parse(is, options);
+        ctPivotCache = CTPivotCache.Factory.parse(is, options);
         } catch (XmlException e) {
             throw new IOException(e.getLocalizedMessage());
         }

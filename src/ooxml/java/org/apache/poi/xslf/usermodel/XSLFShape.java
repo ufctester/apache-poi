@@ -19,6 +19,8 @@
 
 package org.apache.poi.xslf.usermodel;
 
+import java.awt.Graphics2D;
+import java.awt.geom.Rectangle2D;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
@@ -27,12 +29,14 @@ import java.util.Comparator;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.openxml4j.opc.PackagePart;
 import org.apache.poi.openxml4j.opc.PackageRelationship;
+import org.apache.poi.sl.draw.DrawFactory;
 import org.apache.poi.sl.draw.DrawPaint;
 import org.apache.poi.sl.usermodel.ColorStyle;
 import org.apache.poi.sl.usermodel.PaintStyle;
 import org.apache.poi.sl.usermodel.PaintStyle.GradientPaint;
 import org.apache.poi.sl.usermodel.PaintStyle.TexturePaint;
 import org.apache.poi.sl.usermodel.PlaceableShape;
+import org.apache.poi.sl.usermodel.Placeholder;
 import org.apache.poi.sl.usermodel.Shape;
 import org.apache.poi.util.Beta;
 import org.apache.poi.util.Internal;
@@ -254,6 +258,14 @@ public abstract class XSLFShape implements Shape<XSLFShape,XSLFTextParagraph> {
         return _ph;
     }
 
+    public Placeholder getPlaceholder() {
+        CTPlaceholder ph = getCTPlaceholder();
+        if (ph == null || !(ph.isSetType() || ph.isSetIdx())) {
+            return null;
+        }
+        return Placeholder.lookupOoxml(ph.getType().intValue());
+    }
+    
     /**
      * Specifies that the corresponding shape should be represented by the generating application
      * as a placeholder. When a shape is considered a placeholder by the generating application
@@ -271,7 +283,7 @@ public abstract class XSLFShape implements Shape<XSLFShape,XSLFTextParagraph> {
             if (nv.isSetPh()) nv.unsetPh();
             _ph = null;
         } else {
-            nv.addNewPh().setType(STPlaceholderType.Enum.forInt(placeholder.ordinal() + 1));
+            nv.addNewPh().setType(STPlaceholderType.Enum.forInt(placeholder.ooxmlId));
         }
     }
     
@@ -441,7 +453,6 @@ public abstract class XSLFShape implements Shape<XSLFShape,XSLFTextParagraph> {
     
     protected PaintStyle selectPaint(final CTGradientFillProperties gradFill, CTSchemeColor phClr) {
 
-        @SuppressWarnings("deprecation")
         final CTGradientStop[] gs = gradFill.getGsLst().getGsArray();
 
         Arrays.sort(gs, new Comparator<CTGradientStop>() {
@@ -528,5 +539,10 @@ public abstract class XSLFShape implements Shape<XSLFShape,XSLFTextParagraph> {
             fillProps = matrix.getBgFillStyleLst().selectPath("*")[idx - 1001];
         }
         return (fillProps == null) ? null : selectPaint(fillProps, phClr, theme.getPackagePart());
+    }
+    
+    @Override
+    public void draw(Graphics2D graphics, Rectangle2D bounds) {
+        DrawFactory.getInstance(graphics).drawShape(graphics, this, bounds);
     }
 }

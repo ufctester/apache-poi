@@ -21,6 +21,7 @@ import java.util.Calendar;
 import java.util.Date;
 
 import org.apache.poi.ss.formula.FormulaParseException;
+import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.ss.util.CellRangeAddress;
 
 /**
@@ -43,42 +44,42 @@ public interface Cell {
      * @see #setCellType(int)
      * @see #getCellType()
      */
-    public final static int CELL_TYPE_NUMERIC = 0;
+    int CELL_TYPE_NUMERIC = 0;
 
     /**
      * String Cell type (1)
      * @see #setCellType(int)
      * @see #getCellType()
      */
-    public final static int CELL_TYPE_STRING = 1;
+    int CELL_TYPE_STRING = 1;
 
     /**
      * Formula Cell type (2)
      * @see #setCellType(int)
      * @see #getCellType()
      */
-    public final static int CELL_TYPE_FORMULA = 2;
+    int CELL_TYPE_FORMULA = 2;
 
     /**
      * Blank Cell type (3)
      * @see #setCellType(int)
      * @see #getCellType()
      */
-    public final static int CELL_TYPE_BLANK = 3;
+    int CELL_TYPE_BLANK = 3;
 
     /**
      * Boolean Cell type (4)
      * @see #setCellType(int)
      * @see #getCellType()
      */
-    public final static int CELL_TYPE_BOOLEAN = 4;
+    int CELL_TYPE_BOOLEAN = 4;
 
     /**
      * Error Cell type (5)
      * @see #setCellType(int)
      * @see #getCellType()
      */
-    public final static int CELL_TYPE_ERROR = 5;
+    int CELL_TYPE_ERROR = 5;
 
     /**
      * Returns column index of this cell
@@ -160,15 +161,15 @@ public interface Cell {
     void setCellValue(double value);
 
     /**
-     * Converts the supplied date to its equivalent Excel numeric value and sets
-     * that into the cell.
-     * <p/>
-     * <b>Note</b> - There is actually no 'DATE' cell type in Excel. In many
+     * <p>Converts the supplied date to its equivalent Excel numeric value and sets
+     * that into the cell.</p>
+     * 
+     * <p><b>Note</b> - There is actually no 'DATE' cell type in Excel. In many
      * cases (when entering date values), Excel automatically adjusts the
      * <i>cell style</i> to some date format, creating the illusion that the cell
      * data type is now something besides {@link Cell#CELL_TYPE_NUMERIC}.  POI
      * does not attempt to replicate this behaviour.  To make a numeric cell
-     * display as a date, use {@link #setCellStyle(CellStyle)} etc.
+     * display as a date, use {@link #setCellStyle(CellStyle)} etc.</p>
      *
      * @param value the numeric value to set this cell to.  For formulas we'll set the
      *        precalculated value, for numerics we'll set its value. For other types we
@@ -177,8 +178,8 @@ public interface Cell {
     void setCellValue(Date value);
 
     /**
-     * Set a date value for the cell. Excel treats dates as numeric so you will need to format the cell as
-     * a date.
+     * <p>Set a date value for the cell. Excel treats dates as numeric so you will need to format the cell as
+     * a date.</p>
      * <p>
      * This will set the cell value based on the Calendar's timezone. As Excel
      * does not support timezones this means that both 20:00+03:00 and
@@ -326,8 +327,11 @@ public interface Cell {
     byte getErrorCellValue();
 
     /**
-     * Set the style for the cell.  The style should be an CellStyle created/retreived from
-     * the Workbook.
+     * <p>Set the style for the cell.  The style should be an CellStyle created/retreived from
+     * the Workbook.</p>
+     * 
+     * <p>To change the style of a cell without affecting other cells that use the same style,
+     * use {@link org.apache.poi.ss.util.CellUtil#setCellStyleProperties(Cell, Map)}</p>
      *
      * @param style  reference contained in the workbook.
      * If the value is null then the style information is removed causing the cell to used the default workbook style.
@@ -340,7 +344,7 @@ public interface Cell {
      *
      * @return the cell's style. Always not-null. Default cell style has zero index and can be obtained as
      * <code>workbook.getCellStyleAt(0)</code>
-     * @see Workbook#getCellStyleAt(short)
+     * @see Workbook#getCellStyleAt(int)
      */
     CellStyle getCellStyle();
 
@@ -348,6 +352,14 @@ public interface Cell {
      * Sets this cell as the active cell for the worksheet
      */
     void setAsActiveCell();
+
+   /**
+     * Gets the address of this cell
+     *
+     * @return <code>A1</code> style address of this cell
+     * @since 3.14beta1
+     */
+    CellAddress getAddress();
 
     /**
      * Assign a comment to this cell

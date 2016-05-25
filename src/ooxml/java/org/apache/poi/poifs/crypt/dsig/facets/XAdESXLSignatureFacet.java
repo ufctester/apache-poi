@@ -24,10 +24,12 @@
 
 package org.apache.poi.poifs.crypt.dsig.facets;
 
+import static org.apache.poi.POIXMLTypeLoader.DEFAULT_XML_OPTIONS;
 import static org.apache.poi.poifs.crypt.dsig.facets.XAdESSignatureFacet.insertXChild;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.security.cert.CRLException;
 import java.security.cert.CertificateEncodingException;
@@ -127,7 +129,7 @@ public class XAdESXLSignatureFacet extends SignatureFacet {
         NodeList qualNl = document.getElementsByTagNameNS(XADES_132_NS, "QualifyingProperties");
         if (qualNl.getLength() == 1) {
             try {
-                qualDoc = QualifyingPropertiesDocument.Factory.parse(qualNl.item(0));
+                qualDoc = QualifyingPropertiesDocument.Factory.parse(qualNl.item(0), DEFAULT_XML_OPTIONS);
             } catch (XmlException e) {
                 throw new MarshalException(e);
             }
@@ -247,7 +249,7 @@ public class XAdESXLSignatureFacet extends SignatureFacet {
                     ResponderIDType responderId = ocspIdentifier.addNewResponderID();
     
                     RespID respId = basicOcspResp.getResponderId();
-                    ResponderID ocspResponderId = respId.toASN1Object();
+                    ResponderID ocspResponderId = respId.toASN1Primitive();
                     DERTaggedObject derTaggedObject = (DERTaggedObject)ocspResponderId.toASN1Primitive();
                     if (2 == derTaggedObject.getTagNo()) {
                         ASN1OctetString keyHashOctetString = (ASN1OctetString)derTaggedObject.getObject();
@@ -324,21 +326,25 @@ public class XAdESXLSignatureFacet extends SignatureFacet {
     }
 
     private BigInteger getCrlNumber(X509CRL crl) {
-        try {
-            byte[] crlNumberExtensionValue = crl.getExtensionValue(Extension.cRLNumber.getId());
-            if (null == crlNumberExtensionValue) {
-                return null;
-            }
+        byte[] crlNumberExtensionValue = crl.getExtensionValue(Extension.cRLNumber.getId());
+        if (null == crlNumberExtensionValue) {
+            return null;
+        }
 
-            @SuppressWarnings("resource")
-            ASN1InputStream asn1InputStream = new ASN1InputStream(crlNumberExtensionValue);
-            ASN1OctetString octetString = (ASN1OctetString)asn1InputStream.readObject();
-            byte[] octets = octetString.getOctets();
-            asn1InputStream = new ASN1InputStream(octets);
-            ASN1Integer integer = (ASN1Integer)asn1InputStream.readObject();
-            BigInteger crlNumber = integer.getPositiveValue();
-            return crlNumber;
-        } catch (Exception e) {
+        try {
+            ASN1InputStream asn1IS1 = null, asn1IS2 = null;
+            try {
+                asn1IS1 = new ASN1InputStream(crlNumberExtensionValue);
+                ASN1OctetString octetString = (ASN1OctetString)asn1IS1.readObject();
+                byte[] octets = octetString.getOctets();
+                asn1IS2 = new ASN1InputStream(octets);
+                ASN1Integer integer = (ASN1Integer)asn1IS2.readObject();
+                return integer.getPositiveValue();
+            } finally {
+                asn1IS2.close();
+                asn1IS1.close();
+            }
+        } catch (IOException e) {
             throw new RuntimeException("I/O error: " + e.getMessage(), e);
         }
     }

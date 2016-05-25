@@ -21,11 +21,15 @@ import java.awt.Graphics2D;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.util.*;
+import java.util.Iterator;
 
-import org.apache.poi.sl.usermodel.*;
+import org.apache.poi.sl.usermodel.Insets2D;
+import org.apache.poi.sl.usermodel.PlaceableShape;
+import org.apache.poi.sl.usermodel.ShapeContainer;
+import org.apache.poi.sl.usermodel.TextParagraph;
 import org.apache.poi.sl.usermodel.TextParagraph.BulletStyle;
-import org.apache.poi.util.JvmBugs;
+import org.apache.poi.sl.usermodel.TextRun;
+import org.apache.poi.sl.usermodel.TextShape;
 
 public class DrawTextShape extends DrawSimpleShape {
 
@@ -35,10 +39,12 @@ public class DrawTextShape extends DrawSimpleShape {
 
     @Override
     public void drawContent(Graphics2D graphics) {
-        fixFonts(graphics);
+        DrawFactory.getInstance(graphics).fixFonts(graphics);
         
-        Rectangle2D anchor = DrawShape.getAnchor(graphics, getShape());
-        Insets2D insets = getShape().getInsets();
+        TextShape<?,?> s = getShape();
+        
+        Rectangle2D anchor = DrawShape.getAnchor(graphics, s);
+        Insets2D insets = s.getInsets();
         double x = anchor.getX() + insets.left;
         double y = anchor.getY();
 
@@ -50,39 +56,42 @@ public class DrawTextShape extends DrawSimpleShape {
         // (see DrawShape#applyTransform ), but we need to restore it to avoid painting "upside down".
         // See Bugzilla 54210.
 
-        if(getShape().getFlipVertical()){
-            graphics.translate(anchor.getX(), anchor.getY() + anchor.getHeight());
-            graphics.scale(1, -1);
-            graphics.translate(-anchor.getX(), -anchor.getY());
-
-            // text in vertically flipped shapes is rotated by 180 degrees
-            double centerX = anchor.getX() + anchor.getWidth()/2;
-            double centerY = anchor.getY() + anchor.getHeight()/2;
-            graphics.translate(centerX, centerY);
-            graphics.rotate(Math.toRadians(180));
-            graphics.translate(-centerX, -centerY);
+        boolean vertFlip = s.getFlipVertical();
+        boolean horzFlip = s.getFlipHorizontal();
+        ShapeContainer<?,?> sc = s.getParent();
+        while (sc instanceof PlaceableShape) {
+            PlaceableShape<?,?> ps = (PlaceableShape<?,?>)sc;
+            vertFlip ^= ps.getFlipVertical();
+            horzFlip ^= ps.getFlipHorizontal();
+            sc = ps.getParent();
         }
-
+        
         // Horizontal flipping applies only to shape outline and not to the text in the shape.
         // Applying flip second time restores the original not-flipped transform
-        if(getShape().getFlipHorizontal()){
+        if (horzFlip ^ vertFlip) {
             graphics.translate(anchor.getX() + anchor.getWidth(), anchor.getY());
             graphics.scale(-1, 1);
-            graphics.translate(-anchor.getX() , -anchor.getY());
+            graphics.translate(-anchor.getX(), -anchor.getY());
+        }
+        
+        Double textRot = s.getTextRotation();
+        if (textRot != null && textRot != 0) {
+            graphics.translate(anchor.getCenterX(), anchor.getCenterY());
+            graphics.rotate(Math.toRadians(textRot));
+            graphics.translate(-anchor.getCenterX(), -anchor.getCenterY());
         }
 
-
         // first dry-run to calculate the total height of the text
-        double textHeight = getShape().getTextHeight();
+        double textHeight = s.getTextHeight();
 
-        switch (getShape().getVerticalAlignment()){
+        switch (s.getVerticalAlignment()){
+            default:
             case TOP:
                 y += insets.top;
                 break;
             case BOTTOM:
                 y += anchor.getHeight() - textHeight - insets.bottom;
                 break;
-            default:
             case MIDDLE:
                 double delta = anchor.getHeight() - textHeight - insets.top - insets.bottom;
                 y += insets.top + delta/2;
@@ -104,7 +113,9 @@ public class DrawTextShape extends DrawSimpleShape {
         DrawFactory fact = DrawFactory.getInstance(graphics);
 
         double y0 = y;
-        Iterator<? extends TextParagraph<?,?,? extends TextRun>> paragraphs = getShape().iterator();
+        //noinspection RedundantCast
+        Iterator<? extends TextParagraph<?,?,? extends TextRun>> paragraphs =
+            (Iterator<? extends TextParagraph<?,?,? extends TextRun>>) getShape().iterator();
         
         boolean isFirstLine = true;
         for (int autoNbrIdx=0; paragraphs.hasNext(); autoNbrIdx++){
@@ -164,23 +175,10 @@ public class DrawTextShape extends DrawSimpleShape {
         // dry-run in a 1x1 image and return the vertical advance
         BufferedImage img = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB);
         Graphics2D graphics = img.createGraphics();
-        fixFonts(graphics);
+        DrawFactory.getInstance(graphics).fixFonts(graphics);
         return drawParagraphs(graphics, 0, 0);
     }
     
-    @SuppressWarnings("unchecked")
-    private static void fixFonts(Graphics2D graphics) {
-        if (!JvmBugs.hasLineBreakMeasurerBug()) return;
-        Map<String,String> fontMap = (Map<String,String>)graphics.getRenderingHint(Drawable.FONT_MAP);
-        if (fontMap == null) {
-            fontMap = new HashMap<String,String>();
-            graphics.setRenderingHint(Drawable.FONT_MAP, fontMap);
-        }
-        
-        if (!fontMap.containsKey("Calibri")) fontMap.put("Calibri", "Lucida Sans");
-        if (!fontMap.containsKey("Cambria")) fontMap.put("Cambria", "Lucida Bright");
-    }
-
     @Override
     protected TextShape<?,?> getShape() {
         return (TextShape<?,?>)shape;

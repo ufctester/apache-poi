@@ -197,8 +197,12 @@ public final class POIDataSamples {
                 return;
             }
 
-            throw new RuntimeException("Must set system property '" +
-                    TEST_PROPERTY + "' before running tests");
+            if(new File("test-data").exists()) {
+               dataDirName = "test-data";
+            } else {
+               throw new RuntimeException("Must set system property '" +
+                       TEST_PROPERTY + "' before running tests");
+            }
         }
         File dataDir = new File(dataDirName, _moduleDir);
         if (!dataDir.exists()) {
@@ -232,26 +236,26 @@ public final class POIDataSamples {
         }
 
         @Override
-		public int read() throws IOException {
+        public int read() throws IOException {
             return _is.read();
         }
         @Override
-		public int read(byte[] b, int off, int len) throws IOException {
+        public int read(byte[] b, int off, int len) throws IOException {
             return _is.read(b, off, len);
         }
         @Override
-		public boolean markSupported() {
+        public boolean markSupported() {
             return false;
         }
         @Override
-		public void close() throws IOException {
+        public void close() throws IOException {
             _is.close();
         }
     }
 
     /**
      * @param  fileName the file to open
-     * @return byte array of sample file content from file found in standard hssf test data dir
+     * @return byte array of sample file content from file found in standard test-data directory
      */
     public byte[] readFile(String fileName) {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();

@@ -29,8 +29,12 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Iterator;
+import java.util.List;
 
 import org.apache.poi.hssf.HSSFTestDataSamples;
 import org.apache.poi.ss.usermodel.Cell;
@@ -173,36 +177,6 @@ public final class TestUnfixedBugs {
         assertEquals(calendar1, calendar2);
         
         assertEquals(DateUtil.getJavaDate(value1, false), DateUtil.getJavaDate(value2, false));
-    }
-
-    @Test
-    public void test57236() throws Exception {
-        // Having very small numbers leads to different formatting, Excel uses the scientific notation, but POI leads to "0"
-        
-        /*
-        DecimalFormat format = new DecimalFormat("#.##########", new DecimalFormatSymbols(Locale.getDefault()));
-        double d = 3.0E-104;
-        assertEquals("3.0E-104", format.format(d));
-         */
-        
-        DataFormatter formatter = new DataFormatter(true);
-
-        XSSFWorkbook wb = XSSFTestDataSamples.openSampleWorkbook("57236.xlsx");
-        for(int sheetNum = 0;sheetNum < wb.getNumberOfSheets();sheetNum++) {
-            Sheet sheet = wb.getSheetAt(sheetNum);
-            for(int rowNum = sheet.getFirstRowNum();rowNum < sheet.getLastRowNum();rowNum++) {
-                Row row = sheet.getRow(rowNum);
-                for(int cellNum = row.getFirstCellNum();cellNum < row.getLastCellNum();cellNum++) {
-                    Cell cell = row.getCell(cellNum);
-                    String fmtCellValue = formatter.formatCellValue(cell);
-                    
-                    System.out.println("Cell: " + fmtCellValue);
-                    assertNotNull(fmtCellValue);
-                    assertFalse(fmtCellValue.equals("0"));
-                }
-            }
-        }
-        wb.close();
     }
 
     // When this is fixed, the test case should go to BaseTestXCell with 
@@ -367,7 +341,7 @@ public final class TestUnfixedBugs {
        }
        
        // verify that the resulting XML has the rows in correct order as required by Excel
-       String xml = new String(stream.toByteArray());
+       String xml = new String(stream.toByteArray(), "UTF-8");
        int posR12 = xml.indexOf("<row r=\"12\"");
        int posR13 = xml.indexOf("<row r=\"13\"");
        
@@ -390,5 +364,41 @@ public final class TestUnfixedBugs {
        assertNotNull("Expecting cell at rownum " + rowNum, cell);
        assertEquals("Did not have expected contents at rownum " + rowNum, 
                contents + ".0", cell.toString());
+   }
+
+   @Test
+   public void test58325_one() {
+       check58325(XSSFTestDataSamples.openSampleWorkbook("58325_lt.xlsx"), 1);
+   }
+
+   @Test
+   public void test58325_three() {
+       check58325(XSSFTestDataSamples.openSampleWorkbook("58325_db.xlsx"), 3);
+   }
+
+   private void check58325(XSSFWorkbook wb, int expectedShapes) {
+       XSSFSheet sheet = wb.getSheet("MetasNM001");
+       assertNotNull(sheet);
+
+       StringBuilder str = new StringBuilder();
+       str.append("sheet " + sheet.getSheetName() + " - ");
+
+       XSSFDrawing drawing = sheet.getDrawingPatriarch();
+       //drawing = ((XSSFSheet)sheet).createDrawingPatriarch();
+
+       List<XSSFShape> shapes = drawing.getShapes();
+       str.append("drawing.getShapes().size() = " + shapes.size());
+       Iterator<XSSFShape> it = shapes.iterator();
+       while(it.hasNext()) {           
+           XSSFShape shape = it.next();
+           str.append(", " + shape.toString());
+           str.append(", Col1:"+((XSSFClientAnchor)shape.getAnchor()).getCol1());
+           str.append(", Col2:"+((XSSFClientAnchor)shape.getAnchor()).getCol2());
+           str.append(", Row1:"+((XSSFClientAnchor)shape.getAnchor()).getRow1());
+           str.append(", Row2:"+((XSSFClientAnchor)shape.getAnchor()).getRow2());
+       }
+       
+       assertEquals("Having shapes: " + str, 
+               expectedShapes, shapes.size());
    }
 }

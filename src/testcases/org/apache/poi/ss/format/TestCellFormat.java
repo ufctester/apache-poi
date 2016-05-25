@@ -16,7 +16,7 @@
 ==================================================================== */
 package org.apache.poi.ss.format;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 import java.io.IOException;
 import java.text.ParseException;
@@ -917,10 +917,98 @@ public class TestCellFormat {
             Row row = sheet.createRow(0);
             Cell cell = row.createCell(0);
             cell.setCellValue(123456.6);
-            System.out.println(cf1.apply(cell).text);
+            //System.out.println(cf1.apply(cell).text);
             assertEquals("123456 3/5", cf1.apply(cell).text);
         } finally {
             wb.close();
         }
+    }
+    
+    @Test
+    public void testAccountingFormats() throws IOException {
+        char pound = '\u00A3';
+        char euro  = '\u20AC';
+        
+        // Accounting -> 0 decimal places, default currency symbol
+        String formatDft = "_-\"$\"* #,##0_-;\\-\"$\"* #,##0_-;_-\"$\"* \"-\"_-;_-@_-";
+        // Accounting -> 0 decimal places, US currency symbol
+        String formatUS  = "_-[$$-409]* #,##0_ ;_-[$$-409]* -#,##0 ;_-[$$-409]* \"-\"_-;_-@_-";
+        // Accounting -> 0 decimal places, UK currency symbol
+        String formatUK  = "_-[$"+pound+"-809]* #,##0_-;\\-[$"+pound+"-809]* #,##0_-;_-[$"+pound+"-809]* \"-\"??_-;_-@_-";
+        // French style accounting, euro sign comes after not before
+        String formatFR  = "_-#,##0* [$"+euro+"-40C]_-;\\-#,##0* [$"+euro+"-40C]_-;_-\"-\"??* [$"+euro+"-40C] _-;_-@_-";
+        
+        // Has +ve, -ve and zero rules
+        CellFormat cfDft = CellFormat.getInstance(formatDft);
+        CellFormat cfUS  = CellFormat.getInstance(formatUS);
+        CellFormat cfUK  = CellFormat.getInstance(formatUK);
+        CellFormat cfFR  = CellFormat.getInstance(formatFR);
+        
+        // For +ve numbers, should be Space + currency symbol + spaces + whole number with commas + space
+        // (Except French, which is mostly reversed...)
+        assertEquals(" $   12 ", cfDft.apply(Double.valueOf(12.33)).text);
+        assertEquals(" $   12 ",  cfUS.apply(Double.valueOf(12.33)).text);
+        assertEquals(" "+pound+"   12 ", cfUK.apply(Double.valueOf(12.33)).text);
+        assertEquals(" 12   "+euro+" ", cfFR.apply(Double.valueOf(12.33)).text);
+        
+        assertEquals(" $   16,789 ", cfDft.apply(Double.valueOf(16789.2)).text);
+        assertEquals(" $   16,789 ",  cfUS.apply(Double.valueOf(16789.2)).text);
+        assertEquals(" "+pound+"   16,789 ", cfUK.apply(Double.valueOf(16789.2)).text);
+        assertEquals(" 16,789   "+euro+" ", cfFR.apply(Double.valueOf(16789.2)).text);
+        
+        // For -ve numbers, gets a bit more complicated...
+        assertEquals("-$   12 ", cfDft.apply(Double.valueOf(-12.33)).text);
+        assertEquals(" $   -12 ",  cfUS.apply(Double.valueOf(-12.33)).text);
+        assertEquals("-"+pound+"   12 ", cfUK.apply(Double.valueOf(-12.33)).text);
+        assertEquals("-12   "+euro+" ", cfFR.apply(Double.valueOf(-12.33)).text);
+        
+        assertEquals("-$   16,789 ", cfDft.apply(Double.valueOf(-16789.2)).text);
+        assertEquals(" $   -16,789 ",  cfUS.apply(Double.valueOf(-16789.2)).text);
+        assertEquals("-"+pound+"   16,789 ", cfUK.apply(Double.valueOf(-16789.2)).text);
+        assertEquals("-16,789   "+euro+" ", cfFR.apply(Double.valueOf(-16789.2)).text);
+        
+        // For zero, should be Space + currency symbol + spaces + Minus + spaces
+        assertEquals(" $   - ", cfDft.apply(Double.valueOf(0)).text);
+        // TODO Fix the exception this incorrectly triggers
+        //assertEquals(" $   - ",  cfUS.apply(Double.valueOf(0)).text);
+        // TODO Fix these to not have an incorrect bonus 0 on the end 
+        //assertEquals(" "+pound+"   -  ", cfUK.apply(Double.valueOf(0)).text);
+        //assertEquals(" -    "+euro+"  ", cfFR.apply(Double.valueOf(0)).text);
+    }
+
+    @Test
+    public void testThreePartComplexFormat1() {
+        // verify a rather complex format found e.g. in http://wahl.land-oberoesterreich.gv.at/Downloads/bp10.xls
+        CellFormatPart posPart = new CellFormatPart("[$-F400]h:mm:ss\\ AM/PM");
+        assertNotNull(posPart);
+        assertEquals("1:00:12 AM", posPart.apply(new Date(12345)).text);
+        
+        CellFormatPart negPart = new CellFormatPart("[$-F40]h:mm:ss\\ AM/PM");
+        assertNotNull(negPart);
+        assertEquals("1:00:12 AM", posPart.apply(new Date(12345)).text);
+
+        //assertNotNull(new CellFormatPart("_-* \"\"??_-;_-@_-"));
+        
+        CellFormat instance = CellFormat.getInstance("[$-F400]h:mm:ss\\ AM/PM;[$-F40]h:mm:ss\\ AM/PM;_-* \"\"??_-;_-@_-");
+        assertNotNull(instance);
+        assertEquals("1:00:12 AM", instance.apply(new Date(12345)).text);
+    }
+    
+    @Test
+    public void testThreePartComplexFormat2() {
+        // verify a rather complex format found e.g. in http://wahl.land-oberoesterreich.gv.at/Downloads/bp10.xls
+        CellFormatPart posPart = new CellFormatPart("dd/mm/yyyy");
+        assertNotNull(posPart);
+        assertEquals("01/01/1970", posPart.apply(new Date(12345)).text);
+        
+        CellFormatPart negPart = new CellFormatPart("dd/mm/yyyy");
+        assertNotNull(negPart);
+        assertEquals("01/01/1970", posPart.apply(new Date(12345)).text);
+
+        //assertNotNull(new CellFormatPart("_-* \"\"??_-;_-@_-"));
+        
+        CellFormat instance = CellFormat.getInstance("dd/mm/yyyy;dd/mm/yyyy;_-* \"\"??_-;_-@_-");
+        assertNotNull(instance);
+        assertEquals("01/01/1970", instance.apply(new Date(12345)).text);
     }
 }

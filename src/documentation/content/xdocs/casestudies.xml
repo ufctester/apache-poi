@@ -307,6 +307,37 @@ format,
             Apache POI and found it to be very reliable.
           </p>
       </section>
+
+      <section>
+		<title>Deutsche Bahn</title>
+
+		<p>Deutsche Bahn uses POI's HWPF component to process complex specification documents stored in the legacy Microsoft Word file format.</p>
+		<p>
+		In a joint effort with other international partners, <link href="http://fahrweg.dbnetze.com/fahrweg-en/start/company_aboutus/">Deutsche Bahn Netz AG</link>, 
+		the owner of the German rail infrastructure, developed a novel software toolchain to facilitate the creation of an interoperable on-board component 
+		for a pan-European train protection system. One part of this toolchain is a domain-specific specification processor which reads the relevant 
+		requirements documents using Apache POI, enhances them and ultimately stores their contents as <link href="http://www.omg.org/spec/ReqIF/">ReqIF</link>. 
+		Contrary to DOC, this XML-based file format allows for proper traceability and versioning in a multi-tenant environment. Thus, it lends itself much 
+		better to the management and interchange of large sets of system requirements. The resulting ReqIF files are then consumed by the various tools in 
+		the later stages of the software development process.
+		</p>
+		<p>
+		Currently available, off-the-shelf software for requirement import performed very poorly on the original specification documents due to their 
+		structural complexity and heterogeneous formatting. POI not only helped to create a superior solution thanks to its rich API. Because of its 
+		open-source nature it also plays a key role in ensuring the maintainability of the resulting system which is expected to stay in operation for 
+		many decades to come.
+		</p>
+		<p>
+		POI has seen various enhancements for this challenging application. Most notably, these include the addition of extensive list numbering support, 
+		a feature which is now part of Apache TIKA. Numerous smaller improvements, such as support for table cell background shadings, interpretation of 
+		certain kinds of OfficeDrawings, and proper conversion of special characters, also helped to derive meaning from the input files. See 
+		<link href="http://nbn-resolving.de/urn:nbn:de:bsz:14-qucosa-182866">here</link> for details.
+		</p>
+		<p>
+		This work was funded by the German Federal Ministry of Education and Research (Grant No. 01IS12021) in the context of the ITEA2 project 
+		<link href="http://openetcs.org/">openETCS</link>.
+		</p>
+      </section>  
   
         </section>
     </body>

@@ -102,6 +102,10 @@
                     <td>docs</td>
                     <td>Generate all documentation (Requires Apache Forrest)</td>
                 </tr>
+                <tr>
+                    <td>jenkins</td>
+                    <td>Runs the tests which Jenkins, our Continuous Integration system, does. This includes the unit tests and various code quality checks.</td>
+                </tr>
             </table>
         </section>
         <section>

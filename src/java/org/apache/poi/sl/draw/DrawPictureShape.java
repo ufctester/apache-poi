@@ -20,16 +20,21 @@ package org.apache.poi.sl.draw;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Insets;
-import java.awt.Rectangle;
 import java.awt.geom.Rectangle2D;
 import java.io.IOException;
 
 import org.apache.poi.sl.usermodel.PictureData;
+import org.apache.poi.sl.usermodel.PictureData.PictureType;
+import org.apache.poi.util.POILogFactory;
+import org.apache.poi.util.POILogger;
 import org.apache.poi.sl.usermodel.PictureShape;
 import org.apache.poi.sl.usermodel.RectAlign;
 
 
 public class DrawPictureShape extends DrawSimpleShape {
+    private static final POILogger LOG = POILogFactory.getLogger(DrawPictureShape.class);
+    private static final String WMF_IMAGE_RENDERER = "org.apache.poi.hwmf.draw.HwmfSLImageRenderer";
+    
     public DrawPictureShape(PictureShape<?,?> shape) {
         super(shape);
     }
@@ -39,22 +44,46 @@ public class DrawPictureShape extends DrawSimpleShape {
         PictureData data = getShape().getPictureData();
         if(data == null) return;
 
-        ImageRenderer renderer = (ImageRenderer)graphics.getRenderingHint(Drawable.IMAGE_RENDERER);
-        if (renderer == null) renderer = new ImageRenderer();
-        
         Rectangle2D anchor = getAnchor(graphics, getShape());
-
         Insets insets = getShape().getClipping();
 
         try {
+            ImageRenderer renderer = getImageRenderer(graphics, data.getContentType());
             renderer.loadImage(data.getData(), data.getContentType());
             renderer.drawImage(graphics, anchor, insets);
         } catch (IOException e) {
-            // TODO: draw specific runtime exception?
-            throw new RuntimeException(e);
+            LOG.log(POILogger.ERROR, "image can't be loaded/rendered.", e);
         }
     }    
 
+    /**
+     * Returns an ImageRenderer for the PictureData
+     *
+     * @param graphics
+     * @return the image renderer
+     */
+    public static ImageRenderer getImageRenderer(Graphics2D graphics, String contentType) {
+        ImageRenderer renderer = (ImageRenderer)graphics.getRenderingHint(Drawable.IMAGE_RENDERER);
+        if (renderer != null) {
+            return renderer;
+        }
+        
+        if (PictureType.WMF.contentType.equals(contentType)) {
+            try {
+                @SuppressWarnings("unchecked")
+                Class<? extends ImageRenderer> irc = (Class<? extends ImageRenderer>)
+                    Thread.currentThread().getContextClassLoader().loadClass(WMF_IMAGE_RENDERER);
+                return irc.newInstance();
+            } catch (Exception e) {
+                // WMF image renderer is not on the classpath, continuing with BitmapRenderer
+                // although this doesn't make much sense ...
+                LOG.log(POILogger.ERROR, "WMF image renderer is not on the classpath - include poi-scratchpad jar!", e);
+            }
+        }
+        
+        return new BitmapImageRenderer();
+    }
+    
     @Override
     protected PictureShape<?,?> getShape() {
         return (PictureShape<?,?>)shape;
@@ -70,12 +99,12 @@ public class DrawPictureShape extends DrawSimpleShape {
         PictureShape<?,?> ps = getShape();
         Dimension dim = ps.getPictureData().getImageDimension();
 
-        Rectangle origRect = ps.getAnchor();
-        int x = (int)origRect.getX();
-        int y = (int)origRect.getY();
-        int w = (int)dim.getWidth();
-        int h = (int)dim.getHeight();
-        ps.setAnchor(new Rectangle(x, y, w, h));
+        Rectangle2D origRect = ps.getAnchor();
+        double x = origRect.getX();
+        double y = origRect.getY();
+        double w = dim.getWidth();
+        double h = dim.getHeight();
+        ps.setAnchor(new Rectangle2D.Double(x, y, w, h));
     }
 
 
@@ -85,7 +114,7 @@ public class DrawPictureShape extends DrawSimpleShape {
      *
      * @param target    The target rectangle
      */
-    public void resize(Rectangle target) {
+    public void resize(Rectangle2D target) {
         resize(target, RectAlign.CENTER);
     }
 
@@ -100,7 +129,7 @@ public class DrawPictureShape extends DrawSimpleShape {
      *            The alignment within the target rectangle when resizing.
      *            A null value corresponds to RectAlign.CENTER
      */
-    public void resize(Rectangle target, RectAlign align) {
+    public void resize(Rectangle2D target, RectAlign align) {
         PictureShape<?,?> ps = getShape();
         Dimension dim = ps.getPictureData().getImageDimension();
         if (dim.width <= 0 || dim.height <= 0) {
@@ -170,6 +199,6 @@ public class DrawPictureShape extends DrawSimpleShape {
                 break;
         }
 
-        ps.setAnchor(new Rectangle((int)x, (int)y, (int)w, (int)h));
+        ps.setAnchor(new Rectangle2D.Double(x, y, w, h));
     }
 }

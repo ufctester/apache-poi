@@ -161,7 +161,7 @@ public class SheetDataWriter {
         if (row.getZeroHeight())
             _out.write(" hidden=\"true\"");
         if (row.isFormatted()) {
-            _out.write(" s=\"" + row._style + "\"");
+            _out.write(" s=\"" + row.getRowStyleIndex() + "\"");
             _out.write(" customFormat=\"1\"");
         }
         if (row.getOutlineLevel() != 0) {
@@ -171,7 +171,7 @@ public class SheetDataWriter {
             _out.write(" hidden=\"" + (row.getHidden() ? "1" : "0") + "\"");
         }
         if(row.getCollapsed() != null) {
-        	_out.write(" collapsed=\"" + (row.getCollapsed() ? "1" : "0") + "\"");
+            _out.write(" collapsed=\"" + (row.getCollapsed() ? "1" : "0") + "\"");
         }
         
         _out.write(">\n");

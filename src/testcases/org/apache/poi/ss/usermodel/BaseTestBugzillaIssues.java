@@ -31,6 +31,8 @@ import java.text.AttributedString;
 import java.util.HashMap;
 import java.util.Map;
 
+import java.awt.geom.Rectangle2D;
+
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.hssf.util.PaneInformation;
 import org.apache.poi.ss.ITestDataProvider;
@@ -54,6 +56,11 @@ public abstract class BaseTestBugzillaIssues {
         _testDataProvider = testDataProvider;
     }
 
+    /**
+     * Unlike org.junit.Assert.assertEquals(double expected, double actual, double delta),
+     * where delta is an absolute error value, this function's factor is a relative error,
+     * so it's easier to express "actual is within 5% of expected".
+     */
     public static void assertAlmostEquals(double expected, double actual, float factor) {
         double diff = Math.abs(expected - actual);
         double fuzz = expected * factor;
@@ -68,7 +75,7 @@ public abstract class BaseTestBugzillaIssues {
      * Also tests bug 15353 (problems with hyperlinks to Google)
      */
     @Test
-    public final void bug23094() throws Exception {
+    public final void bug23094() throws IOException {
         Workbook wb1 = _testDataProvider.createWorkbook();
         Sheet s = wb1.createSheet();
         Row r = s.createRow(0);
@@ -92,7 +99,7 @@ public abstract class BaseTestBugzillaIssues {
      * open resulting file in Excel to check results!
      * @param  num the number of strings to generate
      */
-    public final void bug15375(int num) throws Exception {
+    public final void bug15375(int num) throws IOException {
         Workbook wb1 = _testDataProvider.createWorkbook();
         Sheet sheet = wb1.createSheet();
         CreationHelper factory = wb1.getCreationHelper();
@@ -137,13 +144,13 @@ public abstract class BaseTestBugzillaIssues {
      * Merged regions were being removed from the parent in cloned sheets
      */
     @Test
-    public void bug22720() throws Exception {
+    public void bug22720() throws IOException {
        Workbook wb = _testDataProvider.createWorkbook();
        wb.createSheet("TEST");
        Sheet template = wb.getSheetAt(0);
 
        template.addMergedRegion(new CellRangeAddress(0, 1, 0, 2));
-       template.addMergedRegion(new CellRangeAddress(1, 2, 0, 2));
+       template.addMergedRegion(new CellRangeAddress(2, 3, 0, 2));
 
        Sheet clone = wb.cloneSheet(0);
        int originalMerged = template.getNumMergedRegions();
@@ -165,7 +172,7 @@ public abstract class BaseTestBugzillaIssues {
     }
 
     @Test
-    public final void bug28031() throws Exception {
+    public final void bug28031() throws IOException {
         Workbook wb1 = _testDataProvider.createWorkbook();
         Sheet sheet = wb1.createSheet();
         wb1.setSheetName(0, "Sheet1");
@@ -191,7 +198,7 @@ public abstract class BaseTestBugzillaIssues {
      * {=SUM(IF(FREQUENCY(IF(LEN(V4:V220)>0,MATCH(V4:V220,V4:V220,0),""),IF(LEN(V4:V220)>0,MATCH(V4:V220,V4:V220,0),""))>0,1))}
      */
     @Test
-    public final void bug21334() throws Exception {
+    public final void bug21334() throws IOException {
         Workbook wb1 = _testDataProvider.createWorkbook();
         Sheet sh = wb1.createSheet();
         Cell cell = sh.createRow(0).createCell(0);
@@ -208,7 +215,7 @@ public abstract class BaseTestBugzillaIssues {
     /** another test for the number of unique strings issue
      *test opening the resulting file in Excel*/
     @Test
-    public final void bug22568() throws Exception {
+    public final void bug22568() throws IOException {
         int r=2000;int c=3;
 
         Workbook wb1 = _testDataProvider.createWorkbook();
@@ -260,7 +267,7 @@ public abstract class BaseTestBugzillaIssues {
      * Bug 42448: Can't parse SUMPRODUCT(A!C7:A!C67, B8:B68) / B69
      */
     @Test
-    public final void bug42448() throws Exception {
+    public final void bug42448() throws IOException {
         Workbook wb = _testDataProvider.createWorkbook();
         Cell cell = wb.createSheet().createRow(0).createCell(0);
         cell.setCellFormula("SUMPRODUCT(A!C7:A!C67, B8:B68) / B69");
@@ -269,7 +276,7 @@ public abstract class BaseTestBugzillaIssues {
     }
 
     @Test
-    public void bug18800() throws Exception {
+    public void bug18800() throws IOException {
        Workbook wb1 = _testDataProvider.createWorkbook();
        wb1.createSheet("TEST");
        Sheet sheet = wb1.cloneSheet(0);
@@ -300,7 +307,7 @@ public abstract class BaseTestBugzillaIssues {
     }
 
     @Test
-    public void bug43093() throws Exception {
+    public void bug43093() throws IOException {
         Workbook xlw = _testDataProvider.createWorkbook();
 
         addNewSheetWithCellsA1toD4(xlw, 1);
@@ -322,7 +329,7 @@ public abstract class BaseTestBugzillaIssues {
     }
 
     @Test
-    public void bug46729_testMaxFunctionArguments() throws Exception {
+    public void bug46729_testMaxFunctionArguments() throws IOException {
         String[] func = {"COUNT", "AVERAGE", "MAX", "MIN", "OR", "SUBTOTAL", "SKEW"};
 
         SpreadsheetVersion ssVersion = _testDataProvider.getSpreadsheetVersion();
@@ -362,10 +369,11 @@ public abstract class BaseTestBugzillaIssues {
     }
 
     @Test
-    public final void bug50681_testAutoSize() throws Exception {
+    public final void bug50681_testAutoSize() throws IOException {
         Workbook wb = _testDataProvider.createWorkbook();
         BaseTestSheetAutosizeColumn.fixFonts(wb);
         Sheet sheet = wb.createSheet("Sheet1");
+        _testDataProvider.trackAllColumnsForAutosizing(sheet);
         Row row = sheet.createRow(0);
         Cell cell0 = row.createCell(0);
 
@@ -380,8 +388,8 @@ public abstract class BaseTestBugzillaIssues {
 
         // autoSize will fail if required fonts are not installed, skip this test then
         Font font = wb.getFontAt(cell0.getCellStyle().getFontIndex());
-        Assume.assumeTrue("Cannot verify auoSizeColumn() because the necessary Fonts are not installed on this machine: " + font,
-                SheetUtil.canComputeColumnWidht(font));
+        Assume.assumeTrue("Cannot verify autoSizeColumn() because the necessary Fonts are not installed on this machine: " + font,
+                SheetUtil.canComputeColumnWidth(font));
 
         assertEquals("Expecting no indentation in this test",
                 0, cell0.getCellStyle().getIndention());
@@ -399,7 +407,7 @@ public abstract class BaseTestBugzillaIssues {
         double widthBeforeCol = SheetUtil.getColumnWidth(sheet, 0, false);
 
         String info = widthManual + "/" + widthBeforeCell + "/" + widthBeforeCol + "/" +
-                        SheetUtil.canComputeColumnWidht(font) + "/" + computeCellWidthFixed(font, "1") + "/" + computeCellWidthFixed(font, "w") + "/" +
+                        SheetUtil.canComputeColumnWidth(font) + "/" + computeCellWidthFixed(font, "1") + "/" + computeCellWidthFixed(font, "w") + "/" +
                         computeCellWidthFixed(font, "1w") + "/" + computeCellWidthFixed(font, "0000") + "/" + computeCellWidthFixed(font, longValue);
         assertTrue("Expected to have cell width > 0 when computing manually, but had " + info, widthManual > 0);
         assertTrue("Expected to have cell width > 0 BEFORE auto-size, but had " + info, widthBeforeCell > 0);
@@ -413,10 +421,68 @@ public abstract class BaseTestBugzillaIssues {
         assertTrue("Expected to have cell width > 0 AFTER auto-size, but had " + width, width > 0);
 
         assertEquals(255*256, sheet.getColumnWidth(0)); // maximum column width is 255 characters
-        sheet.setColumnWidth(0, sheet.getColumnWidth(0)); // Bug 506819 reports exception at this point
+        sheet.setColumnWidth(0, sheet.getColumnWidth(0)); // Bug 50681 reports exception at this point
         wb.close();
     }
+    
+    @Test
+    public final void bug51622_testAutoSizeShouldRecognizeLeadingSpaces() throws IOException {
+        Workbook wb = _testDataProvider.createWorkbook();
+        BaseTestSheetAutosizeColumn.fixFonts(wb);
+        Sheet sheet = wb.createSheet();
+        _testDataProvider.trackAllColumnsForAutosizing(sheet);
+        Row row = sheet.createRow(0);
+        Cell cell0 = row.createCell(0);
+        Cell cell1 = row.createCell(1);
+        Cell cell2 = row.createCell(2);
+        
+        cell0.setCellValue("Test Column AutoSize");
+        cell1.setCellValue("         Test Column AutoSize");
+        cell2.setCellValue("Test Column AutoSize         ");
+        
+        sheet.autoSizeColumn(0);
+        sheet.autoSizeColumn(1);
+        sheet.autoSizeColumn(2);
+        
+        int noWhitespaceColWidth = sheet.getColumnWidth(0);
+        int leadingWhitespaceColWidth = sheet.getColumnWidth(1);
+        int trailingWhitespaceColWidth = sheet.getColumnWidth(2);
+        
+        // Based on the amount of text and whitespace used, and the default font
+        // assume that the cell with whitespace should be at least 20% wider than
+        // the cell without whitespace. This number is arbitrary, but should be large
+        // enough to guarantee that the whitespace cell isn't wider due to chance.
+        // Experimentally, I calculated the ratio as 1.2478181, though this ratio may change
+        // if the default font or margins change.
+        final double expectedRatioThreshold = 1.2f;
+        double leadingWhitespaceRatio = ((double) leadingWhitespaceColWidth)/noWhitespaceColWidth;
+        double trailingWhitespaceRatio = ((double) leadingWhitespaceColWidth)/noWhitespaceColWidth;
+        
+        assertGreaterThan("leading whitespace is longer than no whitespace", leadingWhitespaceRatio, expectedRatioThreshold);
+        assertGreaterThan("trailing whitespace is longer than no whitespace", trailingWhitespaceRatio, expectedRatioThreshold);
+        assertEquals("cells with equal leading and trailing whitespace have equal width",
+                leadingWhitespaceColWidth, trailingWhitespaceColWidth);
+        
+        wb.close();
+    }
+    
+    /**
+     * Test if a > b. Fails if false.
+     *
+     * @param message
+     * @param a
+     * @param b
+     */
+    private void assertGreaterThan(String message, double a, double b) {
+        if (a > b) { // expected
+        } else {
+            String msg = "Expected: " + a + " > " + b;
+            fail(message + ": " + msg);
+        }
+    }
 
+    // FIXME: this function is a self-fulfilling prophecy: this test will always pass as long
+    // as the code-under-test and the testcase code are written the same way (have the same bugs). 
     private double computeCellWidthManually(Cell cell0, Font font) {
         final FontRenderContext fontRenderContext = new FontRenderContext(null, true, true);
         RichTextString rt = cell0.getRichStringCellValue();
@@ -432,7 +498,14 @@ public abstract class BaseTestBugzillaIssues {
         }
 
         TextLayout layout = new TextLayout(str.getIterator(), fontRenderContext);
-        return ((layout.getBounds().getWidth() / 1) / 8);
+        double frameWidth = getFrameWidth(layout);
+        return ((frameWidth / 1) / 8);
+    }
+    
+    private double getFrameWidth(TextLayout layout) {
+        Rectangle2D bounds = layout.getBounds();
+        double frameWidth = bounds.getX() + bounds.getWidth();
+        return frameWidth;
     }
 
     private double computeCellWidthFixed(Font font, String txt) {
@@ -441,7 +514,8 @@ public abstract class BaseTestBugzillaIssues {
         copyAttributes(font, str, 0, txt.length());
 
         TextLayout layout = new TextLayout(str.getIterator(), fontRenderContext);
-        return layout.getBounds().getWidth();
+        double frameWidth = getFrameWidth(layout);
+        return frameWidth;
     }
 
     private static void copyAttributes(Font font, AttributedString str, int startIdx, int endIdx) {
@@ -456,7 +530,7 @@ public abstract class BaseTestBugzillaIssues {
      * CreateFreezePane column/row order check
      */
     @Test
-    public void bug49381() throws Exception {
+    public void bug49381() throws IOException {
        Workbook wb = _testDataProvider.createWorkbook();
        int colSplit = 1;
        int rowSplit = 2;
@@ -510,7 +584,7 @@ public abstract class BaseTestBugzillaIssues {
      * open resulting file in excel, and check that there is a link to Google
      */
     @Test
-    public void bug15353() throws Exception {
+    public void bug15353() throws IOException {
         String hyperlinkF = "HYPERLINK(\"http://google.com\",\"Google\")";
 
         Workbook wb1 = _testDataProvider.createWorkbook();
@@ -536,7 +610,7 @@ public abstract class BaseTestBugzillaIssues {
      * HLookup and VLookup with optional arguments
      */
     @Test
-    public void bug51024() throws Exception {
+    public void bug51024() throws IOException {
         Workbook wb = _testDataProvider.createWorkbook();
         Sheet s = wb.createSheet();
         Row r1 = s.createRow(0);
@@ -573,7 +647,7 @@ public abstract class BaseTestBugzillaIssues {
     }
 
     @Test
-    public void stackoverflow23114397() throws Exception {
+    public void stackoverflow23114397() throws IOException {
         Workbook wb = _testDataProvider.createWorkbook();
         DataFormat format = wb.getCreationHelper().createDataFormat();
 
@@ -592,6 +666,7 @@ public abstract class BaseTestBugzillaIssues {
         d2Percent.setDataFormat(format.getFormat("0.00%"));
 
         Sheet s = wb.createSheet();
+        _testDataProvider.trackAllColumnsForAutosizing(s);
         Row r1 = s.createRow(0);
 
         for (int i=0; i<3; i++) {
@@ -642,7 +717,7 @@ public abstract class BaseTestBugzillaIssues {
      * =ISNUMBER(SEARCH("AM",A1)) evaluation
      */
     @Test
-    public void stackoverflow26437323() throws Exception {
+    public void stackoverflow26437323() throws IOException {
         Workbook wb = _testDataProvider.createWorkbook();
         Sheet s = wb.createSheet();
         Row r1 = s.createRow(0);
@@ -799,7 +874,7 @@ public abstract class BaseTestBugzillaIssues {
      */
     @Ignore("Fix this to evaluate for XSSF, Fix this to work at all for HSSF")
     @Test
-    public void bug46670() throws Exception {
+    public void bug46670() throws IOException {
         Workbook wb1 = _testDataProvider.createWorkbook();
         Sheet s = wb1.createSheet();
         Row r1 = s.createRow(0);
@@ -925,7 +1000,7 @@ public abstract class BaseTestBugzillaIssues {
      *  that it now is again
      */
     @Test
-    public void bug48718() throws Exception {
+    public void bug48718() throws IOException {
         Workbook wb = _testDataProvider.createWorkbook();
         int startingFonts = wb instanceof HSSFWorkbook ? 4 : 1;
 
@@ -947,7 +1022,7 @@ public abstract class BaseTestBugzillaIssues {
     }
 
     @Test
-    public void bug57430() throws Exception {
+    public void bug57430() throws IOException {
         Workbook wb = _testDataProvider.createWorkbook();
         wb.createSheet("Sheet1");
 
@@ -1050,7 +1125,7 @@ public abstract class BaseTestBugzillaIssues {
      *  kind of value from a Formula cell
      */
     @Test
-    public void bug47815() throws Exception {
+    public void bug47815() throws IOException {
         Workbook wb = _testDataProvider.createWorkbook();
         Sheet s = wb.createSheet();
         Row r = s.createRow(0);
@@ -1109,7 +1184,7 @@ public abstract class BaseTestBugzillaIssues {
     }
 
     @Test
-    public void test58113() throws Exception {
+    public void test58113() throws IOException {
         Workbook wb = _testDataProvider.createWorkbook();
         Sheet sheet = wb.createSheet( "Test" );
 
@@ -1155,7 +1230,7 @@ public abstract class BaseTestBugzillaIssues {
      *  Mid in it, can give #VALUE in Excel
      */
     @Test
-    public void bug55747() throws Exception {
+    public void bug55747() throws IOException {
         Workbook wb1 = _testDataProvider.createWorkbook();
         FormulaEvaluator ev = wb1.getCreationHelper().createFormulaEvaluator();
         Sheet s = wb1.createSheet();
@@ -1273,5 +1348,139 @@ public abstract class BaseTestBugzillaIssues {
         }*/
 
         wb.close();
+    }
+
+    @Test
+    public void test50319() throws IOException {
+        Workbook wb = new HSSFWorkbook();
+        Sheet sheet = wb.createSheet("Test");
+        sheet.createRow(0);
+        sheet.groupRow(0, 0);
+        sheet.setRowGroupCollapsed(0, true);
+        
+        sheet.groupColumn(0, 0);
+        sheet.setColumnGroupCollapsed(0, true);
+        
+        wb.close();
+    }
+    
+    @Ignore
+    @Test
+    public void test58648() throws IOException {
+        Workbook wb = _testDataProvider.createWorkbook();
+        Cell cell = wb.createSheet().createRow(0).createCell(0);
+        cell.setCellFormula("((1 + 1) )");
+        // fails with
+        // org.apache.poi.ss.formula.FormulaParseException: Parse error near char ... ')'
+        // in specified formula '((1 + 1) )'. Expected cell ref or constant literal
+
+        wb.close();
+    }
+    
+    /**
+     * If someone sets a null string as a cell value, treat
+     *  it as an empty cell, and avoid a NPE on auto-sizing
+     */
+    @Test
+    public void test57034() throws Exception {
+        Workbook wb = _testDataProvider.createWorkbook();
+        Sheet s = wb.createSheet();
+        Cell cell = s.createRow(0).createCell(0);
+        cell.setCellValue((String)null);
+        assertEquals(Cell.CELL_TYPE_BLANK, cell.getCellType());
+        
+        _testDataProvider.trackAllColumnsForAutosizing(s);
+        
+        s.autoSizeColumn(0);
+        assertEquals(2048, s.getColumnWidth(0));
+
+        s.autoSizeColumn(0, true);
+        assertEquals(2048, s.getColumnWidth(0));
+
+        wb.close();
+    }
+
+    @Test
+    public void test52684() {
+        Workbook wb = _testDataProvider.createWorkbook();
+
+        Sheet sheet = wb.createSheet("test");
+        Row row = sheet.createRow(0);
+        Cell cell = row.createCell(0);
+
+        cell.setCellValue(12312345123L);
+
+        DataFormat format = wb.createDataFormat();
+        CellStyle style = wb.createCellStyle();
+        style.setDataFormat(format.getFormat("000-00000-000"));
+        cell.setCellStyle(style);
+
+        assertEquals("000-00000-000",
+                cell.getCellStyle().getDataFormatString());
+        assertEquals(164, cell.getCellStyle().getDataFormat());
+
+        DataFormatter formatter = new DataFormatter();
+
+        assertEquals("12-312-345-123", formatter.formatCellValue(cell));
+    }
+    
+    @Test
+    public void test58896() throws IOException {
+        final int nrows = 160;
+        final int ncols = 139;
+        final java.io.PrintStream out = System.out;
+        
+        // Create a workbook
+        final Workbook wb = _testDataProvider.createWorkbook(nrows+1);
+        final Sheet sh = wb.createSheet();
+        out.println(wb.getClass().getName() + " column autosizing timing...");
+        
+        final long t0 = time();
+        _testDataProvider.trackAllColumnsForAutosizing(sh);
+        for (int r=0; r<nrows; r++) {
+            final Row row = sh.createRow(r);
+            for (int c=0; c<ncols; c++) {
+                final Cell cell = row.createCell(c);
+                cell.setCellValue("Cell[r="+r+",c="+c+"]");
+            }
+        }
+        final double populateSheetTime = delta(t0);
+        final double populateSheetTimePerCell_ns = (1000000 * populateSheetTime / (nrows*ncols));
+        out.println("Populate sheet time: " + populateSheetTime + " ms (" + populateSheetTimePerCell_ns + " ns/cell)");
+        
+        out.println("\nAutosizing...");
+        final long t1 = time();
+        for (int c=0; c<ncols; c++) {
+            final long t2 = time();
+            sh.autoSizeColumn(c);
+            out.println("Column " + c + " took " + delta(t2) + " ms");
+        }
+        final double autoSizeColumnsTime = delta(t1);
+        final double autoSizeColumnsTimePerColumn = autoSizeColumnsTime / ncols;
+        final double bestFitWidthTimePerCell_ns = 1000000 * autoSizeColumnsTime / (ncols * nrows);
+        
+        out.println("Auto sizing columns took a total of " + autoSizeColumnsTime + " ms (" + autoSizeColumnsTimePerColumn + " ms per column)");
+        out.println("Best fit width time per cell: " + bestFitWidthTimePerCell_ns + " ns");
+        
+        final double totalTime_s = (populateSheetTime + autoSizeColumnsTime) / 1000;
+        out.println("Total time: " + totalTime_s + " s");
+        
+        wb.close();
+        
+        //if (bestFitWidthTimePerCell_ns > 50000) {
+        //    fail("Best fit width time per cell exceeded 50000 ns: " + bestFitWidthTimePerCell_ns + " ns");
+        //}
+        
+        //if (totalTime_s > 10) {
+        //    fail("Total time exceeded 10 seconds: " + totalTime_s + " s");
+        //}
+    }
+    
+    protected long time() {
+        final long currentTime = System.currentTimeMillis();
+        return currentTime;
+    }
+    protected double delta(long startTimeMillis) {
+        return time() - startTimeMillis;
     }
 }

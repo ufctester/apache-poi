@@ -18,7 +18,7 @@
 package org.apache.poi.hslf.usermodel;
 
 import java.awt.Graphics2D;
-import java.awt.Rectangle;
+import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -27,6 +27,7 @@ import org.apache.poi.ddf.EscherContainerRecord;
 import org.apache.poi.ddf.EscherDgRecord;
 import org.apache.poi.ddf.EscherDggRecord;
 import org.apache.poi.ddf.EscherRecord;
+import org.apache.poi.hslf.exceptions.HSLFException;
 import org.apache.poi.hslf.record.CString;
 import org.apache.poi.hslf.record.ColorSchemeAtom;
 import org.apache.poi.hslf.record.OEPlaceholderAtom;
@@ -40,6 +41,7 @@ import org.apache.poi.sl.draw.Drawable;
 import org.apache.poi.sl.usermodel.PictureData;
 import org.apache.poi.sl.usermodel.ShapeType;
 import org.apache.poi.sl.usermodel.Sheet;
+import org.apache.poi.util.Internal;
 
 /**
  * This class defines the common format of "Sheets" in a powerpoint
@@ -119,16 +121,20 @@ public abstract class HSLFSheet implements HSLFShapeContainer, Sheet<HSLFShape,H
 
     /**
      * Set the SlideShow we're attached to.
-     * Also passes it on to our child RichTextRuns
+     * Also passes it on to our child text paragraphs
      */
-    public void setSlideShow(HSLFSlideShow ss) {
+    @Internal
+    protected void setSlideShow(HSLFSlideShow ss) {
+        if (_slideShow != null) {
+            throw new HSLFException("Can't change existing slideshow reference");
+        }
+        
         _slideShow = ss;
         List<List<HSLFTextParagraph>> trs = getTextParagraphs();
         if (trs == null) return;
         for (List<HSLFTextParagraph> ltp : trs) {
-            for (HSLFTextParagraph tp : ltp) {
-                tp.supplySheet(this);
-            }
+            HSLFTextParagraph.supplySheet(ltp, this);
+            HSLFTextParagraph.applyHyperlinks(ltp);
         }
     }
 
@@ -142,7 +148,7 @@ public abstract class HSLFSheet implements HSLFShapeContainer, Sheet<HSLFShape,H
     public List<HSLFShape> getShapes() {
         PPDrawing ppdrawing = getPPDrawing();
 
-        EscherContainerRecord dg = (EscherContainerRecord) ppdrawing.getEscherRecords()[0];
+        EscherContainerRecord dg = ppdrawing.getDgContainer();
         EscherContainerRecord spgr = null;
 
         for (Iterator<EscherRecord> it = dg.getChildIterator(); it.hasNext();) {
@@ -166,6 +172,14 @@ public abstract class HSLFSheet implements HSLFShapeContainer, Sheet<HSLFShape,H
             EscherContainerRecord sp = (EscherContainerRecord) it.next();
             HSLFShape sh = HSLFShapeFactory.createShape(sp, null);
             sh.setSheet(this);
+            
+            if (sh instanceof HSLFSimpleShape) {
+                HSLFHyperlink link = HSLFHyperlink.find(sh);
+                if (link != null) {
+                    ((HSLFSimpleShape)sh).setHyperlink(link);
+                }
+            }
+            
             shapeList.add(sh);
         }
 
@@ -180,7 +194,7 @@ public abstract class HSLFSheet implements HSLFShapeContainer, Sheet<HSLFShape,H
     public void addShape(HSLFShape shape) {
         PPDrawing ppdrawing = getPPDrawing();
 
-        EscherContainerRecord dgContainer = (EscherContainerRecord) ppdrawing.getEscherRecords()[0];
+        EscherContainerRecord dgContainer = ppdrawing.getDgContainer();
         EscherContainerRecord spgr = (EscherContainerRecord) HSLFShape.getEscherChild(dgContainer, EscherContainerRecord.SPGR_CONTAINER);
         spgr.addChildRecord(shape.getSpContainer());
 
@@ -237,16 +251,8 @@ public abstract class HSLFSheet implements HSLFShapeContainer, Sheet<HSLFShape,H
     public boolean removeShape(HSLFShape shape) {
         PPDrawing ppdrawing = getPPDrawing();
 
-        EscherContainerRecord dg = (EscherContainerRecord) ppdrawing.getEscherRecords()[0];
-        EscherContainerRecord spgr = null;
-
-        for (Iterator<EscherRecord> it = dg.getChildIterator(); it.hasNext();) {
-            EscherRecord rec = it.next();
-            if (rec.getRecordId() == EscherContainerRecord.SPGR_CONTAINER) {
-                spgr = (EscherContainerRecord) rec;
-                break;
-            }
-        }
+        EscherContainerRecord dg = ppdrawing.getDgContainer();
+        EscherContainerRecord spgr = dg.getChildById(EscherContainerRecord.SPGR_CONTAINER);
         if(spgr == null) {
             return false;
         }
@@ -285,7 +291,7 @@ public abstract class HSLFSheet implements HSLFShapeContainer, Sheet<HSLFShape,H
         if (_background == null) {
             PPDrawing ppdrawing = getPPDrawing();
 
-            EscherContainerRecord dg = (EscherContainerRecord) ppdrawing.getEscherRecords()[0];
+            EscherContainerRecord dg = ppdrawing.getDgContainer();
             EscherContainerRecord spContainer = dg.getChildById(EscherContainerRecord.SP_CONTAINER);
             _background = new HSLFBackground(spContainer, null);
             _background.setSheet(this);
@@ -319,7 +325,7 @@ public abstract class HSLFSheet implements HSLFShapeContainer, Sheet<HSLFShape,H
         for (HSLFShape shape : getShapes()) {
             if(shape instanceof HSLFTextShape){
                 HSLFTextShape tx = (HSLFTextShape)shape;
-                if (tx != null && tx.getRunType() == type) {
+                if (tx.getRunType() == type) {
                     return tx;
                 }
             }
@@ -402,7 +408,7 @@ public abstract class HSLFSheet implements HSLFShapeContainer, Sheet<HSLFShape,H
     public HSLFTextBox createTextBox() {
         HSLFTextBox s = new HSLFTextBox();
         s.setHorizontalCentered(true);
-        s.setAnchor(new Rectangle(0, 0, 100, 100));
+        s.setAnchor(new Rectangle2D.Double(0, 0, 100, 100));
         addShape(s);
         return s;
     }
@@ -411,7 +417,7 @@ public abstract class HSLFSheet implements HSLFShapeContainer, Sheet<HSLFShape,H
     public HSLFAutoShape createAutoShape() {
         HSLFAutoShape s = new HSLFAutoShape(ShapeType.RECT);
         s.setHorizontalCentered(true);
-        s.setAnchor(new Rectangle(0, 0, 100, 100));
+        s.setAnchor(new Rectangle2D.Double(0, 0, 100, 100));
         addShape(s);
         return s;
     }
@@ -420,7 +426,7 @@ public abstract class HSLFSheet implements HSLFShapeContainer, Sheet<HSLFShape,H
     public HSLFFreeformShape createFreeform() {
         HSLFFreeformShape s = new HSLFFreeformShape();
         s.setHorizontalCentered(true);
-        s.setAnchor(new Rectangle(0, 0, 100, 100));
+        s.setAnchor(new Rectangle2D.Double(0, 0, 100, 100));
         addShape(s);
         return s;
     }
@@ -428,7 +434,7 @@ public abstract class HSLFSheet implements HSLFShapeContainer, Sheet<HSLFShape,H
     @Override
     public HSLFConnectorShape createConnector() {
         HSLFConnectorShape s = new HSLFConnectorShape();
-        s.setAnchor(new Rectangle(0, 0, 100, 100));
+        s.setAnchor(new Rectangle2D.Double(0, 0, 100, 100));
         addShape(s);
         return s;
     }
@@ -436,7 +442,7 @@ public abstract class HSLFSheet implements HSLFShapeContainer, Sheet<HSLFShape,H
     @Override
     public HSLFGroupShape createGroup() {
         HSLFGroupShape s = new HSLFGroupShape();
-        s.setAnchor(new Rectangle(0, 0, 100, 100));
+        s.setAnchor(new Rectangle2D.Double(0, 0, 100, 100));
         addShape(s);
         return s;
     }
@@ -447,7 +453,7 @@ public abstract class HSLFSheet implements HSLFShapeContainer, Sheet<HSLFShape,H
             throw new IllegalArgumentException("pictureData needs to be of type HSLFPictureData");
         }
         HSLFPictureShape s = new HSLFPictureShape((HSLFPictureData)pictureData);
-        s.setAnchor(new Rectangle(0, 0, 100, 100));
+        s.setAnchor(new Rectangle2D.Double(0, 0, 100, 100));
         addShape(s);
         return s;
     }
@@ -458,7 +464,7 @@ public abstract class HSLFSheet implements HSLFShapeContainer, Sheet<HSLFShape,H
             throw new IllegalArgumentException("numRows and numCols must be greater than 0");
         }
         HSLFTable s = new HSLFTable(numRows,numCols);
-        s.setAnchor(new Rectangle(0, 0, 100, 100));
+        // anchor is set in constructor based on numRows/numCols
         addShape(s);
         return s;
     }

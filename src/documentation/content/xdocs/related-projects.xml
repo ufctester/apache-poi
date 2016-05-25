@@ -96,6 +96,26 @@
               Available under the Commercial Vaadin Add-on License version 3 (CVALv3).
               </p>
               </section>
+              <section><title>Excel module for Apache Isis</title>
+              <p>
+              <link href="https://github.com/isisaddons/isis-module-excel">Excel module for Apache Isis</link> is an add on for Apache Isis and provides a domain service so that a collection of (view model) 
+              object scan be exported to an Excel spreadsheet, or recreated by importing from Excel.
+              Available under the Apache License, Version 2.0.
+              </p>
+              </section>
+              <section><title>Excel Streaming Reader</title>
+              <p>
+              <link href="https://github.com/monitorjbl/excel-streaming-reader">Excel Streaming Reader</link> uses the POI Streaming API to provide Row/Cell like read-access to large Excel spreadsheets.
+              Available under the Apache License, Version 2.0.
+              </p>
+              </section>
+            <section><title>XDocReport</title>
+                <p>
+                    <link href="https://github.com/opensagres/xdocreport">XDocReport</link> is a Java API to merge XML document created with MS Office (docx) or OpenOffice (odt),
+                    LibreOffice (odt) with a Java model to generate report and convert it if you need to another format (PDF, XHTML...).
+                    XDocReport code is license under MIT license but the samples are licensed under LGPL license.
+                </p>
+            </section>
 		</section>
     </body>
     <footer>

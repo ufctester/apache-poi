@@ -17,6 +17,8 @@
 
 package org.apache.poi.hslf.model.textproperties;
 
+import java.util.Locale;
+
 /** 
  * Definition of a property of some text, or its paragraph. Defines 
  * how to find out if it's present (via the mask on the paragraph or 
@@ -98,6 +100,7 @@ public class TextProp implements Cloneable {
 		}
 	}
 	
+	@Override
 	public int hashCode() {
         final int prime = 31;
         int result = 1;
@@ -108,17 +111,45 @@ public class TextProp implements Cloneable {
         return result;
     }
 
+	@Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null) return false;
-        if (getClass() != obj.getClass()) return false;
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
         TextProp other = (TextProp) obj;
-        if (dataValue != other.dataValue) return false;
-        if (maskInHeader != other.maskInHeader) return false;
+        if (dataValue != other.dataValue) {
+            return false;
+        }
+        if (maskInHeader != other.maskInHeader) {
+            return false;
+        }
         if (propName == null) {
-            if (other.propName != null) return false;
-        } else if (!propName.equals(other.propName)) return false;
-        if (sizeOfDataBlock != other.sizeOfDataBlock) return false;
+            if (other.propName != null) {
+                return false;
+            }
+        } else if (!propName.equals(other.propName)) {
+            return false;
+        }
+        if (sizeOfDataBlock != other.sizeOfDataBlock) {
+            return false;
+        }
         return true;
+    }
+    
+    @Override
+    public String toString() {
+        int len;
+        switch (sizeOfDataBlock) {
+        case 1: len = 4; break;
+        case 2: len = 6; break;
+        default: len = 10; break;
+        }
+        return String.format(Locale.ROOT, "%s = %d (%0#"+len+"X mask / %d bytes)", propName, dataValue, maskInHeader, sizeOfDataBlock);
     }
 }

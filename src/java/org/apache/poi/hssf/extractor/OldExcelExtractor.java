@@ -17,10 +17,14 @@
 
 package org.apache.poi.hssf.extractor;
 
+import static org.apache.poi.hssf.model.InternalWorkbook.OLD_WORKBOOK_DIR_ENTRY_NAME;
+import static org.apache.poi.hssf.model.InternalWorkbook.WORKBOOK_DIR_ENTRY_NAMES;
+
 import java.io.BufferedInputStream;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -51,7 +55,7 @@ import org.apache.poi.ss.usermodel.Cell;
  *  by Apache Tika, but not really intended for display to the user.
  * </p>
  */
-public class OldExcelExtractor {
+public class OldExcelExtractor implements Closeable {
     private RecordInputStream ris;
     private Closeable input;
     private int biffVersion;
@@ -65,6 +69,7 @@ public class OldExcelExtractor {
             open(bstream);
         }
     }
+
     public OldExcelExtractor(File f) throws IOException {
         try {
             open(new NPOIFSFileSystem(f));
@@ -74,9 +79,11 @@ public class OldExcelExtractor {
             open(new FileInputStream(f));
         }
     }
+
     public OldExcelExtractor(NPOIFSFileSystem fs) throws IOException {
         open(fs);
     }
+
     public OldExcelExtractor(DirectoryNode directory) throws IOException {
         open(directory);
     }
@@ -86,12 +93,21 @@ public class OldExcelExtractor {
         ris = new RecordInputStream(biffStream);
         prepare();
     }
+
     private void open(NPOIFSFileSystem fs) throws IOException {
         input = fs;
         open(fs.getRoot());
     }
+
     private void open(DirectoryNode directory) throws IOException {
-        DocumentNode book = (DocumentNode)directory.getEntry("Book");
+        DocumentNode book;
+        try {
+            book = (DocumentNode)directory.getEntry(OLD_WORKBOOK_DIR_ENTRY_NAME);
+        } catch (FileNotFoundException e) {
+            // some files have "Workbook" instead
+            book = (DocumentNode)directory.getEntry(WORKBOOK_DIR_ENTRY_NAMES[0]);
+        }
+
         if (book == null) {
             throw new IOException("No Excel 5/95 Book stream found");
         }
@@ -108,6 +124,7 @@ public class OldExcelExtractor {
         }
         OldExcelExtractor extractor = new OldExcelExtractor(new File(args[0]));
         System.out.println(extractor.getText());
+        extractor.close();
     }
     
     private void prepare() {
@@ -228,16 +245,21 @@ public class OldExcelExtractor {
                     ris.readFully(new byte[ris.remaining()]);
             }
         }
-        
+
+        close();
+        ris = null;
+
+        return text.toString();
+    }
+
+    @Override
+    public void close() {
         if (input != null) {
             try {
                 input.close();
             } catch (IOException e) {}
             input = null;
         }
-        ris = null;
-
-        return text.toString();
     }
     
     protected void handleNumericCell(StringBuffer text, double value) {

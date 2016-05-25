@@ -68,8 +68,10 @@ import org.junit.runners.Parameterized.Parameters;
 public class TestAllFiles {
     private static final File ROOT_DIR = new File("test-data");
 
+    static final String[] SCAN_EXCLUDES = new String[] { "**/.svn/**", "lost+found" };
+    
     // map file extensions to the actual mappers
-    private static final Map<String, FileHandler> HANDLERS = new HashMap<String, FileHandler>();
+    static final Map<String, FileHandler> HANDLERS = new HashMap<String, FileHandler>();
     static {
         // Excel
         HANDLERS.put(".xls", new HSSFFileHandler());
@@ -105,13 +107,17 @@ public class TestAllFiles {
         // Visio - binary
         HANDLERS.put(".vsd", new HDGFFileHandler());
         
-        // Visio - ooxml (currently unsupported)
+        // Visio - ooxml
         HANDLERS.put(".vsdm", new XDGFFileHandler());
         HANDLERS.put(".vsdx", new XDGFFileHandler());
         HANDLERS.put(".vssm", new XDGFFileHandler());
         HANDLERS.put(".vssx", new XDGFFileHandler());
         HANDLERS.put(".vstm", new XDGFFileHandler());
         HANDLERS.put(".vstx", new XDGFFileHandler());
+
+        // Visio - not handled yet
+        HANDLERS.put(".vst", new NullFileHandler());
+        HANDLERS.put(".vss", new NullFileHandler());
 
         // POIFS
         HANDLERS.put(".ole2", new POIFSFileHandler());
@@ -199,6 +205,7 @@ public class TestAllFiles {
         //EXPECTED_FAILURES.add("poifs/protected_sha512.xlsx");
         //EXPECTED_FAILURES.add("poifs/extenxls_pwd123.xlsx");
         //EXPECTED_FAILURES.add("poifs/protected_agile.docx");
+        EXPECTED_FAILURES.add("spreadsheet/58616.xlsx");
 
         // TODO: fails XMLExportTest, is this ok?
         EXPECTED_FAILURES.add("spreadsheet/CustomXMLMapping-singleattributenamespace.xlsx");
@@ -219,7 +226,6 @@ public class TestAllFiles {
         // some files that are broken, eg Word 95, ...
         EXPECTED_FAILURES.add("spreadsheet/43493.xls");
         EXPECTED_FAILURES.add("spreadsheet/46904.xls");
-        EXPECTED_FAILURES.add("document/56880.doc");
         EXPECTED_FAILURES.add("document/Bug50955.doc");
         EXPECTED_FAILURES.add("slideshow/PPT95.ppt");
         EXPECTED_FAILURES.add("openxml4j/OPCCompliance_CoreProperties_DCTermsNamespaceLimitedUseFAIL.docx");
@@ -234,6 +240,8 @@ public class TestAllFiles {
         EXPECTED_FAILURES.add("spreadsheet/Simple.xlsb");
         EXPECTED_FAILURES.add("poifs/unknown_properties.msg"); // POIFS properties corrupted
         EXPECTED_FAILURES.add("poifs/only-zero-byte-streams.ole2"); // No actual contents
+        EXPECTED_FAILURES.add("spreadsheet/poc-xmlbomb.xlsx");  // contains xml-entity-expansion
+        EXPECTED_FAILURES.add("spreadsheet/poc-shared-strings.xlsx");  // contains shared-string-entity-expansion
         
         // old Excel files, which we only support simple text extraction of
         EXPECTED_FAILURES.add("spreadsheet/testEXCEL_2.xls");
@@ -241,28 +249,40 @@ public class TestAllFiles {
         EXPECTED_FAILURES.add("spreadsheet/testEXCEL_4.xls");
         EXPECTED_FAILURES.add("spreadsheet/testEXCEL_5.xls");
         EXPECTED_FAILURES.add("spreadsheet/testEXCEL_95.xls");
+        EXPECTED_FAILURES.add("spreadsheet/59074.xls");
         
         // OOXML Strict is not yet supported, see bug #57699
         EXPECTED_FAILURES.add("spreadsheet/SampleSS.strict.xlsx");
         EXPECTED_FAILURES.add("spreadsheet/SimpleStrict.xlsx");
         EXPECTED_FAILURES.add("spreadsheet/sample.strict.xlsx");
+        EXPECTED_FAILURES.add("spreadsheet/57914.xlsx");
 
         // non-TNEF files
         EXPECTED_FAILURES.add("ddf/Container.dat");
         EXPECTED_FAILURES.add("ddf/47143.dat");
+
+        // sheet cloning errors
+        EXPECTED_FAILURES.add("spreadsheet/47813.xlsx");
+        EXPECTED_FAILURES.add("spreadsheet/56450.xls");
+        EXPECTED_FAILURES.add("spreadsheet/57231_MixedGasReport.xls");
+        EXPECTED_FAILURES.add("spreadsheet/OddStyleRecord.xls");
+        EXPECTED_FAILURES.add("spreadsheet/WithChartSheet.xlsx");
+        EXPECTED_FAILURES.add("spreadsheet/chart_sheet.xlsx");
     }
 
     private static final Set<String> IGNORED = new HashSet<String>();
     static {
         // need JDK8+ - https://bugs.openjdk.java.net/browse/JDK-8038081
         IGNORED.add("slideshow/42474-2.ppt");
+        // OPC handler works / XSSF handler fails
+        IGNORED.add("spreadsheet/57181.xlsm");
     }
     
     @Parameters(name="{index}: {0} using {1}")
     public static Iterable<Object[]> files() {
         DirectoryScanner scanner = new DirectoryScanner();
         scanner.setBasedir(ROOT_DIR);
-        scanner.setExcludes(new String[] { "**/.svn/**" });
+        scanner.setExcludes(SCAN_EXCLUDES);
 
         scanner.scan();
 
@@ -337,13 +357,13 @@ public class TestAllFiles {
         }
     }
 
-    private static String getExtension(String file) {
+    static String getExtension(String file) {
         int pos = file.lastIndexOf('.');
         if(pos == -1 || pos == file.length()-1) {
             return file;
         }
 
-        return file.substring(pos);
+        return file.substring(pos).toLowerCase();
     }
 
     private static class NullFileHandler implements FileHandler {

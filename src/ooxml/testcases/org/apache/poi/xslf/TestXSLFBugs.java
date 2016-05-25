@@ -32,12 +32,12 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.util.List;
+import java.util.Collection;
 
 import javax.imageio.ImageIO;
 
 import org.apache.poi.POIXMLDocumentPart;
-import org.apache.poi.openxml4j.opc.PackagePart;
+import org.apache.poi.POIXMLDocumentPart.RelationPart;
 import org.apache.poi.sl.usermodel.PictureData.PictureType;
 import org.apache.poi.xslf.usermodel.DrawingParagraph;
 import org.apache.poi.xslf.usermodel.DrawingTextBody;
@@ -56,7 +56,6 @@ import org.junit.Test;
 public class TestXSLFBugs {
 
     @Test
-    @SuppressWarnings("deprecation")
     public void bug51187() throws Exception {
        XMLSlideShow ss1 = XSLFTestDataSamples.openSampleDocument("51187.pptx");
        
@@ -64,31 +63,33 @@ public class TestXSLFBugs {
        
        // Check the relations on it
        // Note - rId3 is a self reference
-       PackagePart slidePart = ss1._getXSLFSlideShow().getSlidePart(
-             ss1._getXSLFSlideShow().getSlideReferences().getSldIdArray(0)
-       );
-       assertEquals("/ppt/slides/slide1.xml", slidePart.getPartName().toString());
-       assertEquals("/ppt/slideLayouts/slideLayout12.xml", slidePart.getRelationship("rId1").getTargetURI().toString());
-       assertEquals("/ppt/notesSlides/notesSlide1.xml", slidePart.getRelationship("rId2").getTargetURI().toString());
-       assertEquals("/ppt/slides/slide1.xml", slidePart.getRelationship("rId3").getTargetURI().toString());
-       assertEquals("/ppt/media/image1.png", slidePart.getRelationship("rId4").getTargetURI().toString());
+       XSLFSlide slide0 = ss1.getSlides().get(0);
+       
+       assertRelation(slide0, "/ppt/slides/slide1.xml", null);
+       assertRelation(slide0, "/ppt/slideLayouts/slideLayout12.xml", "rId1");
+       assertRelation(slide0, "/ppt/notesSlides/notesSlide1.xml", "rId2");
+       assertRelation(slide0, "/ppt/slides/slide1.xml", "rId3");
+       assertRelation(slide0, "/ppt/media/image1.png", "rId4");
        
        // Save and re-load
        XMLSlideShow ss2 = XSLFTestDataSamples.writeOutAndReadBack(ss1);
        ss1.close();
        assertEquals(1, ss2.getSlides().size());
        
-       slidePart = ss2._getXSLFSlideShow().getSlidePart(
-             ss2._getXSLFSlideShow().getSlideReferences().getSldIdArray(0)
-       );
-       assertEquals("/ppt/slides/slide1.xml", slidePart.getPartName().toString());
-       assertEquals("/ppt/slideLayouts/slideLayout12.xml", slidePart.getRelationship("rId1").getTargetURI().toString());
-       assertEquals("/ppt/notesSlides/notesSlide1.xml", slidePart.getRelationship("rId2").getTargetURI().toString());
+       slide0 = ss2.getSlides().get(0);
+       assertRelation(slide0, "/ppt/slides/slide1.xml", null);
+       assertRelation(slide0, "/ppt/slideLayouts/slideLayout12.xml", "rId1");
+       assertRelation(slide0, "/ppt/notesSlides/notesSlide1.xml", "rId2");
        // TODO Fix this
-       assertEquals("/ppt/slides/slide1.xml", slidePart.getRelationship("rId3").getTargetURI().toString());
-       assertEquals("/ppt/media/image1.png", slidePart.getRelationship("rId4").getTargetURI().toString());
+       assertRelation(slide0, "/ppt/slides/slide1.xml", "rId3");
+       assertRelation(slide0, "/ppt/media/image1.png", "rId4");
        
        ss2.close();
+    }
+    
+    private static void assertRelation(XSLFSlide slide, String exp, String rId) {
+        POIXMLDocumentPart pd = (rId != null) ? slide.getRelationById(rId) : slide;
+        assertEquals(exp, pd.getPackagePart().getPartName().getName());
     }
     
     /**
@@ -103,7 +104,7 @@ public class TestXSLFBugs {
        XSLFSlide slide = ss.getSlides().get(0);
        
        // Check the relations from this
-       List<POIXMLDocumentPart> rels = slide.getRelations();
+       Collection<RelationPart> rels = slide.getRelationParts();
        
        // Should have 6 relations:
        //   1 external hyperlink (skipped from list)
@@ -112,10 +113,10 @@ public class TestXSLFBugs {
        assertEquals(5, rels.size());
        int layouts = 0;
        int hyperlinks = 0;
-       for(POIXMLDocumentPart p : rels) {
-          if(p.getPackageRelationship().getRelationshipType().equals(XSLFRelation.HYPERLINK.getRelation())) {
+       for(RelationPart p : rels) {
+          if(p.getRelationship().getRelationshipType().equals(XSLFRelation.HYPERLINK.getRelation())) {
              hyperlinks++;
-          } else if(p instanceof XSLFSlideLayout) {
+          } else if(p.getDocumentPart() instanceof XSLFSlideLayout) {
              layouts++;
           }
        }
@@ -123,9 +124,9 @@ public class TestXSLFBugs {
        assertEquals(4, hyperlinks);
        
        // Hyperlinks should all be to #_ftn1 or #ftnref1
-       for(POIXMLDocumentPart p : rels) {
-          if(p.getPackageRelationship().getRelationshipType().equals(XSLFRelation.HYPERLINK.getRelation())) {
-             URI target = p.getPackageRelationship().getTargetURI();
+       for(RelationPart p : rels) {
+          if(p.getRelationship().getRelationshipType().equals(XSLFRelation.HYPERLINK.getRelation())) {
+             URI target = p.getRelationship().getTargetURI();
              
              if(target.getFragment().equals("_ftn1") ||
                 target.getFragment().equals("_ftnref1")) {
@@ -144,7 +145,6 @@ public class TestXSLFBugs {
      *  rID2 -> slide3.xml
      */
     @Test
-    @Ignore
     public void bug54916() throws Exception {
         XMLSlideShow ss = XSLFTestDataSamples.openSampleDocument("OverlappingRelations.pptx");
         XSLFSlide slide; 
@@ -154,17 +154,17 @@ public class TestXSLFBugs {
         
         // Check the text, to see we got them in order
         slide = ss.getSlides().get(0);
-        assertContains("POI cannot read this", getSlideText(slide));
+        assertContains(getSlideText(slide), "POI cannot read this");
         
         slide = ss.getSlides().get(1);
-        assertContains("POI can read this", getSlideText(slide));
-        assertContains("Has a relationship to another slide", getSlideText(slide));
+        assertContains(getSlideText(slide), "POI can read this");
+        assertContains(getSlideText(slide), "Has a relationship to another slide");
         
         slide = ss.getSlides().get(2);
-        assertContains("POI can read this", getSlideText(slide));
+        assertContains(getSlideText(slide), "POI can read this");
         
         slide = ss.getSlides().get(3);
-        assertContains("POI can read this", getSlideText(slide));
+        assertContains(getSlideText(slide), "POI can read this");
         
         ss.close();
     }

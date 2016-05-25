@@ -24,6 +24,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -31,6 +32,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -38,6 +40,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
+
+import javax.imageio.ImageIO;
 
 import org.apache.poi.EncryptedDocumentException;
 import org.apache.poi.hssf.HSSFITestDataProvider;
@@ -66,6 +70,7 @@ import org.apache.poi.ss.formula.ptg.Ptg;
 import org.apache.poi.ss.usermodel.BaseTestBugzillaIssues;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.ClientAnchor.AnchorType;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.FormulaEvaluator;
 import org.apache.poi.ss.usermodel.Name;
@@ -74,6 +79,8 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.util.LocaleUtil;
+import org.junit.After;
+import org.junit.Assume;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -85,6 +92,11 @@ import org.junit.Test;
  *  define the test in the base class {@link BaseTestBugzillaIssues}</b>
  */
 public final class TestBugs extends BaseTestBugzillaIssues {
+    // to not affect other tests running in the same JVM
+    @After
+    public void resetPassword() {
+        Biff8EncryptionKey.setCurrentUserPassword(null);
+    }
 
     public TestBugs() {
         super(HSSFITestDataProvider.instance);
@@ -1994,7 +2006,7 @@ public final class TestBugs extends BaseTestBugzillaIssues {
     @Test
     public void bug49751() throws Exception {
         HSSFWorkbook wb = openSample("49751.xls");
-        short numCellStyles = wb.getNumCellStyles();
+        int numCellStyles = wb.getNumCellStyles();
         List<String> namedStyles = Arrays.asList(
                 "20% - Accent1", "20% - Accent2", "20% - Accent3", "20% - Accent4", "20% - Accent5",
                 "20% - Accent6", "40% - Accent1", "40% - Accent2", "40% - Accent3", "40% - Accent4",
@@ -2005,7 +2017,7 @@ public final class TestBugs extends BaseTestBugzillaIssues {
                 "Neutral", "Note", "Output", "Title", "Total", "Warning Text");
 
         List<String> collecteddStyles = new ArrayList<String>();
-        for (short i = 0; i < numCellStyles; i++) {
+        for (int i = 0; i < numCellStyles; i++) {
             HSSFCellStyle cellStyle = wb.getCellStyleAt(i);
             String styleName = cellStyle.getUserStyleName();
             if (styleName != null) {
@@ -2922,6 +2934,47 @@ public final class TestBugs extends BaseTestBugzillaIssues {
             }
         }
         
+        wb.close();
+    }
+    
+    @Test
+    public void test46515() throws IOException {
+        Workbook wb = HSSFTestDataSamples.openSampleWorkbook("46515.xls");
+
+        // Get structure from webservice
+        String urlString = "http://poi.apache.org/resources/images/project-logo.jpg";
+        URL structURL = new URL(urlString);
+        BufferedImage bimage;
+        try {
+            bimage = ImageIO.read(structURL);
+        } catch (IOException e) {
+            Assume.assumeNoException("Downloading a jpg from poi.apache.org should work", e);
+            return;
+        } finally {
+            wb.close();
+        }
+
+        // Convert BufferedImage to byte[]
+        ByteArrayOutputStream imageBAOS = new ByteArrayOutputStream();
+        ImageIO.write(bimage, "jpeg", imageBAOS);
+        imageBAOS.flush();
+        byte[]imageBytes = imageBAOS.toByteArray();
+        imageBAOS.close();
+
+        // Pop structure into Structure HSSFSheet
+        int pict = wb.addPicture(imageBytes, HSSFWorkbook.PICTURE_TYPE_JPEG);
+        Sheet sheet = wb.getSheet("Structure");
+        assertNotNull("Did not find sheet", sheet);
+        HSSFPatriarch patriarch = (HSSFPatriarch) sheet.createDrawingPatriarch();
+        HSSFClientAnchor anchor = new HSSFClientAnchor(0, 0, 0, 0, (short) 1, 1, (short) 10, 22);
+        anchor.setAnchorType(AnchorType.MOVE_DONT_RESIZE);
+        patriarch.createPicture(anchor, pict);
+
+        // Write out destination file
+//        FileOutputStream fileOut = new FileOutputStream("/tmp/46515.xls");
+//        wb.write(fileOut);
+//        fileOut.close();
+
         wb.close();
     }
 }

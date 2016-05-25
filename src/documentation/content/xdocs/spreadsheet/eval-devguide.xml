@@ -86,7 +86,7 @@
 
         <section><title>What functions are supported?</title>
             <p>
-                As of Feb 2012, POI supports about 140 built-in functions,
+                As of Nov 2015, POI supports about 170 built-in functions,
                 see <link href="#appendixA">Appendix A</link> for the full list.
                 You can programmatically list supported / unsuported functions using the following helper methods:
             </p>
@@ -226,7 +226,7 @@
         <anchor id="appendixA"/>
         <section>
            <title>Appendix A</title>
-            <p>Functions supported by POI ( as of Feb 2012)</p>
+            <p>Functions supported by POI (as of Nov 2015)</p>
             <source>
     ABS
     ACOS
@@ -240,13 +240,16 @@
     ATANH
     AVEDEV
     AVERAGE
+    BIN2DEC
     CEILING
     CHAR
     CHOOSE
     CLEAN
+    CODE
     COLUMN
     COLUMNS
     COMBIN
+    COMPLEX
     CONCATENATE
     COS
     COSH
@@ -254,30 +257,47 @@
     COUNTA
     COUNTBLANK
     COUNTIF
+    COUNTIFS
     DATE
     DAY
     DAYS360
+    DEC2BIN
+    DEC2HEX
     DEGREES
+    DELTA
     DEVSQ
+    DGET
+    DMIN
     DOLLAR
+    EDATE
+    EOMONTH
     ERROR.TYPE
     EVEN
     EXACT
     EXP
     FACT
+    FACTDOUBLE
     FALSE
     FIND
+    FIXED
     FLOOR
     FV
+    HEX2DEC
     HLOOKUP
     HOUR
     HYPERLINK
     IF
+    IFERROR
+    IMAGINARY
+    IMREAL
     INDEX
     INDIRECT
     INT
+    INTERCEPT
+    IPMT
     IRR
     ISBLANK
+    ISERR
     ISERROR
     ISEVEN
     ISLOGICAL
@@ -303,6 +323,7 @@
     MIN
     MINA
     MINUTE
+    MIRR
     MOD
     MODE
     MONTH
@@ -313,22 +334,29 @@
     NOW
     NPER
     NPV
+    OCT2DEC
     ODD
     OFFSET
     OR
+    PERCENTILE
     PI
     PMT
     POISSON
     POWER
+    PPMT
     PRODUCT
+    PROPER
     PV
+    QUOTIENT
     RADIANS
     RAND
     RANDBETWEEN
     RANK
     RATE
     REPLACE
+    REPT
     RIGHT
+    ROMAN
     ROUND
     ROUNDDOWN
     ROUNDUP
@@ -339,6 +367,7 @@
     SIGN
     SIN
     SINH
+    SLOPE
     SMALL
     SQRT
     STDEV
@@ -367,6 +396,7 @@
     VARP
     VLOOKUP
     WEEKDAY
+    WEEKNUM
     WORKDAY
     YEAR
     YEARFRAC
